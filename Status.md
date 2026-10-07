@@ -9,14 +9,14 @@
 > - Never write secrets here; this repo is public.
 
 ## Current phase
-**Phase 3 — API foundation & data model** (not started). Phase 2 is done; one manual check (Google consent screen) is pending, see "Pending user actions".
+**Phase 4 — Document ingestion** (not started). Phase 3 is done.
 
 ## Phase tracker
 | # | Phase | Doc | Status |
 |---|---|---|---|
 | 1 | Scaffold & environment | [phase-1](docs/plan/phase-1-scaffold-and-environment.md) | ✅ Done |
 | 2 | Design foundation, auth & organizations | [phase-2](docs/plan/phase-2-auth-and-organizations.md) | ✅ Done |
-| 3 | API foundation & data model | [phase-3](docs/plan/phase-3-api-foundation-and-data-model.md) | ⬜ Not started |
+| 3 | API foundation & data model | [phase-3](docs/plan/phase-3-api-foundation-and-data-model.md) | ✅ Done |
 | 4 | Document ingestion | [phase-4](docs/plan/phase-4-document-ingestion.md) | ⬜ Not started |
 | 5 | Hybrid retrieval, agents & chat API | [phase-5](docs/plan/phase-5-hybrid-retrieval-agents-and-chat-api.md) | ⬜ Not started |
 | 6 | App UI | [phase-6](docs/plan/phase-6-app-ui.md) | ⬜ Not started |
@@ -63,6 +63,17 @@ Legend: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked
 - **Last active org** is written directly to `session."activeOrganizationId"` (in `after()`), because `setActiveOrganization` also requires membership.
 - **Email OTP:** codes are hashed at rest, 10-minute expiry, 5 attempts. `disableSignUp: true`, so the passwordless `/sign-in/email-otp` can't create accounts. Only `email-verification` and `forget-password` emails are sent.
 - **Reserved org slugs** (`new-org`, `admin`, `api`, `settings`) are rejected client-side and in `organizationHooks.beforeCreateOrganization`.
+
+## Decisions made (Phase 3, 2026-10-07)
+- **Extra integrity beyond the plan.**
+  - `conversations.org_id` and `bm25_stats.org_id` are FKs to `organization` with `ON DELETE CASCADE`, so deleting an org leaves no orphans. `llm_usage` still has no FKs.
+  - CHECK constraints cover `documents.status`, `ingestion_jobs.status`, `conversations.scope`, `messages.role`/`status`, `messages.feedback ∈ {-1, 1}` and the `org_settings` tiers (NULL = env default). A new enum value needs a migration.
+  - `messages.content` is NOT NULL with default `''`.
+- **Missing `X-User-Id` returns 401**, not FastAPI's 422, so every auth failure is 401/403.
+- **`require_org_access` returns 404** for a non-member and for an admin asking about a missing org. `OrgContext.role` is the `member.role`, or None for an admin who isn't a member. `require_admin` returns 403.
+- **`/health` is always HTTP 200** with `status: ok|degraded` and `db: ok|error` (5 s timeout), so a shared-DB blip doesn't make Coolify restart the container.
+- **A failed bucket check at startup is logged, not fatal.** Chat still works; uploads fail loudly.
+- **Routes key off `org_id`** (Better Auth `organization.id`), not the slug. The BFF must map slug → id (`/v1/me` returns both).
 
 ## Better Auth tables (Phase 2, for Phase 3)
 - All seven live in the configured schema (`documind_dev` locally). None are in `public`; verified via `information_schema`.
@@ -118,10 +129,8 @@ Legend: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked
 - **Coolify base URL:** not in env; find it in Phase 8.
 
 ## Pending user actions
-- **Phase 2 manual checks (owner):**
-  - Click "Continue with Google" on http://localhost:3000/sign-in and complete the consent screen. The app's side was verified: it builds a Google URL with `redirect_uri=http://localhost:3000/api/auth/callback/google`. If Google shows `redirect_uri_mismatch`, add that URI to the OAuth client.
-  - Sign up with your real `PLATFORM_ADMIN_EMAILS` address. Check that the code arrives in your inbox (not just Resend's sink) and that you land on "Create your first organization".
-  - Then create "Simtora Technologies" (slug `simtora`); Phase 4's seed script expects it. The E2E test created and then deleted its own copy.
+- **Phase 2 manual check (owner):** Click "Continue with Google" on http://localhost:3000/sign-in and complete the consent screen. If Google shows `redirect_uri_mismatch`, add `http://localhost:3000/api/auth/callback/google` to the OAuth client.
+  - Done as of Phase 3: the owner's admin account exists, and the org "Simtora Technologies" (`simtora`) exists with the owner as `owner`.
 - Phase 8: add `https://documind.zeeshanai.cloud/api/auth/callback/google` and the JS origin.
 - Phase 7/9: get legal review of the Privacy Policy before launch.
 
@@ -133,6 +142,33 @@ Legend: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked
 - Gotchas / learnings: …
 - Next: …
 -->
+### 2026-10-07 — Phase 3 (done)
+- **Built (`api/`):**
+  - **Config:** `core/config.py`, `Settings` with a cached `get_settings()`. `db_schema` is parsed from `DATABASE_URL` and validated as an identifier. `pricing_file` defaults to the repo-root `model-pricing.json`.
+  - **DB:** `core/db.py`. `normalize_database_url` maps the scheme to `postgresql+asyncpg`, drops every param, turns `sslmode` into asyncpg `ssl`, and sets `search_path=<schema>,public` plus `application_name`. Pool 5+5 with pre-ping, plus `get_session` and `session_scope`.
+  - **Models:** `models/` with `base` (MetaData with the schema + naming convention), `auth` (read-only `"user"`/`organization`/`member` mirrors, snake_case `key=`s, `BETTER_AUTH_TABLES`), `document` (documents, ingestion_jobs, chunks + HNSW, chunk_terms, bm25_stats), `chat`, `org_settings` and `usage`. UUID PKs default both in Python (`uuid4`) and in the DB (`gen_random_uuid()`).
+  - **Alembic:** async template. `env.py` takes the URL from settings (none in `alembic.ini`), puts the version table in our schema, uses `include_name`/`include_object` filters and pgvector reflection. Hand-written `0001_initial`, parameterized by schema; `script.py.mako` emits `SCHEMA` for future revisions.
+  - **Security:** `core/security.py`. `verify_api_key` uses `compare_digest`. `get_actor` resolves `X-User-Id`, rejects unknown or banned users and honours `banExpires`; `is_admin` parses comma-separated roles. Also `require_org_access` and `require_admin`, and the `ActorDep`/`OrgDep`/`AdminDep`/`SessionDep` aliases.
+  - **Storage:** `core/storage.py` with `document_key`, `put_pdf`, `open_stream` (returns `ObjectStream(iterator, content_length, content_type)`; the body closes when iteration ends), `delete` and `ensure_bucket`. boto3 runs via `anyio.to_thread`.
+  - **App:** `core/log.py` configures logging once and adds a pure-ASGI `RequestIdMiddleware` (reuses or mints `X-Request-ID`, logs one line per request, `/health` stays quiet). `core/errors.py` produces `{error: {code, message[, details]}}` for HTTP, validation and unhandled errors.
+  - **Routers:** `health`; `v1` (prefix `/v1`, key-gated); `me` (`GET /v1/me` returns the actor plus accessible orgs, all orgs for admins); empty `documents`/`chat`/`conversations`/`settings`/`analytics` stubs; `services/orgs.py`.
+- **Verified:**
+  - `alembic upgrade head` created the 9 tables plus `alembic_version` in `documind_dev`. The HNSW index is `USING hnsw (embedding vector_cosine_ops) WITH (m=16, ef_construction=64)`.
+  - The downgrade → upgrade round-trip works, and `alembic check` reports no drift.
+  - The Better Auth tables are untouched (3 users / 1 org / 2 members before and after).
+  - `pytest`: 35 passed (URL normalizer, the key/user matrix, org access via a probe app, helpers, health and request id). `ruff check` and `ruff format` are clean.
+  - **Live uvicorn:** `/health` returned `{ok, ok}`. `/v1/me` returned 401 without a key, and 200 with the key and the owner's id (admin, `simtora` as `owner`). The OpenAPI spec has the `APIKeyHeader` scheme and `/docs` returns 200. The startup log says "Storage bucket 'documind-docs' is ready".
+  - A MinIO put/stream/delete round-trip passed.
+- **Deviations from plan:** see "Decisions made (Phase 3)". In addition:
+  - The logging module is `core/log.py` (to avoid shadowing `logging`), and `/v1/me` lives in `routers/me.py`.
+  - The ruff isort config pins `alembic` as third-party, because the `api/alembic/` dir made it look first-party.
+- **Gotchas / learnings:**
+  - **Alembic autogenerate on the shared DB** first proposed dropping `public.n8n_chat_histories` (another app's table) and re-creating every FK, because our schema was the connection's *default* schema, so it was reflected as `None` while the metadata says `documind_dev`. The fix: migrations connect with `search_path=public` and `include_name` accepts only our schema.
+  - Alembic ops apply the metadata naming convention: an explicit `name="ck_x"` became `ck_t_ck_x` until wrapped in `op.f()`.
+  - **Dev → VPS DB latency** is ~0.45 s per round-trip and 1–3 s for a cold connect. The first `/health` exceeded a 3 s timeout, so it's now 5 s. In prod (same host) it's negligible.
+  - Tests dispose the engine after each test (per-test event loops can't share pooled asyncpg connections).
+- **Next:** Phase 4 (ingestion). Start the worker in `main.lifespan` and use `storage.document_key`/`put_pdf`/`open_stream`. When document metadata is edited, keep the chunks' denormalized columns in sync.
+
 ### 2026-10-07 — Phase 2 (done)
 - **Built:**
   - **Design foundation (`/impeccable` teach):** PRODUCT.md (register: product) and DESIGN.md/DESIGN.json, from a short interview. OKLCH tokens (light + dark) in `globals.css`, fonts via `next/font`, `components/brand/logo.tsx`, and `app/icon.svg`.

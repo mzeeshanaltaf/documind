@@ -33,10 +33,13 @@ Prerequisites: Node 24 with pnpm, Python 3.12 with [uv](https://docs.astral.sh/u
    pnpm dev
    ```
    Emails listed in `PLATFORM_ADMIN_EMAILS` become platform admins on sign-up (or on their next sign-in).
-4. **API.** Serves http://localhost:8000/docs.
+4. **API.** Creates the app tables (after step 3, which creates the Better Auth tables they reference), then serves http://localhost:8000/docs.
    ```bash
-   cd api && uv sync && uv run uvicorn app.main:app --reload --port 8000
+   cd api && uv sync
+   uv run alembic upgrade head   # once, and again after pulling new migrations
+   uv run uvicorn app.main:app --reload --port 8000
    ```
+   Every `/v1` route needs the `X-API-Key` header (`DOCUMIND_API_KEY`); most also need `X-User-Id`.
 
 Checks: `cd web && pnpm typecheck && pnpm lint` and `cd api && uv run pytest && uv run ruff check .`
 

@@ -38,6 +38,11 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "ASYNC"]
 
+[tool.ruff.lint.isort]
+# api/alembic/ (migrations) would otherwise make the `alembic` package look first-party.
+known-first-party = ["app", "tests"]
+known-third-party = ["alembic"]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"

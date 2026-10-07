@@ -35,9 +35,9 @@ web/                Next.js app
   src/lib/{auth,auth-client,auth-guards,db,org-members,api}.ts, src/lib/email/
   src/components/{brand,auth,app}/  scripts/ (create-schema, migrate-auth, preview-emails)
 api/                FastAPI app
-  app/core/       config, db (URL normalizer), security (API key + actor), storage (MinIO)
+  app/core/       config, db (URL normalizer), security (API key + actor), storage (MinIO), log, errors
   app/models/     SQLAlchemy models (+ read-only mirrors of Better Auth tables)
-  app/routers/    documents, chat (SSE), conversations, settings, analytics, health
+  app/routers/    v1 (key-gated aggregator), me, documents, chat (SSE), conversations, settings, analytics, health
   app/ingestion/  parser (pdfplumber), header, metadata, chunker, indexer, worker
   app/rag/        tokenizer, bm25, vector, hybrid (RRF)
   app/agents/     catalog, router (orchestrator), specialists, answer, citations
@@ -56,7 +56,7 @@ docker compose -f docker-compose.dev.yml up -d        # local MinIO (console :90
 cd web && pnpm dev | pnpm typecheck | pnpm lint | pnpm build
 cd web && pnpm db:schema && pnpm auth:migrate        # schema + Better Auth tables (-- --dry-run prints SQL)
 cd api && uv run uvicorn app.main:app --reload --port 8000
-cd api && uv run alembic upgrade head                  # app tables
+cd api && uv run alembic upgrade head                  # app tables (`alembic check` = models vs DB drift)
 cd api && uv run pytest && uv run ruff check .
 cd api && uv run python -m scripts.seed_policies --org-slug simtora --wait
 cd api && uv run python -m eval.run_eval --org-slug simtora
@@ -135,3 +135,5 @@ cd api && uv run python -m eval.run_eval --org-slug simtora
 - `next.config.ts` loads the root `.env.local` by hand. `loadEnvConfig("..")` is a cached no-op there, and `forceReload` makes `next dev` reload endlessly.
 - If `next dev` reloads endlessly (log repeats "Compiled in 2ms" + the same GET), stop it and delete `web/.next/dev` (corrupted Turbopack dev cache).
 - Static auth pages bake `RESEND_FROM_EMAIL` at build time; in Coolify it must be a build-time variable too.
+- **Alembic on the shared DB:** `env.py` only looks at our schema (`include_name`) and connects with `search_path=public`, so reflection names our schema explicitly. Otherwise autogenerate wants to drop other apps' `public` tables and re-create every FK. Migrations take the schema from `get_settings().db_schema` (never hard-coded), and explicit `ck_*` names need `op.f()`. After model changes, run `alembic check`.
+- API tests hit the real dev DB (throwaway `test-*` Better Auth rows, removed afterwards). From this machine a DB round-trip is ~0.45 s and a cold connect 1–3 s, so the suite takes about a minute.

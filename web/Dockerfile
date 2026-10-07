@@ -22,7 +22,8 @@ ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL \
     NEXT_PUBLIC_UMAMI_SCRIPT_URL=$NEXT_PUBLIC_UMAMI_SCRIPT_URL \
     NEXT_PUBLIC_UMAMI_WEBSITE_ID=$NEXT_PUBLIC_UMAMI_WEBSITE_ID \
     RESEND_FROM_EMAIL=$RESEND_FROM_EMAIL
-RUN pnpm build
+# public/ is empty (so untracked by git) and may be missing in the checkout.
+RUN mkdir -p public && pnpm build
 
 FROM node:24-alpine AS runner
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0

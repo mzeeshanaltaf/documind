@@ -1,0 +1,96 @@
+name: Deploy
+
+# Push to main → check and deploy only what changed:
+#   api/** or model-pricing.json → documind-api;  web/** → documind-web.
+# Manual runs (Actions tab → Run workflow) deploy both.
+# Repo secrets: COOLIFY_BASE_URL, COOLIFY_API_TOKEN (deploy-scoped Coolify token).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-coolify
+  cancel-in-progress: false
+
+env:
+  # Coolify application uuids (not secret: useless without the token).
+  API_APP_UUID: anaat3diukcx2lizx4srhe8r
+  WEB_APP_UUID: 7hf4gmnbhx1rmeepsrotndlt
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      api: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.api == 'true' }}
+      web: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.web == 'true' }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            api:
+              - 'api/**'
+              - 'model-pricing.json'
+              - '.dockerignore'
+            web:
+              - 'web/**'
+              - '.dockerignore'
+
+  check-api:
+    needs: changes
+    if: needs.changes.outputs.api == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+      # The test suite needs the dev DB + MinIO, so CI only lints.
+      - run: uv run --frozen --only-dev ruff check .
+
+  check-web:
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: web/package.json
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+
+  deploy-api:
+    needs: check-api
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Queue documind-api deploy
+        env:
+          COOLIFY_BASE_URL: ${{ secrets.COOLIFY_BASE_URL }}
+          COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
+        run: bash .github/scripts/coolify-deploy.sh "$API_APP_UUID"
+
+  deploy-web:
+    needs: check-web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Queue documind-web deploy
+        env:
+          COOLIFY_BASE_URL: ${{ secrets.COOLIFY_BASE_URL }}
+          COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
+        run: bash .github/scripts/coolify-deploy.sh "$WEB_APP_UUID"

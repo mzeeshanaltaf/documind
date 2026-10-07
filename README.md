@@ -61,6 +61,12 @@ Prerequisites: Node 24 with pnpm, Python 3.12 with [uv](https://docs.astral.sh/u
 
 Checks: `cd web && pnpm typecheck && pnpm lint && pnpm build` and `cd api && uv run pytest && uv run ruff check .` (stop `next dev` before `pnpm typecheck`, and any local uvicorn before `pytest`).
 
+## Deployment
+Production runs on Coolify: `documind-web` (https://documind.zeeshanai.cloud), `documind-api` (https://api.documind.zeeshanai.cloud, `X-API-Key` gated) and a private MinIO service reachable only on Coolify's internal network.
+- Images: [`api/Dockerfile`](api/Dockerfile) and [`web/Dockerfile`](web/Dockerfile), both built from the repo root (`docker build -f api/Dockerfile .`). The api applies `alembic upgrade head` on start.
+- The web build needs `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_UMAMI_*` and `RESEND_FROM_EMAIL` as build args; every other variable is runtime-only.
+- A push to `main` runs [`deploy.yml`](.github/workflows/deploy.yml): it lints and typechecks what changed, then redeploys only that app through the Coolify API (repo secrets `COOLIFY_BASE_URL`, `COOLIFY_API_TOKEN`).
+
 ## Project docs
 - [`docs/plan/`](docs/plan/): the phase-by-phase implementation plan.
 - [`Status.md`](Status.md): current progress and decisions.

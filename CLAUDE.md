@@ -48,7 +48,7 @@ docs/policies/      14 seed PDFs (fictional company "Simtora Technologies")
 docs/plan/          phase-1 … phase-9 implementation docs
 PRODUCT.md, DESIGN.md  design context (impeccable); DESIGN.json = its sidecar
 model-pricing.json  per-model $/1M tokens for standard & flex tiers (single source)
-docker-compose.dev.yml  local MinIO
+docker-compose.dev.yml  local MinIO · api/Dockerfile, web/Dockerfile (context = repo root), .github/workflows/deploy.yml → Coolify (see Status.md › Production)
 ```
 
 ## Commands

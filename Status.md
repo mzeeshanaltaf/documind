@@ -9,7 +9,7 @@
 > - Never write secrets here; this repo is public.
 
 ## Current phase
-**Phase 8 — Deployment** (not started). Phase 7 is done.
+**Phase 8 — Deployment** (in progress). Infra is provisioned; deploy is blocked on the owner actions listed under *Pending user actions*.
 
 > ⚠️ **Before launch: the owner must have the Privacy Policy (`/privacy`) reviewed legally.** It was written to match what the app really does (see the Phase 7 log), but it is not legal advice.
 
@@ -23,7 +23,7 @@
 | 5 | Hybrid retrieval, agents & chat API | [phase-5](docs/plan/phase-5-hybrid-retrieval-agents-and-chat-api.md) | ✅ Done |
 | 6 | App UI | [phase-6](docs/plan/phase-6-app-ui.md) | ✅ Done |
 | 7 | Marketing site & design polish | [phase-7](docs/plan/phase-7-marketing-site.md) | ✅ Done |
-| 8 | Deployment (Coolify + MinIO) | [phase-8](docs/plan/phase-8-deployment.md) | ⬜ Not started |
+| 8 | Deployment (Coolify + MinIO) | [phase-8](docs/plan/phase-8-deployment.md) | 🟨 In progress |
 | 9 | Umami analytics & wrap-up | [phase-9](docs/plan/phase-9-umami-analytics.md) | ⬜ Not started |
 
 Legend: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked
@@ -173,13 +173,33 @@ Legend: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked
 - **Local tooling:** Python 3.12.7, uv 0.8.3, Node 24.12, pnpm 10.5, Docker 29.6; `gh` is authenticated.
 - **`RESEND_FROM_EMAIL`** display name was "Qanoon" and should become "DocuMind" (Phase 1).
 
+## Production (Phase 8, 2026-10-07)
+| What | Value |
+|---|---|
+| Web | `https://documind.zeeshanai.cloud` → Coolify app **`documind-web`** `7hf4gmnbhx1rmeepsrotndlt` (Dockerfile `/web/Dockerfile`, port 3000, health `/robots.txt`) |
+| API | `https://api.documind.zeeshanai.cloud` → Coolify app **`documind-api`** `anaat3diukcx2lizx4srhe8r` (Dockerfile `/api/Dockerfile`, port 8000, health `/health`, network alias **`documind-api`**) |
+| MinIO | Coolify service **`documind-minio`** `fa669uo1gjnscdpbapxmb5qn`, image `pgsty/minio`, internal only: `http://minio-fa669uo1gjnscdpbapxmb5qn:9000` on the `coolify` network, no domain, no host ports. Bucket `documind-docs` (private) |
+| Coolify | `https://coolify.zeeshanai.cloud` (4.3.23), project **DocuMind** `vh71w2o5wsavqnhfsu6pucdc`, server `j1234smx72kcb6aeovlaa9f7`, env `production` |
+| DB | Shared Postgres via the docker0 gateway `10.0.0.1:5432`, `?schema=documind` (`sslmode=require` kept) |
+| DNS | A `documind` + `api.documind` → 76.13.7.106, TTL 300 (Hostinger) |
+| Deploy | `.github/workflows/deploy.yml` (paths-filter → lint/typecheck → Coolify deploy API); Coolify "Auto Deploy" is **off** on both apps |
+
+- **Prod secrets** live in Coolify and in the owner's git-/docker-ignored `.env.production.local` (MinIO root + app creds, prod `DOCUMIND_API_KEY`, prod `BETTER_AUTH_SECRET`, prod `DATABASE_URL`). The prod API key and auth secret are new, not the dev ones.
+- **MinIO app credentials** are a dedicated user `documind-app` with policy `documind-app-rw` (List on the bucket; Get/Put/Delete on `documind-docs/*`), not the root user.
+- **`API_BASE_URL=http://documind-api:8000`** (internal hop). Coolify container names carry a per-deploy suffix, so the api has `custom_network_aliases=documind-api` for a stable name. Both apps must be on the `coolify` network (Coolify's default for apps).
+- **Env flags (Coolify 4.3):** build-time = `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_UMAMI_*`, `RESEND_FROM_EMAIL` only (the web Dockerfile declares exactly these as `ARG`s); everything else runtime-only.
+
 ## Open decisions
-- **Coolify base URL:** not in env; find it in Phase 8.
+- (none)
 
 ## Pending user actions
+- **Phase 8 blockers (owner):**
+  1. ~~Create Better Auth's tables in the prod schema `documind`~~ — done 2026-10-07 (`pnpm auth:migrate` with the prod URL; all 7 tables verified in `documind`).
+  2. Commit + push the Phase 8 files (`/ship`): Coolify builds from `main`, so the Dockerfiles must be on GitHub.
+  3. ~~Add repo secrets `COOLIFY_BASE_URL` and `COOLIFY_API_TOKEN`~~ — done 2026-10-07 (`gh secret set`).
+  4. Google Cloud Console → OAuth client: add redirect URI `https://documind.zeeshanai.cloud/api/auth/callback/google` and JS origin `https://documind.zeeshanai.cloud` (keep the localhost entries).
 - **Phase 2 manual check (owner):** Click "Continue with Google" on http://localhost:3000/sign-in and complete the consent screen. If Google shows `redirect_uri_mismatch`, add `http://localhost:3000/api/auth/callback/google` to the OAuth client.
   - Done as of Phase 3: the owner's admin account exists, and the org "Simtora Technologies" (`simtora`) exists with the owner as `owner`.
-- Phase 8: add `https://documind.zeeshanai.cloud/api/auth/callback/google` and the JS origin.
 - **Before launch: get the Privacy Policy (`/privacy`) legally reviewed.** Check especially the legal bases, international transfers (OpenAI, Resend, Google, Upstash), retention promises ("we delete an organization's data when it's closed" and account deletion on request are manual today) and the 16+ age line. Its effective date is the `EFFECTIVE_DATE` constant in `app/(marketing)/privacy/page.tsx`.
 - Check the n8n contact workflow received the Phase 7 test message ("DocuMind Phase 7 check", `phase7-check@example.com`) and delete it.
 
@@ -191,6 +211,27 @@ Legend: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked
 - Gotchas / learnings: …
 - Next: …
 -->
+### 2026-10-07 — Phase 8 (in progress: infra provisioned, not deployed)
+- **Built:**
+  - `api/Dockerfile` (python:3.12-slim + uv, `uv sync --frozen --no-dev`, non-root uid 10001, curl HEALTHCHECK on `/health` with a 90 s start period, `alembic upgrade head && exec uvicorn …`, one worker), `web/Dockerfile` (node:24-alpine, corepack pnpm, standalone runner as `node`), root `.dockerignore`.
+  - `.github/workflows/deploy.yml` + `.github/scripts/coolify-deploy.sh` (POST `/api/v1/deploy`, 5 attempts with backoff).
+  - Coolify project, `documind-minio` service, bucket + scoped app user, `documind-api`/`documind-web` apps with env, DNS A records (see **Production** above).
+- **Verified:** both images build and run locally (api `/health` ok with db ok + bucket ready; `/v1/me` 401 without key or without user; web `/`, `/contact`, `/privacy`, `/sign-in`, `/robots.txt`, `/opengraph-image` 200, `/app` 307). Secret scan: no `.env.local` value appears anywhere in git history. MinIO is healthy on the `coolify` network; ports 9000/9001 on the VPS IP refuse. DNS resolves. `next.config.ts` tolerates a missing root `.env.local` (the build in Docker has none).
+- **Deviations from plan:**
+  - api `CMD` execs the venv binaries (`alembic`, `uvicorn`) instead of `uv run …`, so uvicorn is PID 1 and gets SIGTERM; `UV_NO_SYNC=1` keeps `docker exec … uv run python -m scripts.seed_policies` working.
+  - `RESEND_FROM_EMAIL` is a web build arg too (static auth pages bake it).
+  - Seed PDFs are not baked into the image (`docs/` is docker-ignored); copy them in with `docker cp` when seeding.
+  - CI gate = `ruff check` (api) and `pnpm lint` + `pnpm typecheck` (web). No pytest in CI: the suite needs the dev DB and MinIO (there is no `db` marker).
+  - `trustedOrigins` already came from env (`appUrl()`); only its comment changed.
+- **Blocked (resolved):** creating Better Auth tables in prod `documind` was first denied by the session's permission classifier; after the owner cleared it, `pnpm auth:migrate` created all 7 tables. Deploy still waits on the push + repo secrets (see *Pending user actions → Phase 8 blockers*).
+- **Gotchas / learnings:**
+  - Coolify 4.3's env API uses **`is_buildtime` / `is_runtime`**; `is_build_time` is silently ignored and the var defaults to build-time.
+  - Coolify app containers are named `<uuid>-<deploy suffix>` → use `custom_network_aliases` for a stable internal hostname.
+  - Traefik's gzip middleware is on for Coolify apps; Traefik v3 skips `text/event-stream`, but check SSE streams unbuffered on the first deploy.
+  - Python `subprocess` text-mode stdin on Windows sends `\r\n` (breaks `read -r` on the VPS); pass bytes.
+  - Disk before: 55% (53G/96G); after provisioning: 56%.
+- **Next:** owner clears the blockers → deploy api, then web (`POST /api/v1/deploy?uuid=…`), force/confirm Let's Encrypt certs, run the §7 smoke tests, sign up as admin on prod, create org `simtora`, `docker cp docs/policies` into the api container and run `uv run python -m scripts.seed_policies --org-slug simtora --dir /app/seed --wait`, verify a web-only push redeploys only web, record `df -h /`.
+
 ### 2026-10-07 — Phase 7 (done)
 - **Built (`web/`):**
   - **Marketing shell:** `app/(marketing)/layout.tsx` (skip link, sticky header, footer), `components/marketing/` (`site-header` with the cookie-only auth check in Suspense, `mobile-menu` (native popover top sheet), `site-footer` (`"use cache"` year), `nav` (anchors + container), `hero-visual`, `demos`).

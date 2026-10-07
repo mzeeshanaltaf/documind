@@ -27,7 +27,7 @@ export const auth = betterAuth({
   database: pool,
   baseURL: process.env.BETTER_AUTH_URL,
   secret: process.env.BETTER_AUTH_SECRET,
-  // Phase 8 adds the production origin.
+  // From env: NEXT_PUBLIC_APP_URL (https://documind.zeeshanai.cloud in prod).
   trustedOrigins: [appUrl()],
 
   emailAndPassword: {

@@ -21,6 +21,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
+from app.agents import catalog
 from app.core import storage
 from app.ingestion.indexer import refresh_bm25_stats
 from app.models.document import Chunk, Document, IngestionJob
@@ -145,6 +146,7 @@ async def create_document(
         await session.flush()  # the job's FK needs the document row first
         session.add(job)
         await session.commit()
+        catalog.invalidate(org_id)
     except IntegrityError:
         await session.rollback()
         await _delete_object(key)
@@ -250,6 +252,7 @@ async def update_metadata(
             update(Chunk).where(Chunk.document_id == document.id).values(**synced)
         )
     await session.commit()
+    catalog.invalidate(document.org_id)
     await session.refresh(document)
     return bool(EMBED_FIELDS & changed.keys())
 
@@ -286,4 +289,5 @@ async def delete_document(session: AsyncSession, document: Document) -> None:
     await session.flush()
     await refresh_bm25_stats(session, org_id)
     await session.commit()
+    catalog.invalidate(org_id)
     await _delete_object(key)

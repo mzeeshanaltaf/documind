@@ -27,6 +27,11 @@ def load_pricing() -> dict[str, dict[str, dict[str, Any]]]:
     return json.loads(get_settings().pricing_file.read_text(encoding="utf-8"))
 
 
+def chat_models() -> list[str]:
+    """Models in the pricing file usable for chat/routing (embedding models excluded)."""
+    return [name for name in load_pricing() if not name.startswith("text-embedding")]
+
+
 def pricing_tier(tier: str | None) -> str | None:
     """Pricing key for a tier name; None for an unknown tier. No tier (embeddings) = standard."""
     return STANDARD if tier is None else _TIER_KEYS.get(tier)

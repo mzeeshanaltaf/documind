@@ -6,14 +6,18 @@ timeout and no SDK retries; on capacity errors they retry once with jitter, then
 """
 
 import asyncio
+import contextlib
+import json
 import logging
 import random
 import time
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from functools import lru_cache
 from typing import Any
 
+import anyio
 import openai
+import tiktoken
 from openai import AsyncOpenAI
 
 from app.core.config import get_settings
@@ -134,14 +138,137 @@ async def respond(
     return response, row
 
 
+class ResponseStream:
+    """A streamed Responses call: iterate it for text deltas. Usage arrives only on
+    `response.completed`; the row is written when the stream ends, errors or is closed early
+    (then the tokens are counted locally and the row is marked estimated/`stopped`).
+
+    After iteration: `text`, `ttft_ms`, `latency_ms`, `usage_row`."""
+
+    def __init__(
+        self,
+        *,
+        model: str,
+        input: str | list[dict[str, Any]],
+        instructions: str | None,
+        tier: str,
+        operation: str,
+        ctx: UsageCtx,
+    ) -> None:
+        self.model, self.operation, self.ctx = model, operation, ctx
+        self.requested = api_tier(tier)
+        self.params: dict[str, Any] = {"model": model, "input": input, "stream": True}
+        if instructions:
+            self.params["instructions"] = instructions
+        self.text = ""
+        self.ttft_ms: int | None = None
+        self.latency_ms: int | None = None
+        self.usage_row: Any = None
+
+    async def __aiter__(self) -> AsyncIterator[str]:
+        started = time.perf_counter()
+        stream: Any = None
+        completed: Any = None
+        status, error = "stopped", None
+        try:
+            stream = await _create_with_flex_fallback(self.params, self.requested)
+            async for event in stream:
+                kind = getattr(event, "type", "")
+                if kind == "response.output_text.delta":
+                    if self.ttft_ms is None:
+                        self.ttft_ms = _elapsed_ms(started)
+                    self.text += event.delta
+                    yield event.delta
+                elif kind == "response.completed":
+                    completed = event.response
+                elif kind in ("response.failed", "response.incomplete", "error"):
+                    raise RuntimeError(f"OpenAI stream {kind}: {_stream_error(event)}")
+            status = "ok"
+        except Exception as exc:
+            status, error = "error", f"{type(exc).__name__}: {exc}"
+            raise
+        finally:
+            # Runs on normal end, errors, and early close/cancellation (client disconnect):
+            # shield it so the usage row is still written while the task is being cancelled.
+            with anyio.CancelScope(shield=True):
+                if stream is not None:
+                    with contextlib.suppress(Exception):
+                        await stream.close()
+                self.latency_ms = _elapsed_ms(started)
+                await self._record(completed, status, error)
+
+    async def _record(self, completed: Any, status: str, error: str | None) -> None:
+        if completed is not None:
+            tokens, estimated = extract_tokens(completed.usage), False
+            tier_actual = getattr(completed, "service_tier", None)
+        else:
+            # No usage event (stopped early or failed): bill what we can count.
+            prompt = json.dumps(self.params["input"]) + (self.params.get("instructions") or "")
+            tokens = TokenUsage(
+                input_tokens=count_tokens(prompt) if self.text else 0,
+                output_tokens=count_tokens(self.text),
+            )
+            estimated, tier_actual = bool(self.text), None
+        self.usage_row = await record_usage(
+            self.ctx,
+            operation=self.operation,
+            model=self.model,
+            tokens=tokens,
+            tier_requested=self.requested,
+            tier_actual=tier_actual,
+            latency_ms=self.latency_ms,
+            ttft_ms=self.ttft_ms,
+            status=status,
+            error=error,
+            estimated=estimated,
+        )
+
+
+def stream_respond(
+    *,
+    model: str,
+    input: str | list[dict[str, Any]],
+    instructions: str | None = None,
+    tier: str,
+    operation: str,
+    ctx: UsageCtx,
+) -> ResponseStream:
+    """A streamed, metered Responses call (see `ResponseStream`)."""
+    return ResponseStream(
+        model=model,
+        input=input,
+        instructions=instructions,
+        tier=tier,
+        operation=operation,
+        ctx=ctx,
+    )
+
+
+def _stream_error(event: Any) -> str:
+    response = getattr(event, "response", None)
+    detail = getattr(response, "error", None) or getattr(response, "incomplete_details", None)
+    return str(detail or getattr(event, "message", None) or "unknown error")
+
+
+@lru_cache
+def _encoding() -> tiktoken.Encoding:
+    return tiktoken.get_encoding("o200k_base")
+
+
+def count_tokens(text: str) -> int:
+    return len(_encoding().encode(text, disallowed_special=()))
+
+
 async def embed(
     texts: Sequence[str],
     *,
     operation: str,
     ctx: UsageCtx,
     on_progress: Callable[[int, int], Awaitable[None]] | None = None,
+    usage_rows: list[Any] | None = None,
 ) -> list[list[float]]:
-    """Embed texts in batches of ≤ 100 (one usage row per batch); output order matches input."""
+    """Embed texts in batches of ≤ 100 (one usage row per batch); output order matches input.
+    `usage_rows`, if given, collects the batches' usage rows (for per-request totals)."""
     model = get_settings().openai_embedding_model
     batches = [
         list(texts[i : i + EMBED_BATCH_SIZE]) for i in range(0, len(texts), EMBED_BATCH_SIZE)
@@ -167,13 +294,15 @@ async def embed(
                     error=f"{type(exc).__name__}: {exc}",
                 )
                 raise
-            await record_usage(
+            row = await record_usage(
                 ctx,
                 operation=operation,
                 model=model,
                 tokens=TokenUsage(input_tokens=response.usage.prompt_tokens),
                 latency_ms=_elapsed_ms(started),
             )
+            if usage_rows is not None:
+                usage_rows.append(row)
             ordered = sorted(response.data, key=lambda item: item.index)
             results[index] = [item.embedding for item in ordered]
             done += len(batch)

@@ -59,7 +59,7 @@ cd api && uv run uvicorn app.main:app --reload --port 8000
 cd api && uv run alembic upgrade head                  # app tables (`alembic check` = models vs DB drift)
 cd api && uv run pytest && uv run ruff check .
 cd api && uv run python -m scripts.seed_policies --org-slug simtora --wait
-cd api && uv run python -m eval.run_eval --org-slug simtora
+cd api && uv run python -m eval.run_eval --org-slug simtora   # writes eval/results/<date>.md
 ```
 
 ## Environment
@@ -136,6 +136,10 @@ cd api && uv run python -m eval.run_eval --org-slug simtora
 - If `next dev` reloads endlessly (log repeats "Compiled in 2ms" + the same GET), stop it and delete `web/.next/dev` (corrupted Turbopack dev cache).
 - Static auth pages bake `RESEND_FROM_EMAIL` at build time; in Coolify it must be a build-time variable too.
 - **Alembic on the shared DB:** `env.py` only looks at our schema (`include_name`) and connects with `search_path=public`, so reflection names our schema explicitly. Otherwise autogenerate wants to drop other apps' `public` tables and re-create every FK. Migrations take the schema from `get_settings().db_schema` (never hard-coded), and explicit `ck_*` names need `op.f()`. After model changes, run `alembic check`.
-- API tests hit the real dev DB (throwaway `test-*` Better Auth rows, removed afterwards) and local MinIO; OpenAI is monkeypatched (`llm.client.respond`/`embed`). From this machine a DB round-trip is ~0.45 s and a cold connect 1–3 s, so the suite takes ~2.5 minutes.
+- API tests hit the real dev DB (throwaway `test-*` Better Auth rows, removed afterwards) and local MinIO; OpenAI is monkeypatched (`llm.client.respond`/`embed`, or `get_client` for chat). From this machine a DB round-trip is ~0.45 s and a cold connect 1–3 s, so the suite takes ~5.5 minutes. Stop any local uvicorn first: its ingestion worker claims the tests' jobs.
+- **asyncpg infers parameter types from context:** in `:k1 + 1` the param becomes an integer (1.2 → 1), so cast numeric params (`CAST(:k1 AS float8)`); interval params need a `timedelta`, not `'1 day'`.
+- **SSE disconnects:** sse-starlette cancels the generator mid-await or abandons it at a `yield`, and never `aclose()`s it. `routers/chat.py` closes it in `background=`, and `run_chat` saves `status='stopped'` in a shielded `finally`.
+- Python-side `uuid4` defaults only apply at flush; set ids explicitly when a child row or an SSE event needs them earlier.
+- Retrieval fusion is tuned (`rag/hybrid.py`: BM25 weight 0.6, country supplements ×0.9 when no country is asked). Re-run `eval.run_eval` after changing chunking, the tokenizer or these constants.
 - **Parser heuristics** (`ingestion/parser.py`) are calibrated on the Simtora PDFs (body 12pt; headings 24/18/15pt semibold; bold body-size L3 only after a paragraph gap on a short line). `find_tables()` returns a page-sized frame "table" on most pages; it's filtered. Some source PDFs render `$…` as KaTeX garbage; that's in the PDFs, not a parser bug.
 - **Reindex keeps stored metadata** (admin edits win); the LLM metadata step runs only on first ingestion. If the classify prompt changes, refresh `api/tests/fixtures/metadata_llm.json`.

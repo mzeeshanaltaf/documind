@@ -42,9 +42,11 @@ async def record_usage(
     ttft_ms: int | None = None,
     status: str = "ok",
     error: str | None = None,
+    estimated: bool = False,
 ) -> LlmUsage:
     """Insert one usage row, priced at the *actual* tier. Never raises: metering must not break
-    the caller (its own transaction is untouched because this uses a separate session)."""
+    the caller (its own transaction is untouched because this uses a separate session).
+    `estimated` marks token counts we counted ourselves (e.g. a stream stopped before usage)."""
     price = cost(
         model,
         tier_actual or tier_requested,
@@ -69,7 +71,7 @@ async def record_usage(
         latency_ms=latency_ms,
         ttft_ms=ttft_ms,
         cost_usd=price.usd,
-        pricing_estimated=price.estimated,
+        pricing_estimated=price.estimated or estimated,
         status=status,
         error=error[:2000] if error else None,
     )

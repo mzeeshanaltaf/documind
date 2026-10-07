@@ -9,7 +9,7 @@
 > - Never write secrets here; this repo is public.
 
 ## Current phase
-**Phase 5 — Hybrid retrieval, agents & chat API** (not started). Phase 4 is done.
+**Phase 6 — App UI** (not started). Phase 5 is done.
 
 ## Phase tracker
 | # | Phase | Doc | Status |
@@ -18,7 +18,7 @@
 | 2 | Design foundation, auth & organizations | [phase-2](docs/plan/phase-2-auth-and-organizations.md) | ✅ Done |
 | 3 | API foundation & data model | [phase-3](docs/plan/phase-3-api-foundation-and-data-model.md) | ✅ Done |
 | 4 | Document ingestion | [phase-4](docs/plan/phase-4-document-ingestion.md) | ✅ Done |
-| 5 | Hybrid retrieval, agents & chat API | [phase-5](docs/plan/phase-5-hybrid-retrieval-agents-and-chat-api.md) | ⬜ Not started |
+| 5 | Hybrid retrieval, agents & chat API | [phase-5](docs/plan/phase-5-hybrid-retrieval-agents-and-chat-api.md) | ✅ Done |
 | 6 | App UI | [phase-6](docs/plan/phase-6-app-ui.md) | ⬜ Not started |
 | 7 | Marketing site & design polish | [phase-7](docs/plan/phase-7-marketing-site.md) | ⬜ Not started |
 | 8 | Deployment (Coolify + MinIO) | [phase-8](docs/plan/phase-8-deployment.md) | ⬜ Not started |
@@ -89,6 +89,18 @@ Legend: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked
 - **Reindex while a job is queued/running** returns that job (202), not a second one.
 - **`llm_usage` tiers are stored as API values** (`requested=flex|default|auto`, `actual` = what OpenAI returned). Embedding rows have no tier and are priced as standard.
 
+## Decisions made (Phase 5, 2026-10-07)
+- **Fusion is weighted RRF, tuned on the eval.** BM25 lists count ×0.6 and vector lists ×1.0. When the router finds no country, country-supplement chunks get ×0.9 (base and global documents stay ×1.0). The plan's boosts (same country ×1.25, GLOBAL ×1.0, other country ×0.8) apply unchanged when a country is found. The constants live in `rag/hybrid.py`; re-run the eval after changing them.
+- **"Searchable" = indexed at least once** (`indexed_at IS NOT NULL`), not `status='ready'`. This applies to the catalog and to the `document_ids` check, so a document being re-indexed doesn't drop out (see Phase 4).
+- **The router call uses the chat tier** (latency-sensitive); only titles use the background tier.
+- **Document-scoped chats skip the LLM entirely when there is no history.** The question is used as-is; with history, a small `rewrite` call (operation `router`) resolves it. A conversation started with `document_ids` keeps that scope when later requests omit them.
+- **Clarification is enforced in code too.** It needs the model's flag and question, no jurisdiction, and more than one country version for the routed departments.
+- **Disconnects are not detected with `request.is_disconnected()`.** That would race sse-starlette's own receive loop. sse-starlette cancels the generator (or leaves it at a `yield`, which the response's `background=aclose` ends); `run_chat` then saves the partial answer as `stopped`, and the answer's usage row is written with locally counted tokens (`pricing_estimated=true`, `status='stopped'`).
+- **Extra fields beyond the plan.** The `routing` event also carries `sub_queries` and `document_ids`; `sources` adds `document_id`, `section_title`, `page_end` and `jurisdiction`; citations add `chunk_id`. `messages.sources` stores the full source (with text), so old answers can render hover cards. `messages.retrieval` stores per-list hit counts, per-source ranks/RRF, timings and usage totals.
+- **The `usage` event's `latency_ms`/`ttft_ms` are end-to-end** (from the start of the pipeline to the first delta / done). The `answer` usage row keeps the model's own TTFT.
+- **Analytics.** `requests` = `answer` calls; `granularity` also accepts `week`; `by_agent` counts routed departments, plus `Scoped` (document chats) and `General` (no department), with cost joined by `message_id`. The timeseries also carries `requests` and `p95_latency_ms` (Phase 6's latency chart). `GET /v1/admin/orgs` adds a conversation count.
+- **Settings.** `PUT` updates only the fields sent; `null` resets one to its default. The model list = pricing-file keys minus `text-embedding-*`.
+
 ## Better Auth tables (Phase 2, for Phase 3)
 - All seven live in the configured schema (`documind_dev` locally). None are in `public`; verified via `information_schema`.
 - Columns are camelCase and must be quoted. `!` = NOT NULL; ids are `text`.
@@ -156,6 +168,45 @@ Legend: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked
 - Gotchas / learnings: …
 - Next: …
 -->
+### 2026-10-07 — Phase 5 (done)
+- **Built (`api/`):**
+  - **LLM layer:** `ResponseStream`/`stream_respond` in `llm/client.py` (flex fallback, TTFT at the first delta, usage from `response.completed`, a shielded usage write on close/cancel/error); `embed(usage_rows=…)` for per-request totals; `record_usage(estimated=…)`; `pricing.chat_models()`.
+  - **Retrieval:** `rag/bm25.py` (the plan's SQL), `rag/vector.py` (`set_config` LOCALs in one round trip, re-sorted top k), `rag/hybrid.py` (parallel lists on separate sessions with at most 6 at once, sparse-department fallback, weighted RRF, jurisdiction boost, overlap de-dup, a token-budgeted selection that pulls in sibling table fragments, `Source`, and `mode` for the eval).
+  - **Agents:** `catalog.py` (5-minute TTL; invalidated by document create, edit and delete and by the worker after indexing), `router.py` (strict schema + normalization + clarification policy; `rewrite_only` for scoped chats), `specialists.py` (8 specialists + generic), `answer.py` (rules, then personas and owners, then history, then the sources block), `citations.py`.
+  - **APIs:** `services/chat.py` + `routers/chat.py` (SSE), `services/conversations.py` + `routers/conversations.py` (keyset cursor, owner-only, feedback), `routers/settings.py` (+ `schemas/settings.py`, `services/org_settings.py` view/update), `services/analytics.py` + `routers/analytics.py` (analytics + `/admin/orgs`). Titles are generated after `done` as background tasks (≤ 6 words, background tier).
+  - **Eval:** `eval/golden.jsonl` (30 questions, checked against the chunk text: HR base, all 5 country manuals, IT, Finance, Procurement, Facilities, Compliance, global/cross-department, exact-code and paraphrased) and `eval/run_eval.py`.
+  - **Tests (+35, 142 total):** `test_bm25_sql` (a toy corpus vs a pure-Python reference within 1e-6, filters, top-1 agreement with `rank_bm25`), `test_rrf`, `test_citations`, `test_router`, `test_chat_stream` (a fake OpenAI *client*, so the real metering runs: event order, persisted messages and usage rows, title, scoped follow-up with rewrite, clarification, disconnect → `stopped`, conversations, feedback, owner-only, settings, analytics, admin orgs).
+- **Eval (`api/eval/results/2026-10-07.md`, live routing, top_k 8):**
+
+  | Mode | hit@5 | hit@8 | MRR |
+  |---|---|---|---|
+  | BM25 | 0.967 | 0.967 | 0.833 |
+  | Vector | 1.000 | 1.000 | 0.967 |
+  | Hybrid | 1.000 | 1.000 | 0.944 |
+
+  - Routing accuracy is 30/30 and jurisdiction 10/10. **Target met:** hybrid hit@8 is 1.000, ≥ both baselines and ≥ 0.85.
+  - **Tuning, with routes and embeddings fixed** (so router variance doesn't add noise): plain RRF gave hybrid MRR 0.878 and hit@5 0.967, against vector's 0.917/1.000.
+    - The cause: full-weight BM25 let generic terms outrank the right section. "Paid time off" matched on-call/overtime sections, and four country §9.1 "Performance Management" chunks outranked the base manual's PIP section.
+    - The grid (BM25 weight 1.0/0.8/0.6/0.5 × supplement factor 1.0/0.9/0.8) picked 0.6/0.9: hybrid MRR 0.928 with hit@5/hit@8 1.0. 0.5/0.9 reached 0.944 but gains one question only, so it wasn't taken.
+    - Vector's MRR moves with the router's phrasing (0.917 on fixed routes, 0.967 in the live run), so on MRR hybrid and vector are within run-to-run noise.
+  - The remaining weak spot is lexical mismatch: "Can I bring my dog to the office?" — BM25 has no `dog` (the policy says "animals"/"pet"), so the hit sits at hybrid rank 3 against vector rank 1.
+- **Verified live (uvicorn + real OpenAI; run before the fusion tuning, which only changes questions with no country):**
+  - "How much PTO do employees in Germany get?" streamed meta → routing (HR/DE) → sources → 98 deltas → citations (SIM-HR-102 §1.3 p7, §5.2 p16) → usage → done. The answer was 30 working days + 5 for severe disability, and it noted that the U.S. PTO policy doesn't apply.
+  - The follow-up "And what about in France? Can they carry it over?" gave `standalone_query` "How much PTO do employees in France get, and can they carry it over?" (FR) with 2 sub-queries; it cited SIM-HR-103 §5.2, the router cached 2,851 tokens, and the conversation got the title "Germany Employee Annual Leave".
+  - Scoped to SIM-IT-001: only IT sources and citations; for vacation days it said plainly that the document doesn't cover it.
+  - `llm_usage` has `router`/`embed_query`/`answer` rows with cost (and `title`). Switching `chat_service_tier` to flex gave `flex`→`flex` on router and answer, and the cost per question went from $0.00074 to $0.00036. The setting was reset afterwards.
+  - Analytics returned totals, a 7-day timeseries, by_operation/model×tier/user/agent, top documents (SIM-HR-102, SIM-HR-103, SIM-IT-001) and feedback. `/v1/admin/orgs` and the 403/404 guards were checked.
+  - `pytest` 142 passed (~5.5 min); `ruff check` and `ruff format` are clean.
+- **Latency (dev → VPS DB):** about 17 s TTFT end to end. That's router ≈3.4 s, embed ≈0.5–3 s, search ≈2–3 s, fuse/load ≈1.5 s and answer TTFT ≈3–4 s, plus a separate usage-row commit per call (~0.45 s RTT each). In prod the DB is on the same host. If Phase 6 still feels slow, the next levers are running the query embedding concurrently with routing and writing usage rows in the background.
+- **Gotchas / learnings:**
+  - **The BM25 test caught a real bug:** in `(:k1 + 1)` Postgres inferred an *integer* parameter, so k1 = 1.2 became 1 (b likewise). k1/b are now `CAST(… AS float8)`.
+  - asyncpg needs a `timedelta` for an `interval` parameter.
+  - Python `uuid4` column defaults only run at flush: the first chat insert failed with a NULL `conversation_id`, so ids are now set explicitly.
+  - sse-starlette 3.5 never `aclose()`s the body iterator on disconnect (see Decisions).
+  - `uvicorn --reload` on Windows reloaded mid-edit once, then stopped picking up changes; restart it if responses look stale.
+  - The dev DB now holds 4 manual test conversations for the owner in `simtora`, plus eval `router`/`embed_query` usage rows (no user id). They're harmless; delete them if a clean analytics view is wanted.
+- **Next:** Phase 6 (app UI). The BFF must stream `text/event-stream` unbuffered (the API sends `X-Accel-Buffering: no`). Use `usage.ttft_ms`/`latency_ms` from the `usage` event, `routing.bypassed` for the "Scoped to N documents" chip, `citations[].highlight_text` for the PDF highlighter, and `settings.models`/`pricing` for the settings page.
+
 ### 2026-10-07 — Phase 4 (done)
 - **Built (`api/`):**
   - **LLM layer:** `llm/pricing.py` (Decimal, `default`/`standard` → standard, unknown tier → standard + `estimated`, unknown model → 0 + `estimated`). `llm/usage.py` (`UsageCtx`, `record_usage` in its own session, never raises). `llm/client.py` (`respond`, `embed` in batches of 100 with 4 concurrent, `api_tier`, `extract_tokens`). Flex calls get a 600 s timeout and no SDK retries; on 429/503/"resource unavailable" they retry once with 1–4 s jitter, then fall back to `default`. Errors write a `status='error'` row and re-raise.

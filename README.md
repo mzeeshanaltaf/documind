@@ -45,6 +45,10 @@ Prerequisites: Node 24 with pnpm, Python 3.12 with [uv](https://docs.astral.sh/u
    ```bash
    cd api && uv run python -m scripts.seed_policies --org-slug simtora --wait
    ```
+6. **Ask a question.** `POST /v1/orgs/{org_id}/chat` streams the answer as Server-Sent Events (routing, sources, text, citations, usage). The [API README](api/README.md#chat) has a `curl` example. To measure retrieval quality (BM25 vs vector vs hybrid) on the golden questions:
+   ```bash
+   cd api && uv run python -m eval.run_eval --org-slug simtora   # writes eval/results/<date>.md
+   ```
 
 Checks: `cd web && pnpm typecheck && pnpm lint` and `cd api && uv run pytest && uv run ruff check .`
 

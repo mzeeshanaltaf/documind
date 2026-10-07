@@ -13,6 +13,7 @@ from typing import Any
 from anyio import to_thread
 from sqlalchemy import text, update
 
+from app.agents import catalog
 from app.core import storage
 from app.core.db import session_scope
 from app.ingestion.chunker import EmbedContext, chunk_document
@@ -182,6 +183,7 @@ async def run_pipeline(job: ClaimedJob) -> int:
                 finished_at=datetime.now(UTC),
             )
         )
+    catalog.invalidate(job.org_id)
     return count
 
 

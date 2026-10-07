@@ -32,7 +32,8 @@ web/                Next.js app
   src/app/admin/         platform admin (orgs, users, analytics)
   src/app/api/auth/[...all]/     Better Auth handler
   src/app/api/backend/[...path]/ BFF proxy → FastAPI (adds X-API-Key + X-User-Id)
-  src/lib/{auth,auth-client,auth-guards,db,api}.ts, src/lib/email/
+  src/lib/{auth,auth-client,auth-guards,db,org-members,api}.ts, src/lib/email/
+  src/components/{brand,auth,app}/  scripts/ (create-schema, migrate-auth, preview-emails)
 api/                FastAPI app
   app/core/       config, db (URL normalizer), security (API key + actor), storage (MinIO)
   app/models/     SQLAlchemy models (+ read-only mirrors of Better Auth tables)
@@ -44,6 +45,7 @@ api/                FastAPI app
   alembic/  scripts/seed_policies.py  eval/ (golden.jsonl, run_eval.py)  tests/
 docs/policies/      14 seed PDFs (fictional company "Simtora Technologies")
 docs/plan/          phase-1 … phase-9 implementation docs
+PRODUCT.md, DESIGN.md  design context (impeccable); DESIGN.json = its sidecar
 model-pricing.json  per-model $/1M tokens for standard & flex tiers (single source)
 docker-compose.dev.yml  local MinIO
 ```
@@ -52,7 +54,7 @@ docker-compose.dev.yml  local MinIO
 ```bash
 docker compose -f docker-compose.dev.yml up -d        # local MinIO (console :9001)
 cd web && pnpm dev | pnpm typecheck | pnpm lint | pnpm build
-cd web && pnpm dlx @better-auth/cli@latest migrate     # Better Auth tables
+cd web && pnpm db:schema && pnpm auth:migrate        # schema + Better Auth tables (-- --dry-run prints SQL)
 cd api && uv run uvicorn app.main:app --reload --port 8000
 cd api && uv run alembic upgrade head                  # app tables
 cd api && uv run pytest && uv run ruff check .
@@ -101,7 +103,8 @@ cd api && uv run python -m eval.run_eval --org-slug simtora
   - `import "server-only"` in server modules;
   - shadcn components in `src/components/ui`.
 - **Hydration:** client trees that use browser-only values at init (chat, PDF viewer) load via `next/dynamic(..., { ssr: false })`.
-- **Design:** follow the design context saved by `/impeccable` in Phase 2 (tokens in `globals.css`), and don't invent new colours or fonts ad hoc.
+- **Design:** follow `PRODUCT.md` + `DESIGN.md` (repo root, written by `/impeccable` in Phase 2; tokens in `web/src/app/globals.css`). Don't invent colours or fonts ad hoc. Link-buttons use `ButtonLink`, not `<Button render={<Link/>}>` (that sets `role="button"`); client-form field ids come from `useId()`.
+- **Auth guards:** `lib/auth-guards.ts` (`requireSession`/`requireAdmin`/`requireOrgAccess`/`requireOrgAdmin`) in every layout, page and Server Action. Session reads sit inside `<Suspense>` (cacheComponents), so `notFound()`/`redirect()` stream with HTTP 200; that's expected.
 - **Files:** write them with the Write/Edit tools, never shell heredocs (Windows quirks).
 - **Git:** commit and push only when the user asks (`/ship`). The branch is `main`.
 
@@ -127,3 +130,8 @@ cd api && uv run python -m eval.run_eval --org-slug simtora
 - OpenAI returns `service_tier="default"` (never `"standard"`) for standard and `auto` requests. Usage and the tier arrive only on the `response.completed` stream event.
 - Next 16.4 runs with `cacheComponents` on. Read `web/node_modules/next/dist/docs/` (see `web/AGENTS.md`) before writing Next code.
 - On this machine, PDFToolkit's containers can hold :3000/:8000 (their restart policy is now `no`), so check `docker ps` if `next dev` falls back to :3001.
+- `@better-auth/cli` is deprecated (stuck at 1.4) and rejects `server-only`; use `pnpm auth:migrate` (runs `getMigrations` under `--conditions=react-server`).
+- Better Auth org endpoints (invite, remove, list) require the caller to be an org member. Platform-admin actions therefore go through `lib/org-members.ts` (Better Auth's adapter via `auth.$context`, or SQL) after `requireAdmin()`.
+- `next.config.ts` loads the root `.env.local` by hand. `loadEnvConfig("..")` is a cached no-op there, and `forceReload` makes `next dev` reload endlessly.
+- If `next dev` reloads endlessly (log repeats "Compiled in 2ms" + the same GET), stop it and delete `web/.next/dev` (corrupted Turbopack dev cache).
+- Static auth pages bake `RESEND_FROM_EMAIL` at build time; in Coolify it must be a build-time variable too.

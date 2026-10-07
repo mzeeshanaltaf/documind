@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-07T00:00:00Z",
+  "title": "Design System: DocuMind",
+  "extensions": {
+    "colorMeta": {
+      "ink-green": { "role": "primary", "displayName": "Ink Green", "canonical": "oklch(0.43 0.075 168)", "tonalRamp": ["oklch(0.2 0.04 168)", "oklch(0.3 0.055 168)", "oklch(0.43 0.075 168)", "oklch(0.55 0.09 168)", "oklch(0.65 0.09 168)", "oklch(0.76 0.09 168)", "oklch(0.86 0.05 168)", "oklch(0.95 0.016 165)"] },
+      "highlighter": { "role": "secondary", "displayName": "Highlighter", "canonical": "oklch(0.92 0.085 95)", "tonalRamp": ["oklch(0.26 0.03 90)", "oklch(0.42 0.07 92)", "oklch(0.6 0.1 92)", "oklch(0.75 0.11 94)", "oklch(0.85 0.1 95)", "oklch(0.92 0.085 95)", "oklch(0.95 0.05 95)", "oklch(0.98 0.02 95)"] },
+      "paper": { "role": "neutral", "displayName": "Paper", "canonical": "oklch(0.988 0.003 160)" },
+      "ink": { "role": "neutral", "displayName": "Ink", "canonical": "oklch(0.205 0.012 165)" },
+      "shelf": { "role": "neutral", "displayName": "Shelf", "canonical": "oklch(0.968 0.005 160)" },
+      "muted-ink": { "role": "neutral", "displayName": "Muted Ink", "canonical": "oklch(0.515 0.012 165)" }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display (Source Serif 4)", "purpose": "Auth page titles, wordmark." },
+      "headline": { "displayName": "Headline (Source Serif 4)", "purpose": "App page titles and empty-state titles." },
+      "body": { "displayName": "Body (Instrument Sans)", "purpose": "All UI text, forms, tables." },
+      "code": { "displayName": "Code (Geist Mono)", "purpose": "Document codes, section numbers, OTP codes, slugs." }
+    },
+    "shadows": [
+      { "name": "floating", "value": "shadcn defaults (popover/menu/dialog)", "purpose": "Only for layers that float above the page." }
+    ],
+    "motion": [
+      { "name": "ease-out-quart", "value": "cubic-bezier(0.25, 1, 0.5, 1)", "purpose": "State transitions, 150-250ms." },
+      { "name": "ease-out-expo", "value": "cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Reveals (sheets, popovers)." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one ink-green action on a screen.",
+      "html": "<button class=\"ds-btn-primary\">Sign in</button>",
+      "css": ".ds-btn-primary { background: var(--primary, oklch(0.43 0.075 168)); color: var(--primary-foreground, oklch(0.985 0.006 160)); height: 2.25rem; padding: 0 1rem; border: 1px solid transparent; border-radius: 0.5rem; font: 500 0.875rem 'Instrument Sans', system-ui, sans-serif; transition: background 0.2s cubic-bezier(0.25,1,0.5,1); cursor: pointer; } .ds-btn-primary:hover { background: oklch(0.43 0.075 168 / 0.8); } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 3px oklch(0.55 0.09 168 / 0.5); }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Secondary action beside a primary.",
+      "html": "<button class=\"ds-btn-outline\">Continue with Google</button>",
+      "css": ".ds-btn-outline { background: oklch(0.988 0.003 160); color: oklch(0.205 0.012 165); height: 2.25rem; padding: 0 1rem; border: 1px solid oklch(0.905 0.006 160); border-radius: 0.5rem; font: 500 0.875rem 'Instrument Sans', system-ui, sans-serif; cursor: pointer; } .ds-btn-outline:hover { background: oklch(0.958 0.005 160); } .ds-btn-outline:focus-visible { outline: none; box-shadow: 0 0 0 3px oklch(0.55 0.09 168 / 0.5); }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Labelled input with ring focus.",
+      "html": "<label class=\"ds-field\"><span>Work email</span><input class=\"ds-input\" placeholder=\"name@company.com\" /></label>",
+      "css": ".ds-field { display: flex; flex-direction: column; gap: 0.5rem; font: 500 0.875rem 'Instrument Sans', system-ui, sans-serif; color: oklch(0.205 0.012 165); } .ds-input { height: 2rem; padding: 0 0.625rem; border: 1px solid oklch(0.875 0.008 160); border-radius: 0.5rem; background: transparent; font: 400 0.875rem 'Instrument Sans', system-ui, sans-serif; } .ds-input:focus-visible { outline: none; border-color: oklch(0.55 0.09 168); box-shadow: 0 0 0 3px oklch(0.55 0.09 168 / 0.5); }"
+    },
+    {
+      "name": "Citation Card",
+      "kind": "custom",
+      "refersTo": "citation-mark",
+      "description": "Source passage with the cited span highlighted.",
+      "html": "<div class=\"ds-cite\"><div class=\"ds-cite-head\"><span class=\"ds-mono\">SIM-HR-102</span><span class=\"ds-mono\">p. 16</span></div><p class=\"ds-cite-title\"><span class=\"ds-mono\">5.2</span> Annual Leave</p><p class=\"ds-cite-body\"><mark>30 working days per calendar year</mark> (for a 5-day week).</p></div>",
+      "css": ".ds-cite { max-width: 24rem; padding: 1.25rem; border-radius: 0.5rem; background: oklch(0.988 0.003 160); box-shadow: 0 0 0 1px oklch(0.905 0.006 160); } .ds-cite-head { display: flex; justify-content: space-between; padding-bottom: 0.75rem; border-bottom: 1px solid oklch(0.905 0.006 160); } .ds-mono { font: 400 0.7rem 'Geist Mono', ui-monospace, monospace; color: oklch(0.515 0.012 165); } .ds-cite-title { margin: 0.75rem 0 0; font: 600 0.875rem 'Source Serif 4', Georgia, serif; } .ds-cite-body { margin: 0.5rem 0 0; font: 400 0.9rem/1.6 'Source Serif 4', Georgia, serif; color: oklch(0.515 0.012 165); } .ds-cite-body mark { background: oklch(0.92 0.085 95); color: oklch(0.26 0.03 90); border-radius: 3px; padding: 0 2px; }"
+    },
+    {
+      "name": "Sidebar Nav Item",
+      "kind": "nav",
+      "refersTo": "sidebar-item-active",
+      "description": "App sidebar link; active state on Shelf Selected.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-item is-active\" href=\"#\">Chat</a><a class=\"ds-nav-item\" href=\"#\">Members</a></nav>",
+      "css": ".ds-nav { display: flex; flex-direction: column; gap: 2px; width: 14rem; padding: 0.5rem; background: oklch(0.968 0.005 160); } .ds-nav-item { padding: 0.375rem 0.5rem; border-radius: 0.4rem; font: 400 0.875rem 'Instrument Sans', system-ui, sans-serif; color: oklch(0.255 0.012 165); text-decoration: none; } .ds-nav-item:hover { background: oklch(0.928 0.014 165); } .ds-nav-item.is-active { background: oklch(0.928 0.014 165); font-weight: 500; } .ds-nav-item:focus-visible { outline: 2px solid oklch(0.55 0.09 168); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Annotated Policy Binder",
+    "overview": "DocuMind is a well-kept policy binder that answers back. Its surfaces are paper, its type is ink, and its single act of colour is the one a careful reader makes: a highlighter stroke across the exact sentence that settles the question. The interface exists to get a user from a question to a passage they can point to, so it stays quiet and lets the document lead.",
+    "keyCharacteristics": [
+      "Paper-and-ink neutrals tinted toward green-grey (hue ~160), never pure black or white.",
+      "One accent, ink green, for primary actions, current selection and focus only.",
+      "Highlighter yellow is reserved for cited passages (and the logo's cited line).",
+      "Serif display for titles; one humanist sans for all UI; mono for document codes, section numbers and codes.",
+      "Light by default (daylit office desks); dark follows the OS and passes AA.",
+      "Flat, tonal layering; shadows only for floating layers."
+    ],
+    "rules": [
+      { "name": "The One Ink Rule", "body": "Ink green covers at most 10% of any screen: primary action, current selection, focus. Inactive states are never green.", "section": "colors" },
+      { "name": "The Highlighter Rule", "body": "Highlighter yellow means \"this exact text is the source\". Using it for emphasis, warnings or decoration is prohibited.", "section": "colors" },
+      { "name": "The Serif-for-Titles Rule", "body": "Source Serif 4 appears on h1/h2, the wordmark, empty-state titles and dialog titles. It never appears on buttons, labels, inputs or table data.", "section": "typography" },
+      { "name": "The Fixed Scale Rule", "body": "Product sizes are fixed rem steps (ratio ~1.2). No clamp() type in the app.", "section": "typography" },
+      { "name": "The Flat-At-Rest Rule", "body": "Surfaces in the document flow have no shadow. If a static card has a drop shadow, remove it and use a rule or a tonal step.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do define every colour in globals.css as OKLCH, with a .dark counterpart, and use semantic utilities.",
+      "Do keep text contrast >= 4.5:1 in both themes, with visible focus on everything.",
+      "Do show a skeleton for streamed content and an Empty state that says what to do next.",
+      "Do write errors that say what happened and what to do.",
+      "Do respect prefers-reduced-motion; motion is 150-250ms ease-out and only conveys state."
+    ],
+    "donts": [
+      "Don't look like a generic AI chatbot: no purple/violet gradients, sparkles, glowing orbs or ChatGPT-clone layouts.",
+      "Don't look like a legacy enterprise intranet: no grey-box SharePoint panels, cramped forms or 2012 corporate blue.",
+      "Don't use SaaS landing clichés: no hero metrics, identical icon-card grids, gradient text or glassmorphism.",
+      "Don't ship a dark hacker tool: dark mode follows the OS and is never the default or neon.",
+      "Don't use border-left/right > 1px as a coloured accent stripe.",
+      "Don't use pure #000 or #fff, or any colour that isn't a token.",
+      "Don't use em dashes in UI copy.",
+      "Don't nest cards, or wrap a section in a card just to group it."
+    ]
+  }
+}

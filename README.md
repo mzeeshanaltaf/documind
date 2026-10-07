@@ -26,10 +26,13 @@ Prerequisites: Node 24 with pnpm, Python 3.12 with [uv](https://docs.astral.sh/u
    ```bash
    docker compose -f docker-compose.dev.yml up -d   # API :9000, console :9001
    ```
-3. **Web.** Serves http://localhost:3000.
+3. **Web.** Creates the Postgres schema and Better Auth's tables, then serves http://localhost:3000.
    ```bash
-   cd web && pnpm install && pnpm dev
+   cd web && pnpm install
+   pnpm db:schema && pnpm auth:migrate   # once, and again after auth plugin changes
+   pnpm dev
    ```
+   Emails listed in `PLATFORM_ADMIN_EMAILS` become platform admins on sign-up (or on their next sign-in).
 4. **API.** Serves http://localhost:8000/docs.
    ```bash
    cd api && uv sync && uv run uvicorn app.main:app --reload --port 8000
@@ -40,4 +43,5 @@ Checks: `cd web && pnpm typecheck && pnpm lint` and `cd api && uv run pytest && 
 ## Project docs
 - [`docs/plan/`](docs/plan/): the phase-by-phase implementation plan.
 - [`Status.md`](Status.md): current progress and decisions.
+- [`PRODUCT.md`](PRODUCT.md) and [`DESIGN.md`](DESIGN.md): who the product is for, and the visual system.
 - [`docs/policies/`](docs/policies/): seed policy PDFs for the fictional company "Simtora Technologies".

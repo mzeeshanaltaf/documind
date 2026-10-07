@@ -9,13 +9,13 @@
 > - Never write secrets here; this repo is public.
 
 ## Current phase
-**Phase 2 — Design foundation, auth & organizations** (not started)
+**Phase 3 — API foundation & data model** (not started). Phase 2 is done; one manual check (Google consent screen) is pending, see "Pending user actions".
 
 ## Phase tracker
 | # | Phase | Doc | Status |
 |---|---|---|---|
 | 1 | Scaffold & environment | [phase-1](docs/plan/phase-1-scaffold-and-environment.md) | ✅ Done |
-| 2 | Design foundation, auth & organizations | [phase-2](docs/plan/phase-2-auth-and-organizations.md) | ⬜ Not started |
+| 2 | Design foundation, auth & organizations | [phase-2](docs/plan/phase-2-auth-and-organizations.md) | ✅ Done |
 | 3 | API foundation & data model | [phase-3](docs/plan/phase-3-api-foundation-and-data-model.md) | ⬜ Not started |
 | 4 | Document ingestion | [phase-4](docs/plan/phase-4-document-ingestion.md) | ⬜ Not started |
 | 5 | Hybrid retrieval, agents & chat API | [phase-5](docs/plan/phase-5-hybrid-retrieval-agents-and-chat-api.md) | ⬜ Not started |
@@ -50,6 +50,35 @@ Legend: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked
 - **MinIO image:** `pgsty/minio` + `pgsty/mc`, which are community builds of the same AGPL source with the web console kept.
   - MinIO no longer publishes `minio/minio` or `minio/mc` on Docker Hub or quay.io (pulls are denied).
   - **Phase 8 must use `pgsty/minio` too.** The `/add-minio-storage-to-coolify` skill still says `minio/minio:latest`.
+
+## Decisions made (Phase 2, 2026-10-07)
+- **Design context:** `PRODUCT.md` + `DESIGN.md` (+ `DESIGN.json` sidecar) at the repo root. North star "The Annotated Policy Binder".
+  - Restrained palette: paper neutrals tinted to hue ~160, one **ink-green** accent, and **highlighter yellow reserved for cited passages**.
+  - Fonts: Source Serif 4 (titles, wordmark), Instrument Sans (all UI), Geist Mono (doc codes, section numbers, OTPs).
+  - Light by default; dark follows the OS (next-themes, toggle in the user menu). Every text pair is ≥ 4.5:1 in both themes.
+  - Anti-references: generic AI chatbot, legacy intranet, SaaS landing clichés, dark hacker tool.
+- **Org admin operations bypass Better Auth's member-gated endpoints.** `createInvitation`/`removeMember`/`cancelInvitation`/`listMembers` require the caller to be an org member, but a platform admin may not be.
+  - So `lib/org-members.ts` writes through Better Auth's own adapter (`auth.$context`) or SQL, after `requireAdmin()`.
+  - Adding an existing user uses `auth.api.addMember` (no session needed). Invitations are emailed by our code.
+- **Last active org** is written directly to `session."activeOrganizationId"` (in `after()`), because `setActiveOrganization` also requires membership.
+- **Email OTP:** codes are hashed at rest, 10-minute expiry, 5 attempts. `disableSignUp: true`, so the passwordless `/sign-in/email-otp` can't create accounts. Only `email-verification` and `forget-password` emails are sent.
+- **Reserved org slugs** (`new-org`, `admin`, `api`, `settings`) are rejected client-side and in `organizationHooks.beforeCreateOrganization`.
+
+## Better Auth tables (Phase 2, for Phase 3)
+- All seven live in the configured schema (`documind_dev` locally). None are in `public`; verified via `information_schema`.
+- Columns are camelCase and must be quoted. `!` = NOT NULL; ids are `text`.
+
+| Table | Columns |
+|---|---|
+| `"user"` | id!, name!, email! (unique), "emailVerified"! bool, image, "createdAt"!, "updatedAt"!, role (admin plugin: `admin`/`user`/null), banned bool, "banReason", "banExpires" |
+| `session` | id!, "expiresAt"!, token! (unique), "createdAt"!, "updatedAt"!, "ipAddress", "userAgent", "userId"! → user, "activeOrganizationId", "impersonatedBy" |
+| `account` | id!, "accountId"!, "providerId"!, "userId"! → user, "accessToken", "refreshToken", "idToken", "accessTokenExpiresAt", "refreshTokenExpiresAt", scope, password, "createdAt"!, "updatedAt"! |
+| `verification` | id!, identifier!, value!, "expiresAt"!, "createdAt"!, "updatedAt"! (OTP rows: identifier `<type>-otp-<email>`, value `<sha256-b64url>:<attempts>`) |
+| `organization` | id!, name!, slug! (unique), logo, "createdAt"!, metadata (text) |
+| `member` | id!, "organizationId"! → organization, "userId"! → user, role! (`owner`/`admin`/`member`), "createdAt"! |
+| `invitation` | id!, "organizationId"! → organization, email!, role, status! (`pending`/`accepted`/`rejected`/`canceled`), "expiresAt"!, "createdAt"!, "inviterId"! → user |
+
+- Foreign keys cascade on delete. Timestamps are `timestamptz`. Indexes: session/account `userId`, verification `identifier`, member `organizationId`/`userId`, invitation `organizationId`/`email`.
 
 ## Verified facts (Phase 1, OpenAI smoke test 2026-10-07, `gpt-6-luna`)
 - **`response.service_tier` values.** The request→response pairs are: `"flex"`→`"flex"`, `"default"`→`"default"`, `"auto"`→`"default"`, omitted→`"default"`.
@@ -89,7 +118,10 @@ Legend: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked
 - **Coolify base URL:** not in env; find it in Phase 8.
 
 ## Pending user actions
-- Phase 2: make sure the Google OAuth client allows `http://localhost:3000/api/auth/callback/google`.
+- **Phase 2 manual checks (owner):**
+  - Click "Continue with Google" on http://localhost:3000/sign-in and complete the consent screen. The app's side was verified: it builds a Google URL with `redirect_uri=http://localhost:3000/api/auth/callback/google`. If Google shows `redirect_uri_mismatch`, add that URI to the OAuth client.
+  - Sign up with your real `PLATFORM_ADMIN_EMAILS` address. Check that the code arrives in your inbox (not just Resend's sink) and that you land on "Create your first organization".
+  - Then create "Simtora Technologies" (slug `simtora`); Phase 4's seed script expects it. The E2E test created and then deleted its own copy.
 - Phase 8: add `https://documind.zeeshanai.cloud/api/auth/callback/google` and the JS origin.
 - Phase 7/9: get legal review of the Privacy Policy before launch.
 
@@ -101,6 +133,45 @@ Legend: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked
 - Gotchas / learnings: …
 - Next: …
 -->
+### 2026-10-07 — Phase 2 (done)
+- **Built:**
+  - **Design foundation (`/impeccable` teach):** PRODUCT.md (register: product) and DESIGN.md/DESIGN.json, from a short interview. OKLCH tokens (light + dark) in `globals.css`, fonts via `next/font`, `components/brand/logo.tsx`, and `app/icon.svg`.
+  - **DB:** `lib/db.ts` (pg Pool, `search_path=<schema>,public`, max 5) + `lib/db-url.ts`; `pnpm db:schema` created `documind_dev`; `pnpm auth:migrate` created the 7 Better Auth tables there.
+  - **Auth:** `lib/auth.ts` with email+password (verification required), Google, emailOTP, organization, admin and nextCookies; rate limiting on; the admin bootstrap hooks (user create + session create). Plus `auth-client.ts`, the route handler, and Resend emails (`lib/email/`: OTP + invitation templates, unquoted `from`, idempotency key on invitations only).
+  - **Pages:** sign-in, sign-up, verify-email, forgot-password, reset-password and accept-invitation, with an auth layout whose side panel shows a real cited passage (SIM-HR-102 §5.2).
+  - **Guards and shell:** `proxy.ts` (optimistic cookie redirects with a `reauth` escape from loops), `lib/auth-guards.ts`. The app shell has a sidebar, org switcher (Popover + Command), user menu (theme, platform admin, sign out) and mobile trigger.
+  - **App pages:** the `/app` resolver with empty states (admin: create org; member: ask admin; pending invitations listed), `/app/new-org` and `/app/[org]/members` (add existing user directly / invite unknown email, remove, resend, withdraw). The chat page and the admin-only documents/settings/analytics pages are placeholders. `/admin/users` has search, pagination, promote/demote and suspend/restore.
+- **Verified:**
+  - `pnpm typecheck`, `lint` and `build` pass. All authenticated routes are Partial Prerender with session reads inside Suspense.
+  - **Playwright E2E** (headless Chrome against `next dev`; script kept out of the repo) passed **48/48 checks**. It used Resend sink addresses (`delivered+…@resend.dev`), with `PLATFORM_ADMIN_EMAILS` extended for the test process only. OTP rows were overwritten with a known hash, since the codes are hashed. It covered:
+    - sign-up → OTP → signed in; admin role on sign-up and re-promotion on login;
+    - creating the `simtora` org, with the admin as owner;
+    - non-admin blocked from new-org, admin, members and other orgs (the not-found UI renders and no content leaks);
+    - add an existing user, duplicate error, invite an unknown email, resend (extends expiry), invitee sign-up → back to the invitation → accept → org chat;
+    - forgot → reset → old password rejected → new password works;
+    - promote/demote, suspend (sessions revoked) and restore, remove member;
+    - Google start URL; no horizontal scroll at 375px; dark mode.
+  - The preflight script passed (Resend accepted a send from the configured `from`). No send errors in the server log.
+  - The test data was deleted afterwards, so `documind_dev` has 0 users and 0 orgs.
+- **Deviations from plan:**
+  - `@better-auth/cli migrate` was replaced by `pnpm auth:migrate`: the CLI is deprecated (1.4.21) and refuses `server-only`.
+  - `sendVerificationOnSignUp` was not set: with `overrideDefaultEmailVerification` the plugin ignores it, and core sends on sign-up. The `sign-in` OTP type is not mailed (`disableSignUp: true`).
+  - Admin org operations use the adapter/SQL instead of `auth.api.createInvitation` etc. (membership requirement, see Decisions).
+  - Admin-only pages 404 for non-admins (`notFound()`, not a redirect), so their existence isn't advertised.
+  - The design context lives at the repo root (impeccable's loader looks there), not in `web/`.
+  - Added `ButtonLink`, `shadcn` `use-mobile` was rewritten with `useSyncExternalStore` (lint), and `scripts/preview-emails.ts` was added.
+- **Gotchas / learnings:**
+  - **Phase 1 env loading never worked at build time.** Next had already cached `web/`'s env, so `loadEnvConfig("..")` was a no-op. `forceReload` fixed the build but put `next dev` into an endless client-restart loop. `next.config.ts` now parses the root `.env.local` with `util.parseEnv` and fills only unset keys.
+  - **If `next dev` ever reloads endlessly** (log alternates "Compiled in 2ms" / the same GET), stop it and `rm -rf web/.next/dev`. A corrupted Turbopack dev cache caused it once more after a quick kill/restart.
+  - **Next 16 keeps visited routes mounted but hidden (Activity).** Static `id`s collide across pages and labels can point at hidden inputs, so client-form ids use `useId()`.
+  - **Base UI `Button render={<Link/>} nativeButton={false}`** renders `<a role="button">`. Use `ButtonLink`.
+  - `notFound()`/`redirect()` inside Suspense return HTTP 200 and resolve client-side. Tests must assert the UI, not the status.
+  - **Better Auth per-IP limits:** 3/min on each email-OTP endpoint, 3/10s on sign-in/sign-up. E2E needs a distinct `X-Forwarded-For` per simulated user.
+  - The Resend key is **send-only** (401 on reads), so OTP emails can't be fetched via the API in tests.
+  - The static `/verify-email` and `/reset-password` pages bake `RESEND_FROM_EMAIL` at build time (Phase 8: set it as a build variable).
+  - In dev, "Could not validate `instant`" console errors appear when a layout calls `notFound()` for a forbidden org. They're dev-only and harmless.
+- **Next:** the owner's manual checks (Pending user actions), then Phase 3 (FastAPI reads `"user"`, `member`, `organization` per the table above).
+
 ### 2026-10-07 — Phase 1 (done)
 - **Built:**
   - `git init -b main` with the remote set; root `.gitignore`, `.env.example` (every key, commented), `docker-compose.dev.yml` and README.

@@ -50,6 +50,10 @@ Prerequisites: Node 24 with pnpm, Python 3.12 with [uv](https://docs.astral.sh/u
    - Chat is limited to 30 questions a minute per user when `UPSTASH_REDIS_REST_URL`/`_TOKEN` are set (no limit otherwise).
    - The API itself: `POST /v1/orgs/{org_id}/chat` streams Server-Sent Events (routing, sources, text, citations, usage); the [API README](api/README.md#chat) has a `curl` example.
 
+7. **Public site.** http://localhost:3000 is the marketing site: the landing page, `/contact` and `/privacy`.
+   - The contact form posts to the n8n webhook in `N8N_CONTACT_WEBHOOK_URL`, authenticated with `N8N_API_KEY` in an `x-api-key` header.
+   - It works without JavaScript, drops honeypot submissions silently, and allows 5 messages per 10 minutes per IP when Upstash is configured.
+
    To measure retrieval quality (BM25 vs vector vs hybrid) on the golden questions:
    ```bash
    cd api && uv run python -m eval.run_eval --org-slug simtora   # writes eval/results/<date>.md

@@ -24,6 +24,10 @@ colors:
   night-ink: "oklch(0.94 0.006 160)"
   night-ink-green: "oklch(0.76 0.09 168)"
   night-highlighter: "oklch(0.42 0.07 92)"
+  band: "oklch(0.43 0.075 168)"
+  band-foreground: "oklch(0.985 0.006 160)"
+  band-muted: "oklch(0.87 0.025 165)"
+  night-band: "oklch(0.3 0.05 168)"
 typography:
   display:
     fontFamily: "Source Serif 4, ui-serif, Georgia, serif"
@@ -151,6 +155,10 @@ A restrained palette: tinted paper neutrals, one ink-green accent and one reserv
 - **Marks:** bars ≤ 24px with a 4px rounded data end, 2px surface gaps between stacked segments, 2px lines, hairline grid, one y-axis per chart. Single-series charts have no legend; multi-series legends keep series order. Every chart has a table view.
 - **PDF highlight** (`--pdf-highlight`, `oklch(0.9 0.13 95)` in both themes): rendered PDF pages are always white paper, so the cited span uses the light highlighter, multiplied over the glyphs.
 
+### Marketing band (Phase 7)
+- **Band** (`--band`, `bg-band`): the one drenched surface on the marketing site, the final call-to-action strip. Light: ink green `oklch(0.43 0.075 168)` with **Band Foreground** `oklch(0.985 0.006 160)` and **Band Muted** `oklch(0.87 0.025 165)` for secondary text. Dark: a deep green `oklch(0.3 0.05 168)` (the light dark-mode primary would glare as a full-width surface) with `oklch(0.95 0.008 160)` / `oklch(0.81 0.025 165)`. All pairs ≥ 4.5:1. Buttons on the band invert: band-foreground fill with band-coloured text, and an outline at 40% band-foreground.
+- The One Ink Rule (≤ 10% green) applies to the product; the marketing page spends its green on this single band and on the primary CTA. Nowhere else.
+
 ### Email
 Email clients can't read CSS variables, so `web/src/lib/email/layout.ts` carries sRGB equivalents of these tokens (paper `#f9fcfa`, ink `#121916`, muted `#616a66`, rule `#dce1de`, ink green `#1a5d48`, highlighter `#f6e5a4`). Regenerate them if a token changes.
 
@@ -216,6 +224,20 @@ A source card: mono doc code + serif title + mono page ref, a rule, the section 
 
 ### Logo
 `components/brand/logo.tsx`: an ink-green tile holding a paper page whose middle line is highlighted (the cited passage), next to the serif "DocuMind" wordmark. `app/icon.svg` is the static favicon version.
+
+### Marketing site (Phase 7, `app/(marketing)`, `components/marketing`)
+- **Concept:** the page reads like a numbered policy manual. Each section opens with a "part" mark: mono number, name and a hairline rule (`SectionMark`). Problem rows are numbered clauses (1.1, 1.2, 1.3) in a ruled three-column table, not cards.
+- **Type:** the same three families as the app (brand consistency beats a marketing-only font). Display is fluid here only: hero `clamp(2.5rem, 1.45rem + 4.3vw, 4.6rem)`, tracking −0.028em, leading 1.03; section titles `clamp(1.85rem, 1.35rem + 2vw, 2.85rem)`; lead copy 1.0625–1.125rem.
+- **Imagery is the product itself,** built in HTML from the real chat/viewer styles with real corpus passages (SIM-HR-102 §5.2 p. 16, SIM-HR-001 §7.4 p. 59, SIM-PRC-001). No screenshots, no stock, no illustrations. Product excerpts are bordered `rounded-lg` panels; floating layers (the hero's page and answer) get `shadow-sm`/`shadow-md`, everything in flow stays flat.
+- **Motion:** one load sequence only. The hero's page and answer rise in (`.dm-rise`, 800ms expo-out, staggered), then the highlighter strokes the cited passage line by line (`.dm-stroke`, background-size sweep, 1.4s quart-out after 900ms). The headline never animates (it's the LCP element). Reduced motion shows the final state immediately, delays included.
+- **No-JS by design:** FAQ uses native `<details>`; the mobile menu is a native `popover` top sheet (light-dismiss, Esc); the contact form posts natively and the route answers with 303 redirects. Hydration only adds niceties (inline validation, closing the menu after an anchor click).
+- **Surfaces:** paper → shelf (`bg-sidebar`) for "How it works" → paper → band. One tonal step per section change, never a card around a section.
+
+### Tables inside the app shell
+Column hiding responds to the table's own width (`@container` on the bordered wrapper, `@xl`/`@3xl`/`@4xl`/`@5xl` on cells), not the viewport: the sidebar takes 256px, so viewport breakpoints over-promise space. `SidebarInset` carries `min-w-0` so wide content can't stretch the page.
+
+### Not found
+`app/not-found.tsx` is branded and deliberately non-committal ("may have moved, or your account may not have access"), because the auth guards use `notFound()` for forbidden pages.
 
 ## 6. Do's and Don'ts
 

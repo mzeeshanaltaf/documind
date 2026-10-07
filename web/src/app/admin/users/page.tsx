@@ -83,7 +83,7 @@ async function Users({ searchParams }: { searchParams: Promise<Record<string, st
                 <TableRow>
                   <TableHead>User</TableHead>
                   <TableHead>Role</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead className="hidden sm:table-cell">Status</TableHead>
                   <TableHead className="hidden md:table-cell">Organizations</TableHead>
                   <TableHead className="hidden lg:table-cell">Joined</TableHead>
                   <TableHead className="w-12">
@@ -97,7 +97,7 @@ async function Users({ searchParams }: { searchParams: Promise<Record<string, st
                   const isEnvAdmin = envAdmins.has(u.email.toLowerCase());
                   return (
                     <TableRow key={u.id}>
-                      <TableCell>
+                      <TableCell className="max-w-0 min-w-40 sm:max-w-none">
                         <div className="flex min-w-0 items-center gap-3">
                           <Avatar className="size-8">
                             {u.image && <AvatarImage src={u.image} alt="" />}
@@ -108,6 +108,8 @@ async function Users({ searchParams }: { searchParams: Promise<Record<string, st
                               {u.name || u.email}
                               {isSelf && <span className="font-normal text-muted-foreground"> (you)</span>}
                             </span>
+                            {/* The Status column is hidden on phones; keep a suspension visible. */}
+                            {u.banned && <span className="text-xs font-medium text-destructive sm:hidden">Suspended</span>}
                             <span className="truncate text-xs text-muted-foreground">{u.email}</span>
                           </div>
                         </div>
@@ -115,7 +117,7 @@ async function Users({ searchParams }: { searchParams: Promise<Record<string, st
                       <TableCell>
                         {u.role === "admin" ? <Badge>Platform admin</Badge> : <Badge variant="secondary">User</Badge>}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden sm:table-cell">
                         {u.banned ? (
                           <Badge variant="destructive">Suspended</Badge>
                         ) : u.emailVerified ? (

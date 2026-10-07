@@ -62,8 +62,8 @@ async function Organizations() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Organization</TableHead>
-                  <TableHead className="text-right">Documents</TableHead>
-                  <TableHead className="text-right">Members</TableHead>
+                  <TableHead className="hidden text-right sm:table-cell">Documents</TableHead>
+                  <TableHead className="hidden text-right sm:table-cell">Members</TableHead>
                   <TableHead className="hidden text-right md:table-cell">Conversations</TableHead>
                   <TableHead className="text-right">30-day cost</TableHead>
                   <TableHead className="hidden lg:table-cell">Created</TableHead>
@@ -75,7 +75,7 @@ async function Organizations() {
               <TableBody>
                 {orgs.map((o) => (
                   <TableRow key={o.id}>
-                    <TableCell>
+                    <TableCell className="max-w-0 min-w-36 sm:max-w-none">
                       <Link
                         href={`/app/${o.slug}/chat`}
                         className="flex min-w-0 items-center gap-3 rounded-sm focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
@@ -87,12 +87,12 @@ async function Organizations() {
                         </span>
                       </Link>
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">
+                    <TableCell className="hidden text-right tabular-nums sm:table-cell">
                       <Link href={`/app/${o.slug}/documents`} className="hover:underline">
                         {formatCount(o.documents)}
                       </Link>
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">
+                    <TableCell className="hidden text-right tabular-nums sm:table-cell">
                       <Link href={`/app/${o.slug}/members`} className="hover:underline">
                         {formatCount(o.members)}
                       </Link>

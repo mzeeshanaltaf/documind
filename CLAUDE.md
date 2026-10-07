@@ -26,14 +26,14 @@
 ## Repo layout
 ```
 web/                Next.js app
-  src/app/(marketing)/   landing, contact, privacy
+  src/app/(marketing)/   landing, contact, privacy (+ app/api/contact → n8n; opengraph-image, sitemap, robots)
   src/app/(auth)/        sign-in, sign-up, verify-email, forgot/reset-password, accept-invitation
   src/app/(app)/app/[orgSlug]/  chat, documents, members, settings, analytics
   src/app/admin/         platform admin (orgs, users, analytics)
   src/app/api/auth/[...all]/     Better Auth handler
   src/app/api/backend/[...path]/ BFF proxy → FastAPI (adds X-API-Key + X-User-Id)
-  src/lib/{auth,auth-client,auth-guards,db,org-members,api,api-types,format,rate-limit}.ts, src/lib/email/
-  src/components/{brand,auth,app,chat,pdf,documents,settings,analytics}/  src/hooks/use-chat-stream.ts
+  src/lib/{auth,auth-client,auth-guards,db,org-members,api,api-types,format,rate-limit,contact,site}.ts, src/lib/email/
+  src/components/{brand,auth,app,chat,pdf,documents,settings,analytics,marketing,contact}/  src/hooks/use-chat-stream.ts
   scripts/ (create-schema, migrate-auth, preview-emails)
 api/                FastAPI app
   app/core/       config, db (URL normalizer), security (API key + actor), storage (MinIO), log, errors
@@ -136,7 +136,9 @@ cd api && uv run python -m eval.run_eval --org-slug simtora   # writes eval/resu
 - Better Auth org endpoints (invite, remove, list) require the caller to be an org member. Platform-admin actions therefore go through `lib/org-members.ts` (Better Auth's adapter via `auth.$context`, or SQL) after `requireAdmin()`.
 - `next.config.ts` loads the root `.env.local` by hand. `loadEnvConfig("..")` is a cached no-op there, and `forceReload` makes `next dev` reload endlessly.
 - If `next dev` reloads endlessly (log repeats "Compiled in 2ms" + the same GET), stop it and delete `web/.next/dev` (corrupted Turbopack dev cache). Running `pnpm typecheck` (`next typegen`) while `next dev` is up triggers it; use `npx tsc --noEmit` then.
-- Static auth pages bake `RESEND_FROM_EMAIL` at build time; in Coolify it must be a build-time variable too.
+- Static auth pages bake `RESEND_FROM_EMAIL`, and `NEXT_PUBLIC_APP_URL` (canonical, sitemap, OG URLs) is inlined at build: in Coolify both must be build-time variables.
+- **No-JS pages can't rely on Suspense:** a streamed boundary only resolves with JavaScript. `/contact` uses `export const instant = false` and awaits `searchParams` outside Suspense so the native form's `?sent`/`?error` redirect renders. Marketing pages use `<details>` and native `popover` instead of client state.
+- `opengraph-image.tsx` reads its fonts (`web/assets/fonts/*.woff`; Satori can't read woff2) at module scope: inside the handler it counts as uncached I/O and the route turns dynamic. App tables hide columns by `@container` width (the sidebar eats 256px), and `SidebarInset` keeps `min-w-0`.
 - **Alembic on the shared DB:** `env.py` only looks at our schema (`include_name`) and connects with `search_path=public`, so reflection names our schema explicitly. Otherwise autogenerate wants to drop other apps' `public` tables and re-create every FK. Migrations take the schema from `get_settings().db_schema` (never hard-coded), and explicit `ck_*` names need `op.f()`. After model changes, run `alembic check`.
 - API tests hit the real dev DB (throwaway `test-*` Better Auth rows, removed afterwards) and local MinIO; OpenAI is monkeypatched (`llm.client.respond`/`embed`, or `get_client` for chat). From this machine a DB round-trip is ~0.45 s and a cold connect 1–3 s, so the suite takes ~5.5 minutes. Stop any local uvicorn first: its ingestion worker claims the tests' jobs.
 - **asyncpg infers parameter types from context:** in `:k1 + 1` the param becomes an integer (1.2 → 1), so cast numeric params (`CAST(:k1 AS float8)`); interval params need a `timedelta`, not `'1 day'`.

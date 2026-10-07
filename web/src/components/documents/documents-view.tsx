@@ -228,16 +228,16 @@ function DocumentsTable({ orgId, orgSlug, orgName, canManage, initialDocuments }
           )}
         </Empty>
       ) : (
-        <div className="overflow-hidden rounded-lg border">
+        <div className="@container overflow-hidden rounded-lg border">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Document</TableHead>
-                <TableHead className="hidden md:table-cell">Department</TableHead>
-                <TableHead className="hidden sm:table-cell">Jurisdiction</TableHead>
-                <TableHead className="hidden lg:table-cell">Version</TableHead>
-                <TableHead className="hidden lg:table-cell">Effective</TableHead>
-                <TableHead className="hidden text-right xl:table-cell">Pages</TableHead>
+                <TableHead className="hidden @3xl:table-cell">Department</TableHead>
+                <TableHead className="hidden @xl:table-cell">Jurisdiction</TableHead>
+                <TableHead className="hidden @5xl:table-cell">Version</TableHead>
+                <TableHead className="hidden @4xl:table-cell">Effective</TableHead>
+                <TableHead className="hidden text-right @5xl:table-cell">Pages</TableHead>
                 {canManage && <TableHead>Status</TableHead>}
                 <TableHead className="w-12">
                   <span className="sr-only">Actions</span>
@@ -247,20 +247,20 @@ function DocumentsTable({ orgId, orgSlug, orgName, canManage, initialDocuments }
             <TableBody>
               {rows.map((doc) => (
                 <TableRow key={doc.id} data-document-id={doc.id}>
-                  <TableCell className="max-w-0 min-w-48 sm:max-w-none">
+                  <TableCell className="max-w-0 min-w-48 @xl:max-w-none @xl:min-w-56 @xl:whitespace-normal">
                     <button
                       type="button"
                       onClick={() => setDetails(doc)}
                       className="flex max-w-full min-w-0 flex-col items-start rounded-sm text-left focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
                     >
-                      <span className="max-w-full truncate font-medium hover:underline">{doc.title}</span>
+                      <span className="max-w-full truncate font-medium text-pretty hover:underline @xl:whitespace-normal">{doc.title}</span>
                       <span className="font-mono text-[0.7rem] text-muted-foreground">
                         {doc.doc_code ?? doc.file_name ?? "No code"}
                       </span>
                     </button>
                   </TableCell>
-                  <TableCell className="hidden text-muted-foreground md:table-cell">{doc.department ?? "n/a"}</TableCell>
-                  <TableCell className="hidden sm:table-cell">
+                  <TableCell className="hidden text-muted-foreground @3xl:table-cell">{doc.department ?? "n/a"}</TableCell>
+                  <TableCell className="hidden @xl:table-cell">
                     {doc.jurisdiction ? (
                       <Badge variant="outline" className="gap-1.5 font-normal">
                         <span className="font-mono text-[0.65rem] text-muted-foreground">{doc.jurisdiction}</span>
@@ -270,11 +270,11 @@ function DocumentsTable({ orgId, orgSlug, orgName, canManage, initialDocuments }
                       <span className="text-muted-foreground">n/a</span>
                     )}
                   </TableCell>
-                  <TableCell className="hidden text-muted-foreground tabular-nums lg:table-cell">{doc.version ?? "n/a"}</TableCell>
-                  <TableCell className="hidden text-muted-foreground tabular-nums lg:table-cell">
+                  <TableCell className="hidden text-muted-foreground tabular-nums @5xl:table-cell">{doc.version ?? "n/a"}</TableCell>
+                  <TableCell className="hidden text-muted-foreground tabular-nums @4xl:table-cell">
                     {formatDate(doc.effective_date)}
                   </TableCell>
-                  <TableCell className="hidden text-right text-muted-foreground tabular-nums xl:table-cell">
+                  <TableCell className="hidden text-right text-muted-foreground tabular-nums @5xl:table-cell">
                     {doc.page_count ?? "n/a"}
                   </TableCell>
                   {canManage && (

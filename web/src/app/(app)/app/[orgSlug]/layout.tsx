@@ -37,7 +37,8 @@ async function OrgShell({ params, children }: { params: Promise<{ orgSlug: strin
         orgs={orgs.map((o) => ({ id: o.id, name: o.name, slug: o.slug }))}
         user={{ name: user.name, email: user.email, image: user.image ?? null, isAdmin }}
       />
-      <SidebarInset>
+      {/* min-w-0: a flex child defaults to min-width:auto, so wide tables would stretch the page. */}
+      <SidebarInset className="min-w-0">
         <MobileTopBar orgSlug={org.slug} orgName={org.name} />
         {children}
       </SidebarInset>

@@ -9,7 +9,9 @@
 > - Never write secrets here; this repo is public.
 
 ## Current phase
-**Phase 7 — Marketing site & design polish** (not started). Phase 6 is done.
+**Phase 8 — Deployment** (not started). Phase 7 is done.
+
+> ⚠️ **Before launch: the owner must have the Privacy Policy (`/privacy`) reviewed legally.** It was written to match what the app really does (see the Phase 7 log), but it is not legal advice.
 
 ## Phase tracker
 | # | Phase | Doc | Status |
@@ -20,7 +22,7 @@
 | 4 | Document ingestion | [phase-4](docs/plan/phase-4-document-ingestion.md) | ✅ Done |
 | 5 | Hybrid retrieval, agents & chat API | [phase-5](docs/plan/phase-5-hybrid-retrieval-agents-and-chat-api.md) | ✅ Done |
 | 6 | App UI | [phase-6](docs/plan/phase-6-app-ui.md) | ✅ Done |
-| 7 | Marketing site & design polish | [phase-7](docs/plan/phase-7-marketing-site.md) | ⬜ Not started |
+| 7 | Marketing site & design polish | [phase-7](docs/plan/phase-7-marketing-site.md) | ✅ Done |
 | 8 | Deployment (Coolify + MinIO) | [phase-8](docs/plan/phase-8-deployment.md) | ⬜ Not started |
 | 9 | Umami analytics & wrap-up | [phase-9](docs/plan/phase-9-umami-analytics.md) | ⬜ Not started |
 
@@ -111,6 +113,16 @@ Legend: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked
 - **API additions:** `MessageOut.usage` (latency/TTFT/cost from `messages.retrieval`, platform admins only) so reloaded answers keep the admin usage line; `by_model_tier` gains `answers` and `answer_cost_usd` so tiers compare per answer; a stopped or failed first turn now also gets a title.
 - **Rate limit** is checked in the BFF before proxying (`chat:${userId}`, sliding 30/min, Upstash). It fails open if Redis errors; 429 carries `Retry-After`.
 
+## Decisions made (Phase 7, 2026-10-07)
+- **Marketing pages live in `app/(marketing)`** (header, footer, skip link). The root `app/page.tsx` placeholder is gone; `/` is the landing page (Partial Prerender: static shell + the session-cookie check streamed in the header).
+- **Header auth state = cookie presence only** (`getSessionCookie(await headers())`, no DB). Its Suspense fallback is the signed-out actions, which is also what no-JS visitors and crawlers get. A stale cookie shows "Open app", and `/app` then sends the person to sign in.
+- **No-JS first.** FAQ = native `<details>`; mobile menu = native `popover` top sheet; contact form = real `action="/api/contact" method="post"`.
+- **`/contact` sets `export const instant = false`** and awaits `searchParams` outside Suspense. A streamed Suspense boundary only resolves with JavaScript, so without this the no-JS `?sent=1` / `?error=` result would never replace the fallback. The route is therefore dynamic (ƒ).
+- **Contact route:** JSON (hydrated fetch) or url-encoded/multipart (native) bodies; zod schema in `lib/contact.ts` (shared with the form); honeypot `hp_field` checked first and answered with a fake success; Upstash limit **5 per 10 min per IP** (`limitContact` in `lib/rate-limit.ts`, key `contact:<ip>`, prefix `documind:ratelimit`, fails open), 429 + `Retry-After` for JSON, 303 `?error=rate` for native posts; n8n gets `{name, email, message, source: "documind", submittedAt}` with `x-api-key`, 10 s timeout.
+- **Landing copy stays accurate to the product:** new sign-ups can't upload (platform admins do), so the CTA band says "Invited by your team? Create your account… Setting DocuMind up for your company? Talk to us". Security copy says text goes to OpenAI for indexing *and* answering; no certifications claimed.
+- **SEO:** root metadata (`metadataBase` = `NEXT_PUBLIC_APP_URL` via `lib/site.ts`, title template, OG + `summary_large_image`), static `opengraph-image.tsx` (fonts read at module scope from `web/assets/fonts/*.woff`; Satori can't read woff2), `apple-icon.tsx`, `sitemap.ts` (constant `lastModified`), `robots.ts` (disallow `/app`, `/admin`, `/api`). Next also emits `twitter:image` from the OG image.
+- **App-wide fixes from the audit:** `SidebarInset` gets `min-w-0`; the documents table hides columns by container width (`@container`); admin header and admin tables fit 360px; branded `app/not-found.tsx` (also shown for forbidden pages).
+
 ## Better Auth tables (Phase 2, for Phase 3)
 - All seven live in the configured schema (`documind_dev` locally). None are in `public`; verified via `information_schema`.
 - Columns are camelCase and must be quoted. `!` = NOT NULL; ids are `text`.
@@ -168,7 +180,8 @@ Legend: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked
 - **Phase 2 manual check (owner):** Click "Continue with Google" on http://localhost:3000/sign-in and complete the consent screen. If Google shows `redirect_uri_mismatch`, add `http://localhost:3000/api/auth/callback/google` to the OAuth client.
   - Done as of Phase 3: the owner's admin account exists, and the org "Simtora Technologies" (`simtora`) exists with the owner as `owner`.
 - Phase 8: add `https://documind.zeeshanai.cloud/api/auth/callback/google` and the JS origin.
-- Phase 7/9: get legal review of the Privacy Policy before launch.
+- **Before launch: get the Privacy Policy (`/privacy`) legally reviewed.** Check especially the legal bases, international transfers (OpenAI, Resend, Google, Upstash), retention promises ("we delete an organization's data when it's closed" and account deletion on request are manual today) and the 16+ age line. Its effective date is the `EFFECTIVE_DATE` constant in `app/(marketing)/privacy/page.tsx`.
+- Check the n8n contact workflow received the Phase 7 test message ("DocuMind Phase 7 check", `phase7-check@example.com`) and delete it.
 
 ## Session log
 <!-- Newest first. Template:
@@ -178,6 +191,34 @@ Legend: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked
 - Gotchas / learnings: …
 - Next: …
 -->
+### 2026-10-07 — Phase 7 (done)
+- **Built (`web/`):**
+  - **Marketing shell:** `app/(marketing)/layout.tsx` (skip link, sticky header, footer), `components/marketing/` (`site-header` with the cookie-only auth check in Suspense, `mobile-menu` (native popover top sheet), `site-footer` (`"use cache"` year), `nav` (anchors + container), `hero-visual`, `demos`).
+  - **Landing `/`:** hero (tagline headline, value prop, Get started / Talk to us, HTML product visual: the Germany manual open at p. 16 with the carry-over rule highlighted, under an answer with an "HR agent · Germany" chip and `[1]`/`[2]` chips), 01 problem → outcome (ruled clause table), 02 how it works (three steps, each with a different product excerpt), 03 features (hybrid-search demo with `SIM-PRC-001` and "can I expense my internet?" → HR §7.4 p. 59, routing demo, four more features as a ruled definition list), 04 security & privacy, 05 FAQ (6 `<details>`), ink-green CTA band. All demo content is quoted from the seed PDFs.
+  - **Contact `/contact`:** from `/nextjs-contact-form`, restyled with shadcn `Field`/`Input`/`Textarea`; `app/api/contact/route.ts`, `components/contact/contact-form.tsx`, `lib/contact.ts`, `limitContact` in `lib/rate-limit.ts` (the existing limiter module, not the template's). Native validation until hydration, then inline zod errors with focus on the first invalid field.
+  - **Privacy `/privacy`:** 12 sections with a sticky contents list, effective date constant, every processor the plan lists, links to `/contact` (no email address published).
+  - **SEO:** `lib/site.ts`, root metadata + viewport theme colours, `opengraph-image.tsx`, `apple-icon.tsx`, `sitemap.ts`, `robots.ts`, `assets/fonts/` (4 WOFF files for Satori). Tokens `--band*` and the marketing CSS (`.dm-rise`, `.dm-stroke`, `.faq-item`, `.legal-prose`, anchor scroll padding) in `globals.css`.
+- **Verified (prod build via `next start`, headless Chromium):**
+  - `/`, `/contact`, `/privacy` at 360/768/1280 in light and dark: no horizontal overflow, no console errors.
+  - **Lighthouse on `/`:** mobile 91/100/100/100 (Perf/A11y/BP/SEO; LCP 3.5 s simulated, CLS 0, TBT 40 ms), desktop 100/100/100/100. `/contact` mobile 89/100/100/100, `/privacy` mobile 90/100/100/100.
+  - **Contact route** (second instance with the webhook pointed at a local capture server): honeypot (JSON and form) → success but nothing delivered; bad email / empty / > 5000 chars → `email`/`fields`/`length`; 5 valid submissions delivered with `x-api-key`; the 6th → 429 `Retry-After` (JSON) and 303 `?error=rate` (form).
+  - **Browser:** with JS disabled the form posts natively, lands on `/contact?sent=1` and shows "Message sent"; `?error=rate` renders its alert; the browser blocks an invalid email; FAQ and the mobile menu open. With JS: novalidate after hydration, inline errors + focus, fetch success without navigation, "Send another", menu closes after an anchor click. 17/17 checks.
+  - **Real n8n:** one submission through the configured webhook returned 2xx (see Pending user actions).
+  - `robots.txt`, `sitemap.xml`, `/opengraph-image` (1200×630 PNG, static ○) and `/apple-icon` are served; OG/Twitter tags present.
+  - `pnpm typecheck`, `lint`, `build` pass.
+- **`/impeccable` audit (marketing, auth, chat, documents, members, settings, analytics, admin; 360/768/1280, light/dark; throwaway `test-e2e-*` admin + member with minted sessions, deleted afterwards):**
+  - Fixed: **P1** the app content column stretched past the viewport whenever a table was wide (documents at 1280 and 768, members at 768); cause: `SidebarInset` without `min-w-0`, plus viewport-based column hiding inside a 256px-narrower column → `min-w-0` + container queries, titles wrap. **P1** admin header and admin tables overflowed at 360 → badge hidden and "Back to app" icon-only on phones; Documents/Members and Status columns hidden below `sm` (a "Suspended" marker moves into the user cell). **P2** the 404 (also the forbidden-page UI) was Next's unstyled default → branded `not-found.tsx`. **P3** footer links got 44px touch targets on phones; the hero's viewer header no longer wraps the doc code at 360.
+  - **Deferred (P2):** analytics breakdown tables scroll sideways inside their bordered containers on phones (usable, but the last column is hidden until scrolled); a KPI sub-label truncates at 360.
+  - **Deferred (P3):** mobile LCP is the hero headline waiting on Source Serif 4 with the `opsz` axis (122 KB woff2). Dropping the axis or `preload: false` on Geist Mono would buy a few Lighthouse points; kept because optical sizing is part of the type design.
+- **Deviations from plan:** the honeypot is uncontrolled (`defaultValue`), read from `FormData` on submit; the contact rate limiter lives in the existing `lib/rate-limit.ts`; added "Already a member somewhere?" guidance on `/contact`; FAQ adds "Can I ask about specific documents only?"; the plan's em dash in the hero copy became a comma (DESIGN.md bans em dashes).
+- **Gotchas / learnings:**
+  - **Running `pnpm typecheck` (`next typegen`) with the owner's `next dev` up left dev serving a stale CSS chunk** (new `:root` tokens present, the later marketing rules missing). Verification moved to a prod build on :3100. Restart dev and delete `web/.next/dev` before looking at the site there.
+  - **Under `cacheComponents`, `readFile` inside an `opengraph-image` handler makes it dynamic** (uncached I/O); read at module scope and it's prerendered (○). Matters for the standalone build: the runtime would otherwise need `assets/fonts` on disk.
+  - `new Date()` in a server component fails the prerender; the footer year is an async component with `"use cache"`, the sitemap uses a constant date.
+  - Smooth anchor scrolling makes Playwright's click on a just-scrolled element "not stable"; test contexts use `reducedMotion: "reduce"`.
+  - `NEXT_PUBLIC_APP_URL` is inlined at build time (canonical, sitemap, robots, OG URLs); Phase 8 must set it as a **build** variable to the production domain.
+- **Next:** Phase 8 (deployment). Set the four contact vars and `NEXT_PUBLIC_APP_URL` (as a build-time variable) in Coolify. `web/assets/fonts` needs no special handling: the OG image is prerendered at build.
+
 ### 2026-10-07 — Phase 6 (done)
 - **Built (`web/`):**
   - **BFF:** `lib/api.ts` (`apiFetch`/`apiJson`/`ApiError`, server-only), `app/api/backend/[...path]/route.ts` (session → `X-User-Id`, dot-segment guard, streamed request body with `duplex: "half"`, unbuffered response, `request.signal` forwarded so Stop aborts upstream, SSE gets `no-cache, no-transform`), `lib/rate-limit.ts` (Upstash sliding 30/min). `lib/api-types.ts` holds the client-safe API shapes; `lib/format.ts` the cost/token/duration/jurisdiction formatters.

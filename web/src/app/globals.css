@@ -37,6 +37,9 @@
   --color-info: var(--info);
   --color-highlight: var(--highlight);
   --color-highlight-foreground: var(--highlight-foreground);
+  --color-band: var(--band);
+  --color-band-foreground: var(--band-foreground);
+  --color-band-muted: var(--band-muted);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -118,6 +121,11 @@
   --sidebar-accent-foreground: oklch(0.22 0.03 168);
   --sidebar-border: oklch(0.9 0.007 160);
   --sidebar-ring: oklch(0.55 0.09 168);
+
+  /* Marketing only: the one ink-green band (final call to action). Text pairs ≥ 4.5:1. */
+  --band: oklch(0.43 0.075 168);
+  --band-foreground: oklch(0.985 0.006 160);
+  --band-muted: oklch(0.87 0.025 165);
 }
 
 .dark {
@@ -166,6 +174,11 @@
   --sidebar-accent-foreground: oklch(0.95 0.01 160);
   --sidebar-border: oklch(0.94 0.01 160 / 9%);
   --sidebar-ring: oklch(0.64 0.08 168);
+
+  /* A deep green rather than the light dark-mode primary, so the band doesn't glare. */
+  --band: oklch(0.3 0.05 168);
+  --band-foreground: oklch(0.95 0.008 160);
+  --band-muted: oklch(0.81 0.025 165);
 }
 
 @layer base {
@@ -285,6 +298,104 @@
   color: var(--muted-foreground);
 }
 
+/* ---------- Marketing site (app/(marketing)) ---------- */
+
+/* Anchored sections clear the sticky header. */
+html:has([data-site="marketing"]) {
+  scroll-padding-top: 5rem;
+  scroll-behavior: smooth;
+}
+
+/* Hero choreography: the product visual settles in, then the highlighter strokes the
+   cited passage. Only opacity/transform/background-size move; no layout properties. */
+@keyframes dm-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+@keyframes dm-sweep {
+  from {
+    background-size: 0% 100%;
+  }
+}
+.dm-rise {
+  animation: dm-rise 800ms var(--ease-out-expo) both;
+  animation-delay: var(--dm-delay, 0ms);
+}
+/* A highlighter stroke that runs line by line: without box-decoration-break the inline
+   background is laid out as one strip across the wrapped fragments. */
+.dm-stroke {
+  background-image: linear-gradient(var(--highlight), var(--highlight));
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  color: var(--highlight-foreground);
+  border-radius: 3px;
+  animation: dm-sweep 1400ms var(--ease-out-quart) both;
+  animation-delay: var(--dm-delay, 900ms);
+}
+
+/* FAQ: native <details>, so it opens without JavaScript. */
+.faq-item > summary {
+  list-style: none;
+}
+.faq-item > summary::-webkit-details-marker {
+  display: none;
+}
+.faq-item[open] .faq-chevron {
+  rotate: 45deg;
+}
+
+/* Long-form legal text (privacy policy). */
+.legal-prose {
+  font-size: 1rem;
+  line-height: 1.7;
+  color: var(--foreground);
+}
+.legal-prose > * + * {
+  margin-top: 1em;
+}
+.legal-prose h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  margin-top: 2.75rem;
+  scroll-margin-top: 5.5rem;
+}
+.legal-prose h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-top: 1.75rem;
+}
+.legal-prose h2 + *,
+.legal-prose h3 + * {
+  margin-top: 0.6em;
+}
+.legal-prose :is(ul, ol) {
+  padding-left: 1.25rem;
+}
+.legal-prose ul {
+  list-style: disc;
+}
+.legal-prose li + li {
+  margin-top: 0.4em;
+}
+.legal-prose li::marker {
+  color: var(--muted-foreground);
+}
+.legal-prose strong {
+  font-weight: 600;
+}
+.legal-prose a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.legal-prose a:hover {
+  text-decoration-thickness: 2px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -293,5 +404,10 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+  /* No waiting either: reduced motion shows the final state at once. */
+  .dm-rise,
+  .dm-stroke {
+    animation-delay: 0ms !important;
   }
 }

@@ -9,7 +9,7 @@
 > - Never write secrets here; this repo is public.
 
 ## Current phase
-**Phase 4 — Document ingestion** (not started). Phase 3 is done.
+**Phase 5 — Hybrid retrieval, agents & chat API** (not started). Phase 4 is done.
 
 ## Phase tracker
 | # | Phase | Doc | Status |
@@ -17,7 +17,7 @@
 | 1 | Scaffold & environment | [phase-1](docs/plan/phase-1-scaffold-and-environment.md) | ✅ Done |
 | 2 | Design foundation, auth & organizations | [phase-2](docs/plan/phase-2-auth-and-organizations.md) | ✅ Done |
 | 3 | API foundation & data model | [phase-3](docs/plan/phase-3-api-foundation-and-data-model.md) | ✅ Done |
-| 4 | Document ingestion | [phase-4](docs/plan/phase-4-document-ingestion.md) | ⬜ Not started |
+| 4 | Document ingestion | [phase-4](docs/plan/phase-4-document-ingestion.md) | ✅ Done |
 | 5 | Hybrid retrieval, agents & chat API | [phase-5](docs/plan/phase-5-hybrid-retrieval-agents-and-chat-api.md) | ⬜ Not started |
 | 6 | App UI | [phase-6](docs/plan/phase-6-app-ui.md) | ⬜ Not started |
 | 7 | Marketing site & design polish | [phase-7](docs/plan/phase-7-marketing-site.md) | ⬜ Not started |
@@ -74,6 +74,20 @@ Legend: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked
 - **`/health` is always HTTP 200** with `status: ok|degraded` and `db: ok|error` (5 s timeout), so a shared-DB blip doesn't make Coolify restart the container.
 - **A failed bucket check at startup is logged, not fatal.** Chat still works; uploads fail loudly.
 - **Routes key off `org_id`** (Better Auth `organization.id`), not the slug. The BFF must map slug → id (`/v1/me` returns both).
+
+## Decisions made (Phase 4, 2026-10-07)
+- **Metadata is two concurrent background-tier calls**, `classify` (department, jurisdiction, doc_type, fallback title/entity) and `summarize`, not one. That gives the `classify`/`summarize` usage rows the acceptance criteria ask for. Model = the org's `router_model`.
+- **Jurisdiction for the "US/GLOBAL" rows:** IT, Finance, Procurement and Facilities resolve to **GLOBAL**. Their "Applies to" covers everyone who uses the systems/money/offices of Simtora Technologies, Inc., with no single-country limit. Only the HR Policy Manual says "All U.S. employees" → US.
+- **Reindex keeps the stored metadata** (admin edits win). The LLM step runs only on first ingestion (`indexed_at IS NULL`) or when dept/juris/doc_type are missing. Outline and page count are always re-derived. There's no "refresh metadata" option yet; delete + re-upload does it.
+- **During ingestion/reindex the document is `processing`**, but its old chunks stay searchable until the single index transaction swaps them. Phase 5 should not filter retrieval on `status='ready'` alone, or reindexed docs vanish briefly.
+- **Tables are standalone chunks** (prefixed by their nearest heading, or the pending L3 heading such as "Steps"). Prose before/after a table in the same section becomes separate chunks.
+- **`content_type` precedence:** `revision_history`/`glossary` (by heading) → `table`/`list` (> 50% of tokens) → `appendix` → `prose`.
+- **`section_number`** ignores "Part N" headings (spec regex), so a Part's intro text has `section_number = NULL`. The outline does record `"Part 3"` as the number. Appendix letters come from "Appendix G – …". Heading-only sections (a Part heading directly followed by 3.1) produce no chunk.
+- **Chunks under 40 tokens are folded into a neighbour** from the same section (e.g. "Employee comments:" after a form table). Title lines are kept out of `section_path` (they're already in the contextual header).
+- **Hyphenated line breaks** join without a space. The hyphen is dropped only when the joined word appears elsewhere in the document (so `SIM-\nHR-101` → `SIM-HR-101`, `corrective-\naction` keeps its hyphen).
+- **Uploads:** multipart field `files[]`. The magic bytes `%PDF-` must appear in the first 1 KB. Per-file results are `queued|duplicate|not_pdf|too_large|empty`. A request where nothing was queued answers with the first failure's status (409/415/413/400) and `error.details = {existing_id, documents}`. A new `ApiError` carries `details`.
+- **Reindex while a job is queued/running** returns that job (202), not a second one.
+- **`llm_usage` tiers are stored as API values** (`requested=flex|default|auto`, `actual` = what OpenAI returned). Embedding rows have no tier and are priced as standard.
 
 ## Better Auth tables (Phase 2, for Phase 3)
 - All seven live in the configured schema (`documind_dev` locally). None are in `public`; verified via `information_schema`.
@@ -142,6 +156,40 @@ Legend: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked
 - Gotchas / learnings: …
 - Next: …
 -->
+### 2026-10-07 — Phase 4 (done)
+- **Built (`api/`):**
+  - **LLM layer:** `llm/pricing.py` (Decimal, `default`/`standard` → standard, unknown tier → standard + `estimated`, unknown model → 0 + `estimated`). `llm/usage.py` (`UsageCtx`, `record_usage` in its own session, never raises). `llm/client.py` (`respond`, `embed` in batches of 100 with 4 concurrent, `api_tier`, `extract_tokens`). Flex calls get a 600 s timeout and no SDK retries; on 429/503/"resource unavailable" they retry once with 1–4 s jitter, then fall back to `default`. Errors write a `status='error'` row and re-raise.
+  - **Ingestion:** `parser.py` (+ `extract_header` for pages 1–2 only), `header.py`, `metadata.py`, `chunker.py`, `indexer.py` (chunks via SQLAlchemy insert, postings via asyncpg `copy_records_to_table` on the session's connection, `refresh_bm25_stats`), `worker.py` (claim SQL from the plan with an optional org filter, stage/progress updates that also refresh `locked_at`, `run()` for the lifespan, `run_until_idle()` for scripts/tests).
+  - **`rag/tokenizer.py`:** NFKC, apostrophes stripped, compounds kept whole plus their parts, ~150 stopwords, Snowball stemming of alphabetic tokens.
+  - **API:** `routers/documents.py` (all 8 routes) over `services/documents.py`, plus `schemas/documents.py` and `services/org_settings.py` (`effective_settings`, which Phase 5 reuses for models and tiers). The lifespan starts `ingest_concurrency` worker loops and stops them on shutdown.
+  - **Seed:** `scripts/seed_policies.py` (`--org-slug`, `--dir`, `--wait`, `--concurrency` default 3).
+  - **Tests (+72, 107 total):** `test_pricing`, `test_tokenizer`, `test_header_parser` (all 14 PDFs), `test_parser`, `test_chunker`, `test_metadata` (real header tables + recorded LLM output in `tests/fixtures/metadata_llm.json` → the plan's table) and `test_documents_api` (the full lifecycle against the dev DB and MinIO with OpenAI faked: upload/403/415/409, worker, BM25 rows, file stream, PATCH sync + `needs_reindex`, reindex dedupe, delete → MinIO object gone and stats refreshed).
+- **Verified:**
+  - `pytest` 107 passed (~2.5 min); `ruff check` and `ruff format` are clean.
+  - **Seed:** all 14 PDFs reached `ready` in `simtora`, ~20–40 s each with live flex calls (3 in parallel, about 2 minutes overall). Metadata matches the plan's table for all 14 (after the prompt fix below).
+  - **Chunk counts:** CMP 113, OVR 76, FAC 96, FIN 149, HR-001 88, HR-002 55, HR-101 55, HR-102 52, HR-103 57, HR-104 52, HR-105 54, GLB 76, IT 116, PRC 123. That's **1,162 chunks**; tokens median ≈ 150–280 per doc, max 620 (the 800 limit is never hit). There are 110,609 `chunk_terms` (6,228 distinct terms), and `bm25_stats` = (1162, avg_len 144.9).
+  - **`llm_usage`:** 15 `classify` and 15 `summarize` rows (flex requested, flex actual) and 19 `embed_ingest` rows. The whole corpus cost ≈ **$0.012**: classify ≈ $0.0027, summarize ≈ $0.0025, embeddings ≈ $0.0067. Each classify input is ~3.1k tokens.
+  - **Live uvicorn:** the lifespan logged "Started 1 ingestion worker(s)". The server's own worker took an uploaded PDF through queued → downloading 5 → parsing 20 → metadata 35 → embedding 60 → indexing 95 → done 100. The `/file` stream (inline, `private, max-age=300`) opens in pdfplumber with 78 pages. Re-upload returned 409 with the existing id. Delete returned 204 and then 404.
+  - Spot-checked rows, e.g. SIM-HR-001 #26: path `[Part 3 – Dealing with Employee Concerns, 3.1 Open Door and Grievance Procedure]`, §3.1, p30, prose. SIM-HR-102 #5 is a `table` chunk for §1.4 on p7.
+- **Parser heuristics that needed tuning:**
+  - `find_tables()` returns a page-sized frame "table" on ~80% of pages. Tables covering ≥ 90% width and ≥ 80% height are ignored, otherwise every page's prose would be swallowed.
+  - Sizes are rounded to 0.5 pt, so 14.5 pt KaTeX math isn't taken for the 15 pt L3 heading size. Size-based headings must also be bold (or ≥ 1.3× body).
+  - Bold body-size L3 headings need a gap above of > 0.9× body (or to be first on the page), a short line (< 85% of the measure) and no closing punctuation. Without that, wrapped bold sentences became headings.
+  - Wrapped headings merge (same level, gap < 0.9× size), including the first line of the next page for L1/L2 headings without a number. That fixed Germany's "Part 3 – … and" | page break | "On-Call".
+  - Font switches split words ("days )." / "completion :"); spaces before closing punctuation are removed.
+  - The TOC is skipped from the "Contents" heading to the next heading of the same or a higher level. The "End of document – …" line is dropped with the footers.
+  - The header table is looked for on pages 1–2: SIM-GLB-001's is on page 2.
+- **Deviations from plan:** see "Decisions made (Phase 4)". In addition:
+  - Title lines that wrap (Company Overview, Global Supplement) are merged before the entity/title rule.
+  - `related_doc_codes` expands ranges ("SIM-HR-101 to SIM-HR-105").
+  - Unknown header rows (France's "Language") are kept in `header["other"]` and passed to the LLM.
+- **Gotchas / learnings:**
+  - **The first seed classified the UK manual as `policy_manual`.** The fix: the classify prompt now says a single-country manual next to a main manual is a `country_supplement` even when it's titled "Manual". After that, 14/14 were correct on 3 consecutive runs. The UK doc was deleted and re-uploaded via the API to pick it up.
+  - `Select.distinct(col)` is deprecated in SQLAlchemy 2.1; use `.ext(postgresql.distinct_on(col))`.
+  - Source-PDF defects (not parser bugs): the Company Overview §6.3 legal-entities table loses its rows after the first at a page break, and some manuals render `$…` amounts as KaTeX math with no spaces.
+  - A heredoc used to patch a regex turned `\\1` into a `\x01` byte. Keep using Write/Edit (as CLAUDE.md says).
+- **Next:** Phase 5 (hybrid retrieval, agents, chat). Use `rag.tokenizer.term_freqs` for queries, `services.org_settings.effective_settings` for models and tiers, and `llm.client.respond`/`embed` (streaming needs its own wrapper that reads usage from `response.completed`).
+
 ### 2026-10-07 — Phase 3 (done)
 - **Built (`api/`):**
   - **Config:** `core/config.py`, `Settings` with a cached `get_settings()`. `db_schema` is parsed from `DATABASE_URL` and validated as an identifier. `pricing_file` defaults to the repo-root `model-pricing.json`.

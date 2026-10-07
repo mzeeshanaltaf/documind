@@ -13,6 +13,19 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 logger = logging.getLogger(__name__)
 
 
+class ApiError(Exception):
+    """An expected error that carries machine-readable `details` (HTTPException can't)."""
+
+    def __init__(self, status_code: int, code: str, message: str, details: Any = None) -> None:
+        super().__init__(message)
+        self.status_code, self.code, self.message, self.details = (
+            status_code,
+            code,
+            message,
+            details,
+        )
+
+
 def error_body(code: str, message: str, details: Any = None) -> dict[str, Any]:
     error: dict[str, Any] = {"code": code, "message": message}
     if details is not None:
@@ -36,6 +49,13 @@ async def http_exception_handler(_: Request, exc: StarletteHTTPException) -> JSO
     )
 
 
+async def api_error_handler(_: Request, exc: ApiError) -> JSONResponse:
+    return JSONResponse(
+        error_body(exc.code, exc.message, jsonable_encoder(exc.details)),
+        status_code=exc.status_code,
+    )
+
+
 async def validation_exception_handler(_: Request, exc: RequestValidationError) -> JSONResponse:
     return JSONResponse(
         error_body(
@@ -53,6 +73,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
 
 
 def install_exception_handlers(app: FastAPI) -> None:
+    app.add_exception_handler(ApiError, api_error_handler)  # type: ignore[arg-type]
     app.add_exception_handler(StarletteHTTPException, http_exception_handler)  # type: ignore[arg-type]
     app.add_exception_handler(RequestValidationError, validation_exception_handler)  # type: ignore[arg-type]
     app.add_exception_handler(Exception, unhandled_exception_handler)

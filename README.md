@@ -40,6 +40,11 @@ Prerequisites: Node 24 with pnpm, Python 3.12 with [uv](https://docs.astral.sh/u
    uv run uvicorn app.main:app --reload --port 8000
    ```
    Every `/v1` route needs the `X-API-Key` header (`DOCUMIND_API_KEY`); most also need `X-User-Id`.
+   The API runs a background worker that ingests uploaded PDFs (parse → metadata → chunk → embed → index).
+5. **Seed documents (optional).** Create an org with slug `simtora` in the web app, then load the 14 sample policies:
+   ```bash
+   cd api && uv run python -m scripts.seed_policies --org-slug simtora --wait
+   ```
 
 Checks: `cd web && pnpm typecheck && pnpm lint` and `cd api && uv run pytest && uv run ruff check .`
 

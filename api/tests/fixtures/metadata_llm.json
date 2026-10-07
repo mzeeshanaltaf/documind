@@ -1,0 +1,183 @@
+{
+  "Code-of-Ethics-and-Compliance-Manual": {
+    "title_lines": [
+      "Simtora Technologies, Inc.",
+      "Code of Ethics and Compliance Manual"
+    ],
+    "classification": {
+      "department": "Compliance",
+      "jurisdiction": "GLOBAL",
+      "doc_type": "policy_manual",
+      "title": "Code of Ethics and Compliance Manual",
+      "legal_entity": "Simtora Technologies, Inc."
+    }
+  },
+  "Company-Overview": {
+    "title_lines": [
+      "Simtora Technologies, Inc. – Company Overview"
+    ],
+    "classification": {
+      "department": "Corporate",
+      "jurisdiction": "GLOBAL",
+      "doc_type": "overview",
+      "title": "Company Overview",
+      "legal_entity": "Simtora Technologies, Inc."
+    }
+  },
+  "Facilities-and-Office-Administration-Manual": {
+    "title_lines": [
+      "Simtora Technologies, Inc.",
+      "Facilities and Office Administration Manual"
+    ],
+    "classification": {
+      "department": "Facilities",
+      "jurisdiction": "GLOBAL",
+      "doc_type": "policy_manual",
+      "title": "Facilities and Office Administration Manual",
+      "legal_entity": "Simtora Technologies, Inc."
+    }
+  },
+  "Finance-and-Accounting-Manual": {
+    "title_lines": [
+      "Simtora Technologies, Inc.",
+      "Finance and Accounting Manual"
+    ],
+    "classification": {
+      "department": "Finance",
+      "jurisdiction": "GLOBAL",
+      "doc_type": "policy_manual",
+      "title": "Finance and Accounting Manual",
+      "legal_entity": "Simtora Technologies, Inc."
+    }
+  },
+  "HR-Australia-Manual": {
+    "title_lines": [
+      "Simtora Technologies Pty Ltd",
+      "Australia HR Manual (Sydney)"
+    ],
+    "classification": {
+      "department": "HR",
+      "jurisdiction": "AU",
+      "doc_type": "country_supplement",
+      "title": "Australia HR Manual (Sydney)",
+      "legal_entity": "Simtora Technologies Pty Ltd"
+    }
+  },
+  "HR-France-Manual": {
+    "title_lines": [
+      "Simtora Technologies SAS",
+      "France HR Manual (Paris)"
+    ],
+    "classification": {
+      "department": "HR",
+      "jurisdiction": "FR",
+      "doc_type": "country_supplement",
+      "title": "France HR Manual (Paris)",
+      "legal_entity": "Simtora Technologies SAS"
+    }
+  },
+  "HR-Germany-Manual": {
+    "title_lines": [
+      "Simtora Technologies GmbH",
+      "Germany HR Manual (Berlin)"
+    ],
+    "classification": {
+      "department": "HR",
+      "jurisdiction": "DE",
+      "doc_type": "country_supplement",
+      "title": "Germany HR Manual (Berlin)",
+      "legal_entity": "Simtora Technologies GmbH"
+    }
+  },
+  "HR-Global-People-Supplement": {
+    "title_lines": [
+      "Simtora Technologies, Inc.",
+      "Global People Supplement to the Human Resources Policy Manual"
+    ],
+    "classification": {
+      "department": "HR",
+      "jurisdiction": "GLOBAL",
+      "doc_type": "global_supplement",
+      "title": "Global People Supplement to the Human Resources Policy Manual",
+      "legal_entity": "Simtora Technologies, Inc."
+    }
+  },
+  "HR-Pakistan-Manual": {
+    "title_lines": [
+      "Simtora Technologies (Pvt.) Limited",
+      "Pakistan HR Manual (Lahore)"
+    ],
+    "classification": {
+      "department": "HR",
+      "jurisdiction": "PK",
+      "doc_type": "country_supplement",
+      "title": "Pakistan HR Manual (Lahore)",
+      "legal_entity": "Simtora Technologies (Pvt.) Limited"
+    }
+  },
+  "HR-Policy-Manual": {
+    "title_lines": [
+      "Simtora Technologies, Inc.",
+      "Human Resources Policy Manual"
+    ],
+    "classification": {
+      "department": "HR",
+      "jurisdiction": "US",
+      "doc_type": "policy_manual",
+      "title": "Human Resources Policy Manual",
+      "legal_entity": "Simtora Technologies, Inc."
+    }
+  },
+  "HR-United-Kingdom-Manual": {
+    "title_lines": [
+      "Simtora Technologies UK Limited",
+      "United Kingdom HR Manual (London)"
+    ],
+    "classification": {
+      "department": "HR",
+      "jurisdiction": "GB",
+      "doc_type": "country_supplement",
+      "title": "United Kingdom HR Manual (London)",
+      "legal_entity": "Simtora Technologies UK Limited"
+    }
+  },
+  "IT-Policy-Manual": {
+    "title_lines": [
+      "Simtora Technologies, Inc.",
+      "Information Technology Policy Manual"
+    ],
+    "classification": {
+      "department": "IT",
+      "jurisdiction": "GLOBAL",
+      "doc_type": "policy_manual",
+      "title": "Information Technology Policy Manual",
+      "legal_entity": "Simtora Technologies, Inc."
+    }
+  },
+  "International-Operations-Supplement": {
+    "title_lines": [
+      "Simtora Technologies, Inc.",
+      "International Operations Supplement"
+    ],
+    "classification": {
+      "department": "International",
+      "jurisdiction": "GLOBAL",
+      "doc_type": "global_supplement",
+      "title": "International Operations Supplement",
+      "legal_entity": "Simtora Technologies, Inc."
+    }
+  },
+  "Procurement-Policy-Manual": {
+    "title_lines": [
+      "Simtora Technologies, Inc.",
+      "Procurement Policy Manual"
+    ],
+    "classification": {
+      "department": "Procurement",
+      "jurisdiction": "GLOBAL",
+      "doc_type": "policy_manual",
+      "title": "Procurement Policy Manual",
+      "legal_entity": "Simtora Technologies, Inc."
+    }
+  }
+}

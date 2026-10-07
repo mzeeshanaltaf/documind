@@ -9,7 +9,7 @@
 > - Never write secrets here; this repo is public.
 
 ## Current phase
-**Phase 6 — App UI** (not started). Phase 5 is done.
+**Phase 7 — Marketing site & design polish** (not started). Phase 6 is done.
 
 ## Phase tracker
 | # | Phase | Doc | Status |
@@ -19,7 +19,7 @@
 | 3 | API foundation & data model | [phase-3](docs/plan/phase-3-api-foundation-and-data-model.md) | ✅ Done |
 | 4 | Document ingestion | [phase-4](docs/plan/phase-4-document-ingestion.md) | ✅ Done |
 | 5 | Hybrid retrieval, agents & chat API | [phase-5](docs/plan/phase-5-hybrid-retrieval-agents-and-chat-api.md) | ✅ Done |
-| 6 | App UI | [phase-6](docs/plan/phase-6-app-ui.md) | ⬜ Not started |
+| 6 | App UI | [phase-6](docs/plan/phase-6-app-ui.md) | ✅ Done |
 | 7 | Marketing site & design polish | [phase-7](docs/plan/phase-7-marketing-site.md) | ⬜ Not started |
 | 8 | Deployment (Coolify + MinIO) | [phase-8](docs/plan/phase-8-deployment.md) | ⬜ Not started |
 | 9 | Umami analytics & wrap-up | [phase-9](docs/plan/phase-9-umami-analytics.md) | ⬜ Not started |
@@ -101,6 +101,16 @@ Legend: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked
 - **Analytics.** `requests` = `answer` calls; `granularity` also accepts `week`; `by_agent` counts routed departments, plus `Scoped` (document chats) and `General` (no department), with cost joined by `message_id`. The timeseries also carries `requests` and `p95_latency_ms` (Phase 6's latency chart). `GET /v1/admin/orgs` adds a conversation count.
 - **Settings.** `PUT` updates only the fields sent; `null` resets one to its default. The model list = pricing-file keys minus `text-embedding-*`.
 
+## Decisions made (Phase 6, 2026-10-07)
+- **Reads vs writes.** Browser reads (conversation list, document polling, detail, PDF file, chat SSE, uploads) go through the `/api/backend` BFF. Mutations (rename/delete conversation, feedback, document edit/reindex/delete, settings) are Server Actions that re-check access and call `apiJson`. Uploads stay on the BFF for streaming and per-file progress (XHR).
+- **New chat URL** switches with `history.replaceState`, not `router.replace`: a route change would re-render the page and drop the live stream. Next keeps visited routes mounted (Activity), so the `/chat` view resets itself when you navigate back to it.
+- **Conversation list** is one SWR cache entry per org, shared by every mounted chat view; titles are re-fetched right after `done` and again 3 s later (they're written in the background).
+- **Members get a read-only Documents page** (searchable docs only, no status, no actions except View/Details), linked in their sidebar. Admins keep it under Manage. Settings, analytics, members and `/admin` stay `notFound()` for members.
+- **PDF viewer** renders one page at a time (react-pdf v11, `suspense={false}`), kept mounted (`keepMounted` added to `SheetContent`) so the loaded document survives citation clicks. Highlighting marks text items whose normalized text (≥ 4 letters/digits) is inside the normalized chunk, only on `page_start..page_end`; the text layer is `mix-blend-mode: multiply` so glyphs stay crisp.
+- **Chart palette** re-stepped and validated (see DESIGN.md › Data visualization): the brand ink green failed the chroma floor as a mark.
+- **API additions:** `MessageOut.usage` (latency/TTFT/cost from `messages.retrieval`, platform admins only) so reloaded answers keep the admin usage line; `by_model_tier` gains `answers` and `answer_cost_usd` so tiers compare per answer; a stopped or failed first turn now also gets a title.
+- **Rate limit** is checked in the BFF before proxying (`chat:${userId}`, sliding 30/min, Upstash). It fails open if Redis errors; 429 carries `Retry-After`.
+
 ## Better Auth tables (Phase 2, for Phase 3)
 - All seven live in the configured schema (`documind_dev` locally). None are in `public`; verified via `information_schema`.
 - Columns are camelCase and must be quoted. `!` = NOT NULL; ids are `text`.
@@ -168,6 +178,36 @@ Legend: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked
 - Gotchas / learnings: …
 - Next: …
 -->
+### 2026-10-07 — Phase 6 (done)
+- **Built (`web/`):**
+  - **BFF:** `lib/api.ts` (`apiFetch`/`apiJson`/`ApiError`, server-only), `app/api/backend/[...path]/route.ts` (session → `X-User-Id`, dot-segment guard, streamed request body with `duplex: "half"`, unbuffered response, `request.signal` forwarded so Stop aborts upstream, SSE gets `no-cache, no-transform`), `lib/rate-limit.ts` (Upstash sliding 30/min). `lib/api-types.ts` holds the client-safe API shapes; `lib/format.ts` the cost/token/duration/jurisdiction formatters.
+  - **Chat:** `chat/page.tsx` + `chat/[conversationId]/page.tsx` → `load-chat.ts` (parallel loads, foreign conversation → 404) → `ChatAppLoader` (`ssr:false`). `hooks/use-chat-stream.ts` (eventsource-parser; meta/routing/sources/delta/citations/usage/done/error; Stop; retry), `components/chat/*` (conversation list with date groups + inline rename + confirm delete + mobile drawer, composer with scope picker and chips, agent chips / "Scoped to N documents", phase text, react-markdown + a `remarkCitations` plugin turning `[n]` into `CitationChip`s with hover cards, collapsible sources, 👍/👎 with an optional note, copy, admin usage line, empty-state suggestions per department).
+  - **PDF viewer:** `components/pdf/*` (provider + lazily loaded sheet; prev/next, page input, zoom, fit width, download, new tab; highlight via `customTextRenderer`; scrolls to the first mark).
+  - **Documents:** admin table with 2 s SWR polling while anything ingests, filters, upload dialog (drag and drop, per-file XHR progress, 409 → "Already uploaded"), row actions (view, details, edit, reindex, delete), edit-metadata sheet (zod, tag input, "Reindex now" when `needs_reindex`), detail drawer (summary, outline → viewer, chunk count); read-only list for members.
+  - **Settings** (model + $/1M for the selected tier, tier radios, Advanced: router model + top_k), **Analytics** (shared dashboard for `[orgSlug]/analytics` and `/admin/analytics` with an org filter: range presets/custom, 8 KPI cells, Recharts cost/tokens/p95, table view, 5 breakdown tables), **Admin** (`/admin` orgs overview, admin nav, org memberships column on users).
+  - **Cross-cutting:** `loading.tsx` per segment, `error.tsx` (with `retry`) for the org and admin segments, mobile chat header with its own sidebar trigger.
+- **Built (`api/`):** `MessageOut.usage` (admins), `by_model_tier.answers/answer_cost_usd`, title for stopped/failed first turns; tests +2 (144 total).
+- **Verified (headless Chrome via a scratch Playwright script + live uvicorn/OpenAI; throwaway `test-e2e-*` users with minted sessions, removed afterwards):**
+  - BFF: 401 without a session; member → 403 on settings; SSE events arrive incrementally through the proxy.
+  - "How much PTO do employees in Germany get?": streamed, "HR agent · Germany" chip, hover cards, clicking a chip opened SIM-HR-102 at p. 7 with 15 marked spans; reload restores the titled conversation. A pp. 22–23 citation opened at p. 22 with 26 marks.
+  - Scoped to SIM-IT-001: "Scoped to 1 document", every source SIM-IT-001. Stop mid-stream → "You stopped this answer"; after reload the partial answer is still there.
+  - Admin: upload showed Queued → Fetching file → Classifying → Embedding → Indexing → Ready, the duplicate showed "Already uploaded"; edit metadata → Reindex now → Ready; outline 59 items; delete. Settings tier change persisted.
+  - Analytics per answer: Flex $0.000159 vs Standard $0.000340 (gpt-6-luna). The chat tier was reset to the default afterwards.
+  - Member/outsider: settings, analytics, members, `/admin`, `/admin/analytics` and a foreign org all render the not-found UI; documents is read-only.
+  - Rate limit: a concurrent burst of 31 → 30 passed, the 31st 429 with `Retry-After`; the UI shows "Slow down a little … Try again in 25s" and keeps the question.
+  - 360px: no horizontal overflow on chat, documents, analytics; the PDF sheet is full width. Dark mode checked. No console errors or hydration warnings in any run.
+  - `pnpm typecheck`, `lint`, `build` pass (all app routes Partial Prerender, no build warnings); `pytest` 144 passed; ruff clean.
+- **`/impeccable` critique** (chat, documents, analytics, settings, admin): the deterministic detector reported no findings on all Phase 6 UI + `globals.css`. Review fixes applied: one header on mobile chat, tooltips on answer actions, titles for stopped first turns, legend in series order, sparse latency points, per-answer cost by tier, hover snippet without the repeated heading, suggestions in department order, PDF highlight that keeps glyphs crisp.
+- **Deviations from plan:** `history.replaceState` instead of `router.replace` (see Decisions); no `runtime`/`dynamic` exports on the BFF (rejected under cacheComponents); members' Documents page added to their sidebar; no canvas alias (pdfjs-dist 6 loads `@napi-rs/canvas` via a runtime `createRequire`, which the bundler never sees; the build is clean without it). Jurisdictions show the ISO code + country name (Windows doesn't render flag emoji).
+- **Gotchas / learnings:**
+  - Running `pnpm typecheck` (`next typegen`) while `next dev` is up put dev into the endless "Compiled in 1ms" reload loop; deleting `web/.next/dev` fixed it (CLAUDE.md updated).
+  - react-pdf 11 uses Suspense by default; `suspense={false}` keeps the `loading`/`error` props. `pdfjs-dist` must be a direct dependency at react-pdf's exact version so `new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url)` resolves under pnpm.
+  - A `"use server"` file may only export async functions; shared zod schemas live in `lib/document-metadata.ts`.
+  - Sliding-window limits are weighted across windows: a slow sequential burst (≈1.6 s per request from dev) never reached 30; the check has to be concurrent.
+  - **Test-data incident:** an early E2E run selected a row by doc code and edited the real SIM-HR-105 (title, version) and reindexed it. It was restored from the PDF's own header/title (`United Kingdom HR Manual (London)`, 1.0), reindexed, and verified (54/54 chunks carry the original title). Rows now carry `data-document-id`, and tests target uploads by id only.
+  - The dev DB keeps the usage rows from these runs (about $0.03); their user rows are gone, so analytics lists them as "Deleted user".
+- **Next:** Phase 7 (marketing site and design polish). Candidates carried over: the chat's ~17 s end-to-end TTFT from dev (Phase 5 levers: embed concurrently with routing, write usage rows in the background).
+
 ### 2026-10-07 — Phase 5 (done)
 - **Built (`api/`):**
   - **LLM layer:** `ResponseStream`/`stream_respond` in `llm/client.py` (flex fallback, TTFT at the first delta, usage from `response.completed`, a shielded usage write on close/cancel/error); `embed(usage_rows=…)` for per-request totals; `record_usage(estimated=…)`; `pricing.chat_models()`.

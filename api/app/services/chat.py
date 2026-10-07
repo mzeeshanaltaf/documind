@@ -420,6 +420,10 @@ async def run_chat(turn: ChatTurn) -> AsyncIterator[dict[str, str]]:
                     )
                 except Exception:
                     logger.exception("Could not save the %s assistant message", status)
+            # A first turn that was stopped or failed still names its conversation (mostly
+            # from the question), so the history doesn't fill up with untitled chats.
+            if turn.is_new:
+                schedule_title(turn, content)
 
 
 def _recount(usage: UsageTotals) -> UsageTotals:

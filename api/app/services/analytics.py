@@ -102,7 +102,10 @@ BY_MODEL_TIER_SQL = text(
            coalesce(u.service_tier_actual, u.service_tier_requested, 'default') AS tier,
            count(*) AS calls,
            sum(u.input_tokens) AS input_tokens, sum(u.cached_tokens) AS cached_tokens,
-           sum(u.output_tokens) AS output_tokens, sum(u.cost_usd) AS cost_usd
+           sum(u.output_tokens) AS output_tokens, sum(u.cost_usd) AS cost_usd,
+           -- `answer` calls alone, so tiers compare like for like (cost per answer)
+           count(*) FILTER (WHERE u.operation = 'answer') AS answers,
+           coalesce(sum(u.cost_usd) FILTER (WHERE u.operation = 'answer'), 0) AS answer_cost_usd
     FROM llm_usage u WHERE {USAGE_SCOPE}
     GROUP BY 1, 2 ORDER BY cost_usd DESC, calls DESC
     """

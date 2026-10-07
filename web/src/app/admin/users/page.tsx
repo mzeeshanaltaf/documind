@@ -1,5 +1,6 @@
 import { SearchIcon, UsersIcon } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Suspense } from "react";
 import { PageContainer } from "@/components/app/page-container";
 import { PageHeader } from "@/components/app/page-header";
@@ -83,7 +84,7 @@ async function Users({ searchParams }: { searchParams: Promise<Record<string, st
                   <TableHead>User</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="hidden text-right md:table-cell">Orgs</TableHead>
+                  <TableHead className="hidden md:table-cell">Organizations</TableHead>
                   <TableHead className="hidden lg:table-cell">Joined</TableHead>
                   <TableHead className="w-12">
                     <span className="sr-only">Actions</span>
@@ -123,8 +124,24 @@ async function Users({ searchParams }: { searchParams: Promise<Record<string, st
                           <span className="text-muted-foreground">Unverified</span>
                         )}
                       </TableCell>
-                      <TableCell className="hidden text-right text-muted-foreground tabular-nums md:table-cell">
-                        {u.orgCount}
+                      <TableCell className="hidden max-w-64 md:table-cell">
+                        {u.orgs.length === 0 ? (
+                          <span className="text-muted-foreground">None</span>
+                        ) : (
+                          <ul className="flex flex-wrap gap-1.5">
+                            {u.orgs.map((o) => (
+                              <li key={o.slug}>
+                                <Link
+                                  href={`/app/${o.slug}/chat`}
+                                  className="inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+                                >
+                                  {o.name}
+                                  <span className="text-muted-foreground capitalize">· {o.role}</span>
+                                </Link>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
                       </TableCell>
                       <TableCell className="hidden text-muted-foreground tabular-nums lg:table-cell">
                         {dateFormat.format(new Date(u.createdAt))}

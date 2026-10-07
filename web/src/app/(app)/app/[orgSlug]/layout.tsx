@@ -3,7 +3,8 @@ import { after } from "next/server";
 import { Suspense } from "react";
 import { AppSidebar } from "@/components/app/app-sidebar";
 import { ShellSkeleton } from "@/components/app/shell-skeleton";
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { MobileTopBar } from "@/components/app/mobile-top-bar";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { listAccessibleOrgs, requireOrgAccess } from "@/lib/auth-guards";
 import { pool } from "@/lib/db";
 
@@ -37,10 +38,7 @@ async function OrgShell({ params, children }: { params: Promise<{ orgSlug: strin
         user={{ name: user.name, email: user.email, image: user.image ?? null, isAdmin }}
       />
       <SidebarInset>
-        <div className="flex h-12 shrink-0 items-center gap-2 px-3 md:hidden">
-          <SidebarTrigger />
-          <span className="truncate text-sm font-medium">{org.name}</span>
-        </div>
+        <MobileTopBar orgSlug={org.slug} orgName={org.name} />
         {children}
       </SidebarInset>
     </SidebarProvider>

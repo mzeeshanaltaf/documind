@@ -146,6 +146,11 @@ A restrained palette: tinted paper neutrals, one ink-green accent and one reserv
 ### State
 - **Destructive** `oklch(0.53 0.18 28)`, **Success** `oklch(0.5 0.11 152)`, **Warning** `oklch(0.555 0.12 68)`, **Info** `oklch(0.52 0.09 240)`. All ≥ 4.5:1 as text on paper. Exposed as `text-destructive`, `text-success`, `text-warning`, `text-info`.
 
+### Data visualization (Phase 6)
+- **Categorical slots, fixed order:** `--chart-1` green `oklch(0.5 0.11 168)`, `--chart-2` amber `oklch(0.66 0.14 70)`, `--chart-3` blue `oklch(0.55 0.13 250)`; dark `oklch(0.62 0.11 168)` / `oklch(0.665 0.14 68)` / `oklch(0.6 0.13 250)`. Validated with the dataviz palette checks (lightness band, chroma ≥ 0.1, CVD ΔE ≥ 8, normal-vision floor, ≥ 3:1 on the surface) in both themes. Brand ink green (C 0.075) reads grey as a mark, so slot 1 is a stronger step of the same hue.
+- **Marks:** bars ≤ 24px with a 4px rounded data end, 2px surface gaps between stacked segments, 2px lines, hairline grid, one y-axis per chart. Single-series charts have no legend; multi-series legends keep series order. Every chart has a table view.
+- **PDF highlight** (`--pdf-highlight`, `oklch(0.9 0.13 95)` in both themes): rendered PDF pages are always white paper, so the cited span uses the light highlighter, multiplied over the glyphs.
+
 ### Email
 Email clients can't read CSS variables, so `web/src/lib/email/layout.ts` carries sRGB equivalents of these tokens (paper `#f9fcfa`, ink `#121916`, muted `#616a66`, rule `#dce1de`, ink green `#1a5d48`, highlighter `#f6e5a4`). Regenerate them if a token changes.
 
@@ -207,7 +212,7 @@ Built on shadcn `base-nova` (Base UI primitives), lucide icons. Character: refin
 Bordered `rounded-lg` container, no zebra stripes; secondary columns hide below `sm`/`md`; a person cell = avatar + name + muted email; dates in `en-GB` short form with tabular numerals; row actions are ghost icon buttons with aria-labels.
 
 ### Citation (signature component)
-A source card: mono doc code + serif title + mono page ref, a rule, the section number in mono with a serif heading, then the passage in serif with the cited span wrapped in `<mark>` using the Highlighter. Inline answer references are small mono chips on Accent Wash. First used on the auth companion panel (`components/auth/source-panel.tsx`); Phase 6's chat citations must reuse the same anatomy.
+A source card: mono doc code + serif title + mono page ref, a rule, the section number in mono with a serif heading, then the passage in serif with the cited span wrapped in `<mark>` using the Highlighter. Inline answer references are small mono chips on Accent Wash. First used on the auth companion panel (`components/auth/source-panel.tsx`); the chat reuses it in `SourceCard` (`components/chat/citation-chip.tsx`): chip → hover card → sources list → PDF viewer with the passage marked.
 
 ### Logo
 `components/brand/logo.tsx`: an ink-green tile holding a paper page whose middle line is highlighted (the cited passage), next to the serif "DocuMind" wordmark. `app/icon.svg` is the static favicon version.

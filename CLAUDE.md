@@ -32,8 +32,9 @@ web/                Next.js app
   src/app/admin/         platform admin (orgs, users, analytics)
   src/app/api/auth/[...all]/     Better Auth handler
   src/app/api/backend/[...path]/ BFF proxy → FastAPI (adds X-API-Key + X-User-Id)
-  src/lib/{auth,auth-client,auth-guards,db,org-members,api}.ts, src/lib/email/
-  src/components/{brand,auth,app}/  scripts/ (create-schema, migrate-auth, preview-emails)
+  src/lib/{auth,auth-client,auth-guards,db,org-members,api,api-types,format,rate-limit}.ts, src/lib/email/
+  src/components/{brand,auth,app,chat,pdf,documents,settings,analytics}/  src/hooks/use-chat-stream.ts
+  scripts/ (create-schema, migrate-auth, preview-emails)
 api/                FastAPI app
   app/core/       config, db (URL normalizer), security (API key + actor), storage (MinIO), log, errors
   app/models/     SQLAlchemy models (+ read-only mirrors of Better Auth tables)
@@ -128,12 +129,13 @@ cd api && uv run python -m eval.run_eval --org-slug simtora   # writes eval/resu
 - AsyncSession isn't concurrency-safe, so parallel retrievals each need their own session.
 - The VPS disk fills with Docker build cache. A weekly prune cron exists (see the global CLAUDE.md); check `df -h /` before deploys.
 - OpenAI returns `service_tier="default"` (never `"standard"`) for standard and `auto` requests. Usage and the tier arrive only on the `response.completed` stream event.
-- Next 16.4 runs with `cacheComponents` on. Read `web/node_modules/next/dist/docs/` (see `web/AGENTS.md`) before writing Next code.
+- Next 16.4 runs with `cacheComponents` on. Read `web/node_modules/next/dist/docs/` (see `web/AGENTS.md`) before writing Next code. Route segment `runtime`/`dynamic` exports are rejected (Node is the default; route handlers are dynamic).
+- **Chat URL:** a new conversation switches the URL with `history.replaceState`, never `router.replace` (that re-renders the route and drops the live stream). Reads go through the BFF (SWR); writes are Server Actions calling `apiJson`.
 - On this machine, PDFToolkit's containers can hold :3000/:8000 (their restart policy is now `no`), so check `docker ps` if `next dev` falls back to :3001.
 - `@better-auth/cli` is deprecated (stuck at 1.4) and rejects `server-only`; use `pnpm auth:migrate` (runs `getMigrations` under `--conditions=react-server`).
 - Better Auth org endpoints (invite, remove, list) require the caller to be an org member. Platform-admin actions therefore go through `lib/org-members.ts` (Better Auth's adapter via `auth.$context`, or SQL) after `requireAdmin()`.
 - `next.config.ts` loads the root `.env.local` by hand. `loadEnvConfig("..")` is a cached no-op there, and `forceReload` makes `next dev` reload endlessly.
-- If `next dev` reloads endlessly (log repeats "Compiled in 2ms" + the same GET), stop it and delete `web/.next/dev` (corrupted Turbopack dev cache).
+- If `next dev` reloads endlessly (log repeats "Compiled in 2ms" + the same GET), stop it and delete `web/.next/dev` (corrupted Turbopack dev cache). Running `pnpm typecheck` (`next typegen`) while `next dev` is up triggers it; use `npx tsc --noEmit` then.
 - Static auth pages bake `RESEND_FROM_EMAIL` at build time; in Coolify it must be a build-time variable too.
 - **Alembic on the shared DB:** `env.py` only looks at our schema (`include_name`) and connects with `search_path=public`, so reflection names our schema explicitly. Otherwise autogenerate wants to drop other apps' `public` tables and re-create every FK. Migrations take the schema from `get_settings().db_schema` (never hard-coded), and explicit `ck_*` names need `op.f()`. After model changes, run `alembic check`.
 - API tests hit the real dev DB (throwaway `test-*` Better Auth rows, removed afterwards) and local MinIO; OpenAI is monkeypatched (`llm.client.respond`/`embed`, or `get_client` for chat). From this machine a DB round-trip is ~0.45 s and a cold connect 1–3 s, so the suite takes ~5.5 minutes. Stop any local uvicorn first: its ingestion worker claims the tests' jobs.

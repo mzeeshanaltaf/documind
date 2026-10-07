@@ -48,6 +48,25 @@ class ConversationListOut(BaseModel):
     next_cursor: str | None = None
 
 
+class MessageUsageOut(BaseModel):
+    latency_ms: int | None
+    ttft_ms: int | None
+    cost_usd: float | None
+
+    @classmethod
+    def from_retrieval(cls, retrieval: dict[str, Any] | None) -> "MessageUsageOut | None":
+        """Built from `messages.retrieval` (timings + usage totals saved with the answer)."""
+        if not retrieval:
+            return None
+        timings = retrieval.get("timings_ms") or {}
+        usage = retrieval.get("usage") or {}
+        return cls(
+            latency_ms=timings.get("total"),
+            ttft_ms=timings.get("ttft"),
+            cost_usd=usage.get("cost_usd"),
+        )
+
+
 class MessageOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -61,6 +80,9 @@ class MessageOut(BaseModel):
     feedback: int | None
     feedback_comment: str | None
     created_at: datetime
+    usage: MessageUsageOut | None = Field(
+        default=None, description="Answer latency and cost; platform admins only."
+    )
 
 
 class ConversationDetailOut(ConversationOut):

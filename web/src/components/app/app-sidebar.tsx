@@ -21,6 +21,8 @@ import type { ShellOrg, ShellUser } from "./types";
 import { UserMenu } from "./user-menu";
 
 const ASK = [{ segment: "chat", label: "Chat", icon: MessageSquareTextIcon }];
+// Members browse the library read-only; admins manage it under Manage.
+const MEMBER_ASK = [...ASK, { segment: "documents", label: "Documents", icon: FileTextIcon }];
 // Admin-only: hidden here, and every page re-checks server-side.
 const MANAGE = [
   { segment: "documents", label: "Documents", icon: FileTextIcon },
@@ -64,7 +66,7 @@ export function AppSidebar({ org, orgs, user }: { org: ShellOrg; orgs: ShellOrg[
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupContent>
-            <NavItems items={ASK} base={base} pathname={pathname} />
+            <NavItems items={user.isAdmin ? ASK : MEMBER_ASK} base={base} pathname={pathname} />
           </SidebarGroupContent>
         </SidebarGroup>
         {user.isAdmin && (

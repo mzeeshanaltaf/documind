@@ -14,6 +14,7 @@ from app.schemas.chat import (
     FeedbackIn,
     FeedbackOut,
     MessageOut,
+    MessageUsageOut,
 )
 from app.services import conversations as service
 
@@ -46,7 +47,16 @@ async def get_conversation(
     messages = await service.list_messages(session, conversation.id)
     return ConversationDetailOut(
         **ConversationOut.model_validate(conversation).model_dump(),
-        messages=[MessageOut.model_validate(message) for message in messages],
+        messages=[
+            MessageOut.model_validate(message).model_copy(
+                update={
+                    "usage": MessageUsageOut.from_retrieval(message.retrieval)
+                    if actor.is_admin and message.role == "assistant"
+                    else None
+                }
+            )
+            for message in messages
+        ],
     )
 
 

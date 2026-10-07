@@ -1,6 +1,7 @@
 import { ArrowLeftIcon } from "lucide-react";
 import Link from "next/link";
 import { Suspense } from "react";
+import { AdminNav } from "@/components/app/admin-nav";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { ShellSkeleton } from "@/components/app/shell-skeleton";
 import { Logo } from "@/components/brand/logo";
@@ -36,6 +37,7 @@ async function AdminShell({ children }: { children: React.ReactNode }) {
           <SignOutButton variant="ghost" size="sm" />
         </div>
       </header>
+      <AdminNav />
       {children}
     </div>
   );

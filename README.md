@@ -45,12 +45,17 @@ Prerequisites: Node 24 with pnpm, Python 3.12 with [uv](https://docs.astral.sh/u
    ```bash
    cd api && uv run python -m scripts.seed_policies --org-slug simtora --wait
    ```
-6. **Ask a question.** `POST /v1/orgs/{org_id}/chat` streams the answer as Server-Sent Events (routing, sources, text, citations, usage). The [API README](api/README.md#chat) has a `curl` example. To measure retrieval quality (BM25 vs vector vs hybrid) on the golden questions:
+6. **Use the app.** With both servers running (the web app loads all its data from the API), open http://localhost:3000/app/simtora/chat and ask a question. Answers stream in with citation chips; clicking one opens the PDF at the cited page with the passage highlighted. Platform admins also get Documents (upload, edit metadata, reindex), Members, Settings (model and service tier) and Analytics, plus `/admin` for every organization.
+   - The browser only talks to Next.js; `/api/backend/*` forwards to FastAPI with the service key.
+   - Chat is limited to 30 questions a minute per user when `UPSTASH_REDIS_REST_URL`/`_TOKEN` are set (no limit otherwise).
+   - The API itself: `POST /v1/orgs/{org_id}/chat` streams Server-Sent Events (routing, sources, text, citations, usage); the [API README](api/README.md#chat) has a `curl` example.
+
+   To measure retrieval quality (BM25 vs vector vs hybrid) on the golden questions:
    ```bash
    cd api && uv run python -m eval.run_eval --org-slug simtora   # writes eval/results/<date>.md
    ```
 
-Checks: `cd web && pnpm typecheck && pnpm lint` and `cd api && uv run pytest && uv run ruff check .`
+Checks: `cd web && pnpm typecheck && pnpm lint && pnpm build` and `cd api && uv run pytest && uv run ruff check .` (stop `next dev` before `pnpm typecheck`, and any local uvicorn before `pytest`).
 
 ## Project docs
 - [`docs/plan/`](docs/plan/): the phase-by-phase implementation plan.

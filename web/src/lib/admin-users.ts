@@ -10,7 +10,8 @@ export type AdminUserRow = {
   banned: boolean | null;
   emailVerified: boolean;
   createdAt: Date;
-  orgCount: number;
+  /** Org memberships, alphabetical. */
+  orgs: { slug: string; name: string; role: string }[];
 };
 
 export const USERS_PAGE_SIZE = 50;
@@ -21,7 +22,9 @@ export async function searchUsers(query: string, offset = 0) {
   const pattern = q ? `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%` : null;
   const { rows } = await pool.query<AdminUserRow & { total: string }>(
     `select u.id, u.name, u.email, u.image, u.role, u.banned, u."emailVerified", u."createdAt",
-            (select count(*)::int from member m where m."userId" = u.id) as "orgCount",
+            coalesce((select json_agg(json_build_object('slug', o.slug, 'name', o.name, 'role', m.role) order by o.name)
+                        from member m join organization o on o.id = m."organizationId"
+                       where m."userId" = u.id), '[]'::json) as orgs,
             count(*) over () as total
        from "user" u
       where $1::text is null or u.email ilike $1 or u.name ilike $1

@@ -96,11 +96,18 @@
   --input: oklch(0.875 0.008 160);
   --ring: oklch(0.55 0.09 168);
 
-  --chart-1: oklch(0.43 0.075 168);
-  --chart-2: oklch(0.68 0.12 75);
-  --chart-3: oklch(0.55 0.09 240);
+  /* Data marks, in fixed slot order (green, amber, blue). Validated with the dataviz
+     palette checks (lightness band, chroma floor, CVD, contrast) against --background;
+     brand ink green is too grey (C 0.075) for a mark, so slot 1 is a stronger step. */
+  --chart-1: oklch(0.5 0.11 168);
+  --chart-2: oklch(0.66 0.14 70);
+  --chart-3: oklch(0.55 0.13 250);
   --chart-4: oklch(0.62 0.08 168);
   --chart-5: oklch(0.55 0.12 25);
+
+  /* Highlighter over a rendered PDF page. Pages are always white paper, so this
+     stays the light highlighter in both themes and multiplies over the glyphs. */
+  --pdf-highlight: oklch(0.9 0.13 95);
 
   /* Second neutral layer for the app sidebar, a shade under the content paper. */
   --sidebar: oklch(0.968 0.005 160);
@@ -143,11 +150,13 @@
   --input: oklch(0.94 0.01 160 / 17%);
   --ring: oklch(0.64 0.08 168);
 
-  --chart-1: oklch(0.76 0.09 168);
-  --chart-2: oklch(0.8 0.12 78);
-  --chart-3: oklch(0.72 0.09 240);
+  --chart-1: oklch(0.62 0.11 168);
+  --chart-2: oklch(0.665 0.14 68);
+  --chart-3: oklch(0.6 0.13 250);
   --chart-4: oklch(0.58 0.07 168);
   --chart-5: oklch(0.7 0.13 25);
+
+  --pdf-highlight: oklch(0.9 0.13 95);
 
   --sidebar: oklch(0.152 0.008 165);
   --sidebar-foreground: oklch(0.92 0.006 160);
@@ -186,6 +195,94 @@
     background-color: var(--highlight);
     color: var(--highlight-foreground);
   }
+}
+
+/* Cited passage over a PDF page (react-pdf text layer, see components/pdf). The text
+   layer's glyphs are transparent; multiplying the whole layer over the canvas tints
+   the paper under a mark while the printed glyphs stay at full contrast. */
+.pdf-page .textLayer {
+  mix-blend-mode: multiply;
+}
+.pdf-page .textLayer mark {
+  background: var(--pdf-highlight);
+  color: transparent;
+  border-radius: 2px;
+  padding: 0;
+  margin: 0;
+}
+
+/* Rendered answers: a document's reading rhythm inside a chat thread. */
+.answer-prose {
+  font-size: 0.9375rem;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+.answer-prose > * + * {
+  margin-top: 0.75em;
+}
+.answer-prose :is(ul, ol) {
+  padding-left: 1.25rem;
+}
+.answer-prose ul {
+  list-style: disc;
+}
+.answer-prose ol {
+  list-style: decimal;
+}
+.answer-prose li + li {
+  margin-top: 0.25em;
+}
+.answer-prose li::marker {
+  color: var(--muted-foreground);
+}
+.answer-prose :is(h1, h2, h3, h4) {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  line-height: 1.3;
+  margin-top: 1.1em;
+}
+.answer-prose :is(h1, h2) {
+  font-size: 1.125rem;
+}
+.answer-prose :is(h3, h4) {
+  font-size: 1rem;
+}
+.answer-prose strong {
+  font-weight: 600;
+}
+.answer-prose a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.answer-prose code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  background: var(--muted);
+  border-radius: 0.25rem;
+  padding: 0.1em 0.3em;
+}
+.answer-prose table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+.answer-prose :is(th, td) {
+  border: 1px solid var(--border);
+  padding: 0.375rem 0.625rem;
+  text-align: left;
+  vertical-align: top;
+}
+.answer-prose th {
+  background: var(--muted);
+  font-weight: 600;
+}
+.answer-prose blockquote {
+  border-inline-start: 1px solid var(--border);
+  padding-inline-start: 0.875rem;
+  color: var(--muted-foreground);
 }
 
 @media (prefers-reduced-motion: reduce) {

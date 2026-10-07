@@ -365,6 +365,7 @@ async def test_chat_streams_events_and_persists(
     assert [c["id"] for c in listing["conversations"]] == [conversation_id]
     detail = (await client.get(f"/v1/conversations/{conversation_id}", headers=member)).json()
     assert [m["role"] for m in detail["messages"]] == ["user", "assistant"] * 2
+    assert all(m["usage"] is None for m in detail["messages"])  # admins only
     renamed = await client.patch(
         f"/v1/conversations/{conversation_id}", headers=member, json={"title": "Leave"}
     )
@@ -404,6 +405,8 @@ async def test_chat_streams_events_and_persists(
     assert {a["agent"] for a in stats["by_agent"]} == {"HR", "Scoped"}
     assert stats["feedback"] == {"up": 0, "down": 1}
     assert any(day["cost_usd"] > 0 for day in stats["timeseries"])
+    assert sum(row["answers"] for row in stats["by_model_tier"]) == 2
+    assert all(row["answer_cost_usd"] <= row["cost_usd"] for row in stats["by_model_tier"])
     assert (await client.get("/v1/analytics", headers=member)).status_code == 403  # members can't
 
     deleted = await client.delete(f"/v1/conversations/{conversation_id}", headers=member)
@@ -506,6 +509,9 @@ async def test_disconnect_saves_stopped_message(
     assert len(answer_rows) == 1
     assert answer_rows[0].status == "stopped"
     assert answer_rows[0].output_tokens > 0 and answer_rows[0].pricing_estimated is True
+    # A stopped first turn still gets a title.
+    title = await _rows("SELECT title FROM conversations WHERE id = :c", c=turn.conversation_id)
+    assert title[0].title == "German annual leave entitlement"
 
 
 async def test_settings_admin_only_and_validated(

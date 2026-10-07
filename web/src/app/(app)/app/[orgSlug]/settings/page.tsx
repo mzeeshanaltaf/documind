@@ -1,22 +1,35 @@
-import { Settings2Icon } from "lucide-react";
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { AdminPlaceholder } from "@/components/app/admin-placeholder";
+import { PageContainer } from "@/components/app/page-container";
+import { PageHeader } from "@/components/app/page-header";
 import { PageSkeleton } from "@/components/app/shell-skeleton";
+import { SettingsForm } from "@/components/settings/settings-form";
+import { apiJson } from "@/lib/api";
+import type { OrgSettings } from "@/lib/api-types";
+import { requireOrgAdmin } from "@/lib/auth-guards";
 
 export const metadata: Metadata = { title: "Settings" };
 
 export default function SettingsPage({ params }: PageProps<"/app/[orgSlug]/settings">) {
   return (
     <Suspense fallback={<PageSkeleton />}>
-      <AdminPlaceholder
-        params={params}
-        icon={Settings2Icon}
-        title="Settings"
-        description="Model and service-tier choices for this organization."
-        emptyTitle="Nothing to configure yet"
-        emptyDescription="Chat and ingestion settings appear once the assistant is connected."
-      />
+      <Settings params={params} />
     </Suspense>
+  );
+}
+
+async function Settings({ params }: { params: Promise<{ orgSlug: string }> }) {
+  const { orgSlug } = await params;
+  const { user, org } = await requireOrgAdmin(orgSlug);
+  const settings = await apiJson<OrgSettings>(`orgs/${org.id}/settings`, { userId: user.id });
+
+  return (
+    <PageContainer>
+      <PageHeader
+        title="Settings"
+        description={`Which models answer questions in ${org.name}, and how their requests are billed.`}
+      />
+      <SettingsForm orgSlug={org.slug} initial={settings} />
+    </PageContainer>
   );
 }

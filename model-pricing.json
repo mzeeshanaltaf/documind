@@ -1,0 +1,60 @@
+{
+  "gpt-6-sol": {
+    "standard": { "inputPerMillion": 2, "cachedInputPerMillion": 0.2, "outputPerMillion": 10 },
+    "flex": { "inputPerMillion": 1, "cachedInputPerMillion": 0.1, "outputPerMillion": 5 }
+  },
+  "gpt-6-luna": {
+    "standard": { "inputPerMillion": 0.1, "cachedInputPerMillion": 0.01, "outputPerMillion": 0.5 },
+    "flex": { "inputPerMillion": 0.05, "cachedInputPerMillion": 0.005, "outputPerMillion": 0.25 }
+  },
+  "gpt-5.6": {
+    "standard": { "inputPerMillion": 4, "cachedInputPerMillion": 0.4, "outputPerMillion": 20 },
+    "flex": { "inputPerMillion": 2, "cachedInputPerMillion": 0.2, "outputPerMillion": 10 }
+  },
+  "gpt-5.6-sol": {
+    "standard": { "inputPerMillion": 4, "cachedInputPerMillion": 0.4, "outputPerMillion": 20 },
+    "flex": { "inputPerMillion": 2, "cachedInputPerMillion": 0.2, "outputPerMillion": 10 }
+  },
+  "gpt-5.6-terra": {
+    "standard": { "inputPerMillion": 2, "cachedInputPerMillion": 0.2, "outputPerMillion": 12 },
+    "flex": { "inputPerMillion": 1, "cachedInputPerMillion": 0.1, "outputPerMillion": 6 }
+  },
+  "gpt-5.6-luna": {
+    "standard": { "inputPerMillion": 0.2, "cachedInputPerMillion": 0.02, "outputPerMillion": 1.2 },
+    "flex": { "inputPerMillion": 0.1, "cachedInputPerMillion": 0.01, "outputPerMillion": 0.6 }
+  },
+  "gpt-5.5": {
+    "standard": { "inputPerMillion": 5, "cachedInputPerMillion": 0.5, "outputPerMillion": 30 },
+    "flex": { "inputPerMillion": 2.5, "cachedInputPerMillion": 0.25, "outputPerMillion": 15 }
+  },
+  "gpt-5.4": {
+    "standard": { "inputPerMillion": 2.5, "cachedInputPerMillion": 0.25, "outputPerMillion": 15 },
+    "flex": { "inputPerMillion": 1.25, "cachedInputPerMillion": 0.13, "outputPerMillion": 7.5 }
+  },
+  "gpt-5": {
+    "standard": { "inputPerMillion": 1.25, "cachedInputPerMillion": 0.125, "outputPerMillion": 10 },
+    "flex": { "inputPerMillion": 0.625, "cachedInputPerMillion": 0.0625, "outputPerMillion": 5 }
+  },
+  "gpt-5.4-mini": {
+    "standard": { "inputPerMillion": 0.75, "cachedInputPerMillion": 0.075, "outputPerMillion": 4.5 },
+    "flex": { "inputPerMillion": 0.375, "cachedInputPerMillion": 0.0375, "outputPerMillion": 2.25 }
+  },
+  "gpt-5.4-nano": {
+    "standard": { "inputPerMillion": 0.2, "cachedInputPerMillion": 0.02, "outputPerMillion": 1.25 },
+    "flex": { "inputPerMillion": 0.1, "cachedInputPerMillion": 0.01, "outputPerMillion": 0.625 }
+  },
+  "gpt-5-mini": {
+    "standard": { "inputPerMillion": 0.25, "cachedInputPerMillion": 0.025, "outputPerMillion": 2 },
+    "flex": { "inputPerMillion": 0.125, "cachedInputPerMillion": 0.0125, "outputPerMillion": 1 }
+  },
+  "gpt-5-nano": {
+    "standard": { "inputPerMillion": 0.05, "cachedInputPerMillion": 0.005, "outputPerMillion": 0.4 },
+    "flex": { "inputPerMillion": 0.025, "cachedInputPerMillion": 0.0025, "outputPerMillion": 0.2 }
+  },
+  "gpt-4.1": {
+    "standard": { "inputPerMillion": 2, "cachedInputPerMillion": 0.5, "outputPerMillion": 8 }
+  },
+  "text-embedding-3-small": {
+    "standard": { "inputPerMillion": 0.02, "cachedInputPerMillion": 0.02, "outputPerMillion": 0 }
+  }
+}

@@ -1,0 +1,40 @@
+# Local MinIO for development. Credentials come from the root .env.local
+# (S3_ACCESS_KEY / S3_SECRET_KEY / S3_BUCKET).
+#   docker compose -f docker-compose.dev.yml up -d
+#   API: http://localhost:9000   Console: http://localhost:9001
+# MinIO no longer publishes minio/minio or minio/mc (Docker Hub / quay.io); pgsty/* are
+# community builds of the same AGPL source (web console included), used as drop-ins.
+services:
+  minio:
+    image: pgsty/minio:latest
+    env_file: .env.local
+    # Map the app's S3_* keys onto MinIO's root credentials ($$ escapes compose interpolation).
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        MINIO_ROOT_USER="$$S3_ACCESS_KEY" MINIO_ROOT_PASSWORD="$$S3_SECRET_KEY"
+        exec minio server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+    restart: unless-stopped
+
+  # One-shot: create the private bucket (no anonymous policy), then exit.
+  minio-init:
+    image: pgsty/mc:latest
+    env_file: .env.local
+    depends_on:
+      - minio
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        until mc alias set local http://minio:9000 "$$S3_ACCESS_KEY" "$$S3_SECRET_KEY" >/dev/null 2>&1; do
+          sleep 1
+        done
+        mc mb -p "local/$$S3_BUCKET"
+    restart: "no"
+
+volumes:
+  minio-data:

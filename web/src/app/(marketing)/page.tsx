@@ -64,11 +64,24 @@ function Hero() {
             exact page.
           </p>
           <div className="mt-9 flex w-full flex-col gap-2.5 sm:w-auto sm:flex-row">
-            <ButtonLink href="/sign-up" size="lg" className={CTA}>
+            <ButtonLink
+              href="/sign-up"
+              size="lg"
+              className={CTA}
+              data-umami-event="cta_get_started"
+              data-umami-event-location="hero"
+            >
               Get started
               <ArrowRightIcon data-icon="inline-end" />
             </ButtonLink>
-            <ButtonLink href="/contact" variant="outline" size="lg" className={CTA}>
+            <ButtonLink
+              href="/contact"
+              variant="outline"
+              size="lg"
+              className={CTA}
+              data-umami-event="cta_contact"
+              data-umami-event-location="hero"
+            >
               Talk to us
             </ButtonLink>
           </div>
@@ -393,6 +406,8 @@ function FinalCta() {
           <ButtonLink
             href="/sign-up"
             size="lg"
+            data-umami-event="cta_get_started"
+            data-umami-event-location="band"
             className={cn(CTA, "bg-band-foreground text-band hover:bg-band-foreground/90 focus-visible:ring-band-foreground/50")}
           >
             Get started
@@ -402,6 +417,8 @@ function FinalCta() {
             href="/contact"
             variant="outline"
             size="lg"
+            data-umami-event="cta_contact"
+            data-umami-event-location="band"
             className={cn(
               CTA,
               "border-band-foreground/40 bg-transparent text-band-foreground hover:bg-band-foreground/10 hover:text-band-foreground focus-visible:ring-band-foreground/50 dark:border-band-foreground/40 dark:bg-transparent dark:hover:bg-band-foreground/10",

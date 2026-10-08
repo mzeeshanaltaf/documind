@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Instrument_Sans, Source_Serif_4 } from "next/font/google";
+import { Umami } from "@/components/analytics/umami";
 import { Providers } from "@/components/providers";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_URL } from "@/lib/site";
 import "./globals.css";
@@ -59,6 +60,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="flex min-h-full flex-col">
         <Providers>{children}</Providers>
+        <Umami />
       </body>
     </html>
   );

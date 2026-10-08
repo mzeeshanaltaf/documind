@@ -12,6 +12,7 @@ import { ButtonLink } from "@/components/button-link";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
 import { useCooldown } from "@/hooks/use-cooldown";
+import { track } from "@/lib/analytics";
 import { authClient } from "@/lib/auth-client";
 import { authErrorMessage, OTP_LENGTH, RESEND_COOLDOWN_SECONDS, safeNext, withParams } from "@/lib/auth-utils";
 
@@ -53,6 +54,8 @@ export function VerifyEmailForm({ sender }: { sender: string | null }) {
       setError(authErrorMessage(error, "We couldn't verify that code. Try again."));
       return;
     }
+    // An address is verified once, so this is where an email sign-up completes.
+    track("sign_up_completed", { method: "email" });
     // autoSignInAfterVerification: the session cookie is already set.
     router.push(next);
     router.refresh();

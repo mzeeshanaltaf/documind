@@ -9,7 +9,7 @@
 > - Never write secrets here; this repo is public.
 
 ## Current phase
-**Phase 8 — Deployment** (in progress). Infra is provisioned; deploy is blocked on the owner actions listed under *Pending user actions*.
+**Phase 9 — Umami analytics & wrap-up** (code complete, not yet deployed). The tracker and events are built and verified locally; what's left is the `/ship` push and the live checks (see *Pending user actions*). Phase 8 still waits on one browser chat through the BFF.
 
 > ⚠️ **Before launch: the owner must have the Privacy Policy (`/privacy`) reviewed legally.** It was written to match what the app really does (see the Phase 7 log), but it is not legal advice.
 
@@ -24,7 +24,7 @@
 | 6 | App UI | [phase-6](docs/plan/phase-6-app-ui.md) | ✅ Done |
 | 7 | Marketing site & design polish | [phase-7](docs/plan/phase-7-marketing-site.md) | ✅ Done |
 | 8 | Deployment (Coolify + MinIO) | [phase-8](docs/plan/phase-8-deployment.md) | 🟨 In progress |
-| 9 | Umami analytics & wrap-up | [phase-9](docs/plan/phase-9-umami-analytics.md) | ⬜ Not started |
+| 9 | Umami analytics & wrap-up | [phase-9](docs/plan/phase-9-umami-analytics.md) | 🟨 Code done; deploy + live checks pending |
 
 Legend: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked
 
@@ -123,6 +123,24 @@ Legend: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked
 - **SEO:** root metadata (`metadataBase` = `NEXT_PUBLIC_APP_URL` via `lib/site.ts`, title template, OG + `summary_large_image`), static `opengraph-image.tsx` (fonts read at module scope from `web/assets/fonts/*.woff`; Satori can't read woff2), `apple-icon.tsx`, `sitemap.ts` (constant `lastModified`), `robots.ts` (disallow `/app`, `/admin`, `/api`). Next also emits `twitter:image` from the OG image.
 - **App-wide fixes from the audit:** `SidebarInset` gets `min-w-0`; the documents table hides columns by container width (`@container`); admin header and admin tables fit 360px; branded `app/not-found.tsx` (also shown for forbidden pages).
 
+## Decisions made (Phase 9, 2026-10-08)
+- **Website ID checked:** `NEXT_PUBLIC_UMAMI_WEBSITE_ID` is the Umami website **DocuMind** (`documind.zeeshanai.cloud`). It was read from Umami's own `website` table (DB `umami` on the shared Postgres); no new website was needed. Both Umami vars are build-time (and runtime) in Coolify `documind-web` and match `.env.local`.
+- **Gate:** `UMAMI` in `lib/analytics.ts` is non-null only when `NODE_ENV === "production"` and both vars are set. Plus `data-domains="documind.zeeshanai.cloud"` (hard-coded, the website's own domain), so a local `next start` loads the script but sends nothing.
+- **`track()` waits for the script** (retries every 500 ms for up to 10 s), because the tracker loads `afterInteractive` and some events fire on page load. It's a no-op outside production.
+- **`sign_up_completed` has `method: email|google`** (an addition to the plan). Email = a successful `verifyEmail` (an address is verified once). Google = Better Auth's `newUserCallbackURL` adds `?signup=google`, and `<SignupTracker>` (mounted with the script) records it on the full page load, then strips the flag with `history.replaceState`.
+- **Other events:** `chat_message_sent {scoped}` only when the hook accepts the send (a scoped conversation stays scoped on later turns); `citation_opened {doc_type}` covers citation chips and the sources list (doc type from the chat catalog); `document_uploaded {count}` = files queued in one batch; `feedback_given {value}` only when the vote changes (adding a note to a 👎 doesn't count again); landing CTAs get `data-umami-event` + `data-umami-event-location=hero|band`. `contact_submitted` fires on the hydrated fetch success only (the no-JS path has no tracker anyway).
+- **Privacy page** now lists what Umami records (page views, referrer, browser/device/country, a few product actions, no IP stored, no PII or message content); effective date → 8 October 2026.
+
+## Follow-ups & known limitations
+- PDF-only uploads (no Word/HTML, no OCR for scanned PDFs).
+- A single service API key: a key holder can act as any user (accepted trade-off, see Decisions).
+- Platform admins can't view members' chats; analytics are aggregate.
+- Organization data deletion and account deletion on request are manual.
+- The privacy policy needs a legal review before launch.
+- Deferred UI items from the Phase 7 audit: analytics breakdown tables scroll sideways on phones; a KPI sub-label truncates at 360px; mobile LCP waits on Source Serif 4 `opsz`.
+- Latency levers from Phase 5 if chat feels slow: embed the query concurrently with routing; write usage rows in the background.
+- No pytest in CI (the suite needs the dev DB and MinIO).
+
 ## Better Auth tables (Phase 2, for Phase 3)
 - All seven live in the configured schema (`documind_dev` locally). None are in `public`; verified via `information_schema`.
 - Columns are camelCase and must be quoted. `!` = NOT NULL; ids are `text`.
@@ -187,17 +205,25 @@ Legend: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked
 - **Prod secrets** live in Coolify and in the owner's git-/docker-ignored `.env.production.local` (MinIO root + app creds, prod `DOCUMIND_API_KEY`, prod `BETTER_AUTH_SECRET`, prod `DATABASE_URL`). The prod API key and auth secret are new, not the dev ones.
 - **MinIO app credentials** are a dedicated user `documind-app` with policy `documind-app-rw` (List on the bucket; Get/Put/Delete on `documind-docs/*`), not the root user.
 - **`API_BASE_URL=http://documind-api:8000`** (internal hop). Coolify container names carry a per-deploy suffix, so the api has `custom_network_aliases=documind-api` for a stable name. Both apps must be on the `coolify` network (Coolify's default for apps).
+- **Coolify health checks:** api `GET /health`, web `GET /robots.txt` with **`health_check_host=127.0.0.1`** (the default `localhost` resolves to `::1` on Alpine, where Next listens IPv4-only, so every check was refused and the deploy rolled back).
 - **Env flags (Coolify 4.3):** build-time = `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_UMAMI_*`, `RESEND_FROM_EMAIL` only (the web Dockerfile declares exactly these as `ARG`s); everything else runtime-only.
 
 ## Open decisions
 - (none)
 
 ## Pending user actions
+- **Phase 9 (owner):**
+  1. `/ship` the Phase 9 changes. The push redeploys web only (the web build bakes in the Umami vars).
+  2. After the deploy, open https://documind.zeeshanai.cloud with DevTools → Network: the page loads `analytics.zeeshanai.cloud/script.js`, and a `POST …/api/send` returns 200 on each navigation. Umami → DocuMind → Realtime shows the visit.
+  3. Exercise the events on prod (CTA click, a chat question, a citation, a 👍/👎) and check they appear under Umami → Events. Ad blockers can block the tracker, so test in a clean profile.
 - **Phase 8 blockers (owner):**
   1. ~~Create Better Auth's tables in the prod schema `documind`~~ — done 2026-10-07 (`pnpm auth:migrate` with the prod URL; all 7 tables verified in `documind`).
-  2. Commit + push the Phase 8 files (`/ship`): Coolify builds from `main`, so the Dockerfiles must be on GitHub.
+  2. ~~Commit + push the Phase 8 files~~ — done (`a90ca59`, fix `9b9c832`).
   3. ~~Add repo secrets `COOLIFY_BASE_URL` and `COOLIFY_API_TOKEN`~~ — done 2026-10-07 (`gh secret set`).
-  4. Google Cloud Console → OAuth client: add redirect URI `https://documind.zeeshanai.cloud/api/auth/callback/google` and JS origin `https://documind.zeeshanai.cloud` (keep the localhost entries).
+  4. ~~Google OAuth redirect URI for prod~~ — done 2026-10-08. The JS origin isn't needed: Better Auth uses the server-side code flow, and Google checks JS origins only for browser flows (GIS/One Tap).
+  5. ~~Sign up as admin on prod, Google sign-in, create org `simtora`~~ — done 2026-10-08.
+  6. ~~Delete the n8n "DocuMind Phase 8 check" message~~ — done 2026-10-08.
+  7. In a browser on https://documind.zeeshanai.cloud: ask one question in `simtora` and confirm the answer streams token by token (not all at once); then click a citation and confirm the PDF opens at the cited page. This is the only hop not yet verified (browser → Traefik → Next BFF).
 - **Phase 2 manual check (owner):** Click "Continue with Google" on http://localhost:3000/sign-in and complete the consent screen. If Google shows `redirect_uri_mismatch`, add `http://localhost:3000/api/auth/callback/google` to the OAuth client.
   - Done as of Phase 3: the owner's admin account exists, and the org "Simtora Technologies" (`simtora`) exists with the owner as `owner`.
 - **Before launch: get the Privacy Policy (`/privacy`) legally reviewed.** Check especially the legal bases, international transfers (OpenAI, Resend, Google, Upstash), retention promises ("we delete an organization's data when it's closed" and account deletion on request are manual today) and the 16+ age line. Its effective date is the `EFFECTIVE_DATE` constant in `app/(marketing)/privacy/page.tsx`.
@@ -211,7 +237,31 @@ Legend: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked
 - Gotchas / learnings: …
 - Next: …
 -->
-### 2026-10-07 — Phase 8 (in progress: infra provisioned, not deployed)
+### 2026-10-08 — Phase 9 (code complete; deploy + live checks pending)
+- **Built (`web/`):** `lib/analytics.ts` (`UMAMI` config gate + typed `track()`), `components/analytics/umami.tsx` (`next/script` afterInteractive with `data-website-id` + `data-domains`, mounted once in `app/layout.tsx`), `components/analytics/signup-tracker.tsx`. Events wired in `verify-email-form`, `google-button` (`newUserCallbackURL`), `contact-form`, `chat-app` (send + open source), `assistant-message` (feedback), `upload-dialog`; landing CTAs in `(marketing)/page.tsx`. Privacy page Umami text widened (see Decisions). README rewritten as the final version: architecture, analytics events, env var reference (names only), known limitations.
+- **Verified locally:** `tsc --noEmit`, `pnpm lint`, `pnpm build` pass. `next start` on :3100: `/`, `/privacy`, `/contact` and `/sign-up` all carry the website ID (on PPR pages it sits in the RSC payload; the HTML shell has the script preload). Headless Chromium with `/api/send` intercepted (nothing reached the real Umami): on `localhost`, the script loads and sends **0** events. With `documind.zeeshanai.cloud` mapped to :3100, it sends page views, `cta_get_started {location: hero}` and `sign_up_completed {method: google}`, the `?signup` flag is stripped (`next` kept), and there are no console errors. `script.js` returns 200 `application/javascript`. The web Dockerfile already passes both vars as build args.
+- **Not verified yet:** the live tag, real ingestion into Umami and the remaining events on prod (they need the deploy and a signed-in browser); see *Pending user actions → Phase 9*. `pnpm dev` wasn't started, but `UMAMI` is null whenever `NODE_ENV !== "production"`.
+- **Deviations from plan:** `sign_up_completed` carries `method`; CTAs carry `location`; `data-domains` is hard-coded to the prod host rather than an env var.
+- **Gotchas / learnings:** the Coolify deploy token (`COOLIFY_API_TOKEN`) can't read env vars ("Missing required permissions: read"); reading them needs the root token. Umami's data lives in its own `umami` database on the shared `postgres-pgvector` container (not `coolify-db`). Disk 48% (46G/96G).
+- **Next:** owner `/ship` → check the live page and Umami realtime/events → mark Phases 8 and 9 Done once the Phase 8 browser chat check also passes.
+
+### 2026-10-08 — Phase 8 (in progress: prod seeded, chat verified at the API hop)
+- **Owner done:** prod sign-up with the admin email (the OTP email arrived); Google sign-in; org **Simtora Technologies** (`simtora`); the n8n test message was deleted. In prod DB there is one user: `role=admin`, `owner` of `simtora` (admin bootstrap works).
+- **Seeded:** the PDFs were `scp`'d to the VPS, then `docker cp`'d to `/app/seed` (chowned to 10001); ran `uv run python -m scripts.seed_policies --org-slug simtora --dir /app/seed --wait`. 14/14 are `ready`, 1,162 chunks, all 14 jobs `succeeded`, and doc types match dev (6 `country_supplement`s including UK, 2 `global_supplement`s). One job was picked up by the API's own worker (SKIP LOCKED), so the script's summary showed it still `processing`; it finished seconds later.
+- **Verified (API hop, through Traefik):** `POST https://api.documind.zeeshanai.cloud/v1/orgs/…/chat` streams the events in order (meta 0.5 s → routing → sources → deltas → citations → usage → done). **Traefik does gzip `text/event-stream`** (`content-encoding: gzip`), against the earlier assumption, but it flushes on every write: ~700 deltas arrived at ~270 distinct times over 4 s, the same as with `Accept-Encoding: identity`. `GET …/documents/{id}/file` returns a 951 KB `%PDF` from prod MinIO. Citations carry `document_id` + `page_start`.
+- **Not verified yet:** the browser → web Traefik → Next BFF hop (it needs a browser session; the BFF sets `no-transform` on SSE). See *Pending user actions* 7.
+- **Test data:** the check created 3 conversations in the admin's history ("How many days of annual leave…", 2× "Explain in detail how leave works…"); they can be deleted from the chat sidebar.
+- **Disk:** 48% (46G/96G).
+
+### 2026-10-07 — Phase 8 (in progress: deployed, owner-dependent smoke tests pending)
+- **Deployed:** Better Auth tables created in prod `documind`; secrets `COOLIFY_BASE_URL`/`COOLIFY_API_TOKEN` set; pushed `a90ca59` → workflow checked and deployed both apps. The api came up first try (alembic `0001_initial` ran on start). The web deploy failed twice:
+  1. `COPY /app/public: not found`: `web/public` is empty, so git doesn't track it → `mkdir -p public` before `pnpm build` (`9b9c832`).
+  2. Coolify's healthcheck (`localhost` → `::1`, image has no curl, `wget` refused) → `health_check_host=127.0.0.1`, redeployed via the API.
+- **Smoke tests passed:** api `/health` 200 (db ok) + `/v1/me` 401 without key, Let's Encrypt certs on both hosts; web `/`, `/contact`, `/privacy`, `/sign-in`, `/sign-up`, `/robots.txt`, `/sitemap.xml`, `/opengraph-image` 200, `/app` 307, BFF unauth 401; canonical + sitemap use the prod domain (build-time env correct); contact submit → n8n `{"success":true}`; web container → `http://documind-api:8000/health` ok; MinIO 9000/9001 closed from outside, no domain; the web-only push (`9b9c832`) skipped `check-api`/`deploy-api` and redeployed only web.
+- **Still to verify (needs a prod account):** sign-up OTP, Google sign-in, admin bootstrap, seeded docs reaching Ready, chat SSE unbuffered through Traefik (gzip middleware is on; Traefik should skip `text/event-stream`), citations opening PDFs from prod MinIO.
+- **Disk:** 63% (60G/96G) after both builds (55% before the phase).
+
+### 2026-10-07 — Phase 8 (earlier the same day: infra provisioned, not deployed)
 - **Built:**
   - `api/Dockerfile` (python:3.12-slim + uv, `uv sync --frozen --no-dev`, non-root uid 10001, curl HEALTHCHECK on `/health` with a 90 s start period, `alembic upgrade head && exec uvicorn …`, one worker), `web/Dockerfile` (node:24-alpine, corepack pnpm, standalone runner as `node`), root `.dockerignore`.
   - `.github/workflows/deploy.yml` + `.github/scripts/coolify-deploy.sh` (POST `/api/v1/deploy`, 5 attempts with backoff).

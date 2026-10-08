@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 };
 
 /** Edit when the policy changes. */
-const EFFECTIVE_DATE = "7 October 2026";
+const EFFECTIVE_DATE = "8 October 2026";
 
 const SECTIONS = [
   { id: "who-we-are", title: "Who we are" },
@@ -135,8 +135,12 @@ export default function PrivacyPage() {
           </p>
           <h3>Web analytics</h3>
           <p>
-            Aggregated page-view statistics from Umami, a cookieless analytics tool we host ourselves. It doesn&apos;t
-            set cookies, doesn&apos;t track you across sites and doesn&apos;t build a profile of you.
+            Aggregated statistics from Umami, a cookieless analytics tool we host ourselves: page views, the referring
+            site, and your browser, device type and country, derived from the request. We also count a few product
+            actions, such as completing sign-up, sending a chat message, opening a citation or rating an answer. These
+            counts never include your name, email address, questions, answers or document content. Umami doesn&apos;t
+            set cookies, doesn&apos;t store your IP address, doesn&apos;t track you across sites and doesn&apos;t
+            build a profile of you.
           </p>
           <h3>Technical logs</h3>
           <p>

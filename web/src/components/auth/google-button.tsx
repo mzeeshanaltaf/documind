@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { SIGNUP_PARAM } from "@/components/analytics/signup-tracker";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { authClient } from "@/lib/auth-client";
@@ -22,9 +23,13 @@ export function GoogleButton({ next, onError }: { next: string; onError: (messag
 
   async function handleClick() {
     setPending(true);
+    // A first Google sign-in lands with ?signup=google, which <SignupTracker> records.
+    const newUser = new URL(next, window.location.origin);
+    newUser.searchParams.set(SIGNUP_PARAM, "google");
     const { error } = await authClient.signIn.social({
       provider: "google",
       callbackURL: next,
+      newUserCallbackURL: newUser.pathname + newUser.search,
       errorCallbackURL: withParams("/sign-in", { error: "google", next }),
     });
     // On success the browser is already navigating to Google.

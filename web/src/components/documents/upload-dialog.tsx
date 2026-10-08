@@ -13,6 +13,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
+import { track } from "@/lib/analytics";
 import type { ApiErrorBody, UploadItem } from "@/lib/api-types";
 import { formatBytes } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -112,7 +113,10 @@ export function UploadDialog({ orgId, onUploaded }: { orgId: string; onUploaded:
     };
     await Promise.all(Array.from({ length: CONCURRENCY }, worker));
     setRunning(false);
-    if (accepted) onUploaded();
+    if (accepted) {
+      track("document_uploaded", { count: accepted });
+      onUploaded();
+    }
   }
 
   const ready = entries.filter((e) => e.state === "ready").length;

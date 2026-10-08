@@ -8,6 +8,7 @@ import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
+import { track } from "@/lib/analytics";
 import { CONTACT_ERRORS, MESSAGE_MAX, contactSchema } from "@/lib/contact";
 
 type Status = "idle" | "sending" | "sent";
@@ -71,6 +72,7 @@ export function ContactForm({ initialSent = false, initialError }: { initialSent
       const result = (await response.json().catch(() => null)) as { success?: boolean; message?: string } | null;
       if (response.ok && result?.success) {
         setStatus("sent");
+        track("contact_submitted");
         return;
       }
       setFormError(result?.message ?? CONTACT_ERRORS.server);

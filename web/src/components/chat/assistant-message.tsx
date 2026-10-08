@@ -20,6 +20,7 @@ import { Popover, PopoverContent, PopoverDescription, PopoverHeader, PopoverTitl
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { track } from "@/lib/analytics";
 import type { Routing } from "@/lib/api-types";
 import { formatCost, formatDuration, jurisdictionName, pageLabel, sectionLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -223,6 +224,8 @@ function AnswerFooter({
         toast.error(result.error);
         return;
       }
+      // Adding a note to an existing 👎 re-records the same vote; count only changes.
+      if (previous.feedback !== value) track("feedback_given", { value: value === 1 ? "up" : "down" });
       after?.();
     });
   }

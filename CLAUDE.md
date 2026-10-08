@@ -32,7 +32,7 @@ web/                Next.js app
   src/app/admin/         platform admin (orgs, users, analytics)
   src/app/api/auth/[...all]/     Better Auth handler
   src/app/api/backend/[...path]/ BFF proxy → FastAPI (adds X-API-Key + X-User-Id)
-  src/lib/{auth,auth-client,auth-guards,db,org-members,api,api-types,format,rate-limit,contact,site}.ts, src/lib/email/
+  src/lib/{auth,auth-client,auth-guards,db,org-members,api,api-types,format,rate-limit,contact,site,analytics}.ts, src/lib/email/ (analytics = Umami config + typed `track()`, prod-only)
   src/components/{brand,auth,app,chat,pdf,documents,settings,analytics,marketing,contact}/  src/hooks/use-chat-stream.ts
   scripts/ (create-schema, migrate-auth, preview-emails)
 api/                FastAPI app

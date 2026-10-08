@@ -13,6 +13,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useChatStream } from "@/hooks/use-chat-stream";
+import { track } from "@/lib/analytics";
 import type { Conversation, ConversationDetail } from "@/lib/api-types";
 import { cn } from "@/lib/utils";
 import { AssistantMessage } from "./assistant-message";
@@ -124,8 +125,10 @@ function ChatWorkspace({ org, isAdmin, conversations: initialConversations, docu
     composerRef.current?.focus();
   }
 
+  const docTypes = useMemo(() => new Map(documents.map((d) => [d.id, d.doc_type])), [documents]);
   const openSource = useCallback(
-    (target: CitationTarget) =>
+    (target: CitationTarget) => {
+      track("citation_opened", { doc_type: docTypes.get(target.document_id) ?? undefined });
       openDocument({
         documentId: target.document_id,
         title: target.title,
@@ -133,8 +136,9 @@ function ChatWorkspace({ org, isAdmin, conversations: initialConversations, docu
         page: target.page_start,
         pageEnd: target.page_end,
         highlightText: target.highlight_text ?? target.text ?? null,
-      }),
-    [openDocument],
+      });
+    },
+    [openDocument, docTypes],
   );
 
   // Follow the stream while the reader is at the bottom; leave them be once they scroll up.
@@ -145,9 +149,12 @@ function ChatWorkspace({ org, isAdmin, conversations: initialConversations, docu
     if (el && pinned.current) el.scrollTop = el.scrollHeight;
   }, [chat.turns]);
 
-  const send = (text: string) => {
+  const send = async (text: string) => {
     pinned.current = true;
-    return chat.send(text, scope.length ? scope : null);
+    const result = await chat.send(text, scope.length ? scope : null);
+    // A conversation started with documents keeps that scope on later turns.
+    if (result === "sent") track("chat_message_sent", { scoped: scope.length > 0 || !!conversation?.document_ids.length });
+    return result;
   };
 
   const activeTitle = conversations.find((c) => c.id === chat.conversationId)?.title;

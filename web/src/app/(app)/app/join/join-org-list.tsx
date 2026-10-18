@@ -18,8 +18,9 @@ export function JoinOrgList({ available, joined }: { available: Item[]; joined: 
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const joinedIds = new Set([...joined, ...justJoined].map((o) => o.id));
-  const mine = [...joined, ...justJoined];
+  // The server refresh also returns freshly joined orgs in `joined`, so dedupe by id.
+  const mine = [...new Map([...joined, ...justJoined].map((o) => [o.id, o])).values()];
+  const joinedIds = new Set(mine.map((o) => o.id));
   const open = available.filter((o) => !joinedIds.has(o.id));
 
   function join(org: Item) {

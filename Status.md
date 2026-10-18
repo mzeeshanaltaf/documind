@@ -237,6 +237,11 @@ Legend: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked
 - Gotchas / learnings: …
 - Next: …
 -->
+### 2026-10-18 — Post-phase change: self-service org joining (not deployed)
+- **Why:** new users hit a 404 until an admin added them to an org. Now any signed-in user can join any number of organizations themselves.
+- **Built:** `/app/join` (list of all orgs with Join buttons; `join/actions.ts` → `joinOrganization` calls `auth.api.addMember` as role `member`, marks a matching pending invitation `accepted`). `/app` redirects non-admins with no orgs and no invitations to `/app/join`; the org switcher shows "Join another organization" for non-admins. `join` added to `RESERVED_SLUGS`.
+- **Gotcha:** this is open enrollment by design: any signed-in (email-verified) user can read every org's documents once joined. Not yet tested in a browser; typecheck + lint pass.
+
 ### 2026-10-18 — Post-phase change: per-part retrieval for multi-part questions (not deployed)
 - **Why:** a six-question message (IT, Compliance, Facilities, Procurement, Finance, HR) routed only 3 departments (`MAX_DEPARTMENTS`) and 3 sub-queries, and one shared top-8 ranking let one topic crowd out the others. The answer then covered only the gift question.
 - **Built:**

@@ -63,17 +63,20 @@ export function OrgSwitcher({ current, orgs, isAdmin }: { current: ShellOrg; org
                     </CommandItem>
                   ))}
                 </CommandGroup>
-                {isAdmin && (
-                  <>
-                    <CommandSeparator />
-                    <CommandGroup>
-                      <CommandItem value="create organization new" onSelect={() => go("/app/new-org")}>
-                        <PlusIcon />
-                        Create organization
-                      </CommandItem>
-                    </CommandGroup>
-                  </>
-                )}
+                <CommandSeparator />
+                <CommandGroup>
+                  {isAdmin ? (
+                    <CommandItem value="create organization new" onSelect={() => go("/app/new-org")}>
+                      <PlusIcon />
+                      Create organization
+                    </CommandItem>
+                  ) : (
+                    <CommandItem value="join another organization" onSelect={() => go("/app/join")}>
+                      <PlusIcon />
+                      Join another organization
+                    </CommandItem>
+                  )}
+                </CommandGroup>
               </CommandList>
             </Command>
           </PopoverContent>

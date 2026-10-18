@@ -1,5 +1,5 @@
 /** Route segments under /app that an org slug must not shadow. */
-export const RESERVED_SLUGS = new Set(["new-org", "admin", "api", "settings"]);
+export const RESERVED_SLUGS = new Set(["new-org", "join","admin", "api", "settings"]);
 
 export function slugify(value: string) {
   return value

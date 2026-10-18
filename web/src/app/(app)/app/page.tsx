@@ -37,6 +37,9 @@ async function ResolveOrg() {
     [user.email],
   );
 
+  // New users pick their organizations themselves; no admin step needed.
+  if (!isAdmin && invitations.length === 0) redirect("/app/join");
+
   return (
     <StandaloneShell email={user.email}>
       <main className="flex flex-1 items-center justify-center px-5 py-16">
@@ -61,6 +64,11 @@ async function ResolveOrg() {
                   <ArrowRightIcon data-icon="inline-end" />
                 </ButtonLink>
               ))}
+              {!isAdmin && (
+                <ButtonLink href="/app/join" variant="ghost" className="w-full">
+                  Browse all organizations
+                </ButtonLink>
+              )}
             </EmptyContent>
           </Empty>
         ) : isAdmin ? (
@@ -81,20 +89,7 @@ async function ResolveOrg() {
               </ButtonLink>
             </EmptyContent>
           </Empty>
-        ) : (
-          <Empty className="max-w-md">
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <Building2Icon />
-              </EmptyMedia>
-              <EmptyTitle className="font-heading text-xl">You haven&apos;t been added to an organization yet</EmptyTitle>
-              <EmptyDescription>
-                Ask your administrator to add {user.email}. Once they do, your organization&apos;s documents appear
-                here.
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        )}
+        ) : null}
       </main>
     </StandaloneShell>
   );

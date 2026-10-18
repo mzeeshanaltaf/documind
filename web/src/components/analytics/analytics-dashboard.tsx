@@ -1,8 +1,6 @@
 import { ChartNoAxesColumnIcon } from "lucide-react";
 import type { Option } from "@/components/app/option-select";
-import { Badge } from "@/components/ui/badge";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { AnalyticsRange } from "@/lib/analytics-range";
 import type { Analytics } from "@/lib/api-types";
 import {
@@ -15,10 +13,10 @@ import {
   formatPercent,
   formatUnitCost,
 } from "@/lib/format";
-import { cn } from "@/lib/utils";
-import { AnalyticsCharts } from "./analytics-charts";
+import { AnalyticsCharts, ChartFrame } from "./analytics-charts";
 import { DailyTable } from "./daily-table";
 import { RangePicker } from "./range-picker";
+import { RankedBarChart } from "./ranked-bar-chart";
 
 const OPERATION_LABELS: Record<string, string> = {
   answer: "Answers",
@@ -31,44 +29,6 @@ const OPERATION_LABELS: Record<string, string> = {
 };
 
 const TIER_LABELS: Record<string, string> = { default: "Standard", standard: "Standard", flex: "Flex", auto: "Auto" };
-
-type Column<T> = { header: string; cell: (row: T) => React.ReactNode; numeric?: boolean; className?: string };
-
-function DataTable<T>({ title, rows, columns, empty }: { title: string; rows: T[]; columns: Column<T>[]; empty: string }) {
-  return (
-    <section className="flex min-w-0 flex-col gap-3" aria-label={title}>
-      <h2 className="font-sans text-sm font-semibold">{title}</h2>
-      {rows.length === 0 ? (
-        <p className="rounded-lg border px-4 py-6 text-center text-sm text-muted-foreground">{empty}</p>
-      ) : (
-        <div className="overflow-x-auto rounded-lg border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                {columns.map((c) => (
-                  <TableHead key={c.header} className={cn(c.numeric && "text-right", c.className)}>
-                    {c.header}
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((row, i) => (
-                <TableRow key={i}>
-                  {columns.map((c) => (
-                    <TableCell key={c.header} className={cn(c.numeric && "text-right tabular-nums", c.className)}>
-                      {c.cell(row)}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
-    </section>
-  );
-}
 
 function Stat({ label, value, detail }: { label: string; value: string; detail?: string }) {
   return (
@@ -141,92 +101,96 @@ export function AnalyticsDashboard({
           <AnalyticsCharts points={data.timeseries} granularity={data.range.granularity} />
           <DailyTable points={data.timeseries} granularity={data.range.granularity} />
 
-          <div className="grid gap-x-10 gap-y-8 xl:grid-cols-2">
-            <DataTable
-              title="By operation"
-              rows={data.by_operation}
-              empty="No calls."
-              columns={[
-                { header: "Operation", cell: (r) => OPERATION_LABELS[r.operation] ?? r.operation },
-                { header: "Calls", cell: (r) => formatCount(r.calls), numeric: true },
-                { header: "Tokens", cell: (r) => formatCompact(r.input_tokens + r.output_tokens), numeric: true },
-                { header: "Avg latency", cell: (r) => formatDuration(r.avg_latency_ms), numeric: true, className: "hidden sm:table-cell" },
-                { header: "Cost", cell: (r) => formatCost(r.cost_usd), numeric: true },
-              ]}
-            />
-            <DataTable
-              title="By model and tier"
-              rows={data.by_model_tier}
-              empty="No calls."
-              columns={[
-                { header: "Model", cell: (r) => <span className="font-mono text-xs">{r.model}</span> },
-                { header: "Tier", cell: (r) => <Badge variant="outline">{TIER_LABELS[r.tier] ?? r.tier}</Badge> },
-                { header: "Calls", cell: (r) => formatCount(r.calls), numeric: true, className: "hidden sm:table-cell" },
-                { header: "Answers", cell: (r) => formatCount(r.answers), numeric: true },
-                {
-                  header: "Cost / answer",
-                  cell: (r) => (r.answers ? formatUnitCost(r.answer_cost_usd / r.answers) : "n/a"),
-                  numeric: true,
-                },
-                { header: "Cost", cell: (r) => formatCost(r.cost_usd), numeric: true },
-              ]}
-            />
-            <DataTable
-              title="Top users"
-              rows={data.by_user}
-              empty="No questions from signed-in users yet."
-              columns={[
-                {
-                  header: "Person",
-                  cell: (r) => (
-                    <span className="flex min-w-0 flex-col">
-                      <span className="truncate font-medium">{r.name || r.email || "Deleted user"}</span>
-                      {r.name && r.email && <span className="truncate text-xs text-muted-foreground">{r.email}</span>}
-                    </span>
-                  ),
-                },
-                { header: "Answers", cell: (r) => formatCount(r.requests), numeric: true },
-                { header: "Tokens", cell: (r) => formatCompact(r.tokens), numeric: true, className: "hidden sm:table-cell" },
-                { header: "Cost", cell: (r) => formatCost(r.cost_usd), numeric: true },
-              ]}
-            />
-            <DataTable
-              title="By agent"
-              rows={data.by_agent}
-              empty="No answers yet."
-              columns={[
-                {
-                  header: "Agent",
-                  cell: (r) => (r.agent === "Scoped" ? "Scoped to documents" : r.agent === "General" ? "General" : `${r.agent} agent`),
-                },
-                { header: "Answers", cell: (r) => formatCount(r.messages), numeric: true },
-                {
-                  header: "Helpful",
-                  cell: (r) => (r.up + r.down ? `${r.up} / ${r.up + r.down}` : "n/a"),
-                  numeric: true,
-                  className: "hidden sm:table-cell",
-                },
-                { header: "Cost", cell: (r) => formatCost(r.cost_usd), numeric: true },
-              ]}
-            />
-            <DataTable
-              title="Most cited documents"
-              rows={data.top_documents}
-              empty="No citations yet."
-              columns={[
-                {
-                  header: "Document",
-                  cell: (r) => (
-                    <span className="flex min-w-0 flex-col">
-                      <span className="truncate font-medium">{r.title ?? "Deleted document"}</span>
-                      {r.doc_code && <span className="font-mono text-[0.7rem] text-muted-foreground">{r.doc_code}</span>}
-                    </span>
-                  ),
-                },
-                { header: "Citations", cell: (r) => formatCount(r.citations), numeric: true },
-                { header: "Answers", cell: (r) => formatCount(r.messages), numeric: true },
-              ]}
-            />
+          <div className="grid gap-x-10 gap-y-10 xl:grid-cols-2">
+            <ChartFrame title="By operation" description="LLM cost per operation; hover for calls, tokens and latency">
+              <RankedBarChart
+                measure="Cost"
+                items={[...data.by_operation]
+                  .sort((x, y) => y.cost_usd - x.cost_usd)
+                  .map((r) => ({
+                    key: r.operation,
+                    label: OPERATION_LABELS[r.operation] ?? r.operation,
+                    value: r.cost_usd,
+                    valueLabel: formatCost(r.cost_usd),
+                    details: [
+                      { label: "Cost", value: formatCost(r.cost_usd) },
+                      { label: "Calls", value: formatCount(r.calls) },
+                      { label: "Tokens", value: formatCompact(r.input_tokens + r.output_tokens) },
+                      { label: "Avg latency", value: formatDuration(r.avg_latency_ms) },
+                    ],
+                  }))}
+              />
+            </ChartFrame>
+            <ChartFrame title="By model and tier" description="LLM cost per model and service tier; hover for calls and cost per answer">
+              <RankedBarChart
+                measure="Cost"
+                items={[...data.by_model_tier]
+                  .sort((x, y) => y.cost_usd - x.cost_usd)
+                  .map((r) => ({
+                    key: `${r.model}:${r.tier}`,
+                    label: `${r.model} · ${TIER_LABELS[r.tier] ?? r.tier}`,
+                    value: r.cost_usd,
+                    valueLabel: formatCost(r.cost_usd),
+                    details: [
+                      { label: "Cost", value: formatCost(r.cost_usd) },
+                      { label: "Calls", value: formatCount(r.calls) },
+                      { label: "Answers", value: formatCount(r.answers) },
+                      { label: "Cost / answer", value: r.answers ? formatUnitCost(r.answer_cost_usd / r.answers) : "n/a" },
+                    ],
+                  }))}
+              />
+            </ChartFrame>
+            <ChartFrame title="Top users" description="Answers per person; hover for tokens and cost">
+              <RankedBarChart
+                measure="Answers"
+                items={data.by_user.map((r) => ({
+                  key: r.user_id,
+                  label: r.name || r.email || "Deleted user",
+                  value: r.requests,
+                  valueLabel: formatCount(r.requests),
+                  details: [
+                    ...(r.email ? [{ label: "Email", value: r.email }] : []),
+                    { label: "Answers", value: formatCount(r.requests) },
+                    { label: "Tokens", value: formatCompact(r.tokens) },
+                    { label: "Cost", value: formatCost(r.cost_usd) },
+                  ],
+                }))}
+              />
+            </ChartFrame>
+            <ChartFrame title="By agent" description="Answers per specialist agent; hover for ratings and cost">
+              <RankedBarChart
+                measure="Answers"
+                items={[...data.by_agent]
+                  .sort((x, y) => y.messages - x.messages)
+                  .map((r) => ({
+                    key: r.agent,
+                    label: r.agent === "Scoped" ? "Scoped to documents" : r.agent === "General" ? "General" : `${r.agent} agent`,
+                    value: r.messages,
+                    valueLabel: formatCount(r.messages),
+                    details: [
+                      { label: "Answers", value: formatCount(r.messages) },
+                      { label: "Helpful", value: r.up + r.down ? `${r.up} / ${r.up + r.down}` : "n/a" },
+                      { label: "Cost", value: formatCost(r.cost_usd) },
+                    ],
+                  }))}
+              />
+            </ChartFrame>
+            <ChartFrame title="Most cited documents" description="Citations per document; hover for the full title">
+              <RankedBarChart
+                measure="Citations"
+                items={data.top_documents.map((r, i) => ({
+                  key: r.document_id ?? `${i}`,
+                  label: r.title ?? "Deleted document",
+                  value: r.citations,
+                  valueLabel: formatCount(r.citations),
+                  details: [
+                    ...(r.doc_code ? [{ label: "Code", value: r.doc_code }] : []),
+                    { label: "Citations", value: formatCount(r.citations) },
+                    { label: "Answers", value: formatCount(r.messages) },
+                  ],
+                }))}
+              />
+            </ChartFrame>
           </div>
         </>
       )}

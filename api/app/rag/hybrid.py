@@ -1,14 +1,18 @@
-"""Hybrid retrieval: BM25 + vector lists per (query × filter), fused with Reciprocal Rank Fusion.
+"""Hybrid retrieval: BM25 + vector lists per (part × filter), fused with Reciprocal Rank Fusion.
 
-1. For every query (standalone + sub-queries) and filter (one per specialist department, or the
-   user's documents), BM25 top 30 and vector top 30 run in parallel, each on its own session.
-   A department-filtered list with < 3 hits is re-run unfiltered.
+A question is retrieved as one or more parts (a multi-part question has one per sub-question),
+each with its own query, filters and jurisdiction. Steps 1-4 run per part:
+
+1. For every filter of the part (one per specialist department, or the user's documents), BM25
+   top 30 and vector top 30 run in parallel, each on its own session. A department-filtered
+   list with < 3 hits is re-run unfiltered.
 2. RRF: score(chunk) = Σ weight(method) / (60 + rank) over every list it appears in.
-3. Jurisdiction boost (when the router found one): same ×1.25, GLOBAL ×1.0, other country ×0.8;
+3. Jurisdiction boost (when the part has one): same ×1.25, GLOBAL ×1.0, other country ×0.8;
    with none, country supplements get `BOOST_SUPPLEMENT_NO_TARGET`.
 4. Adjacent chunks whose text overlaps (the chunker's carried-over tail) keep the better one.
-5. The top `top_k` within ~6,000 tokens become numbered sources; a selected table fragment
-   pulls in its neighbouring fragment.
+5. The parts' rankings are interleaved round-robin, so every part gets a fair share of the
+   sources. The top `top_k` (more for many parts, see `source_limits`) within the token budget
+   become numbered sources; a selected table fragment pulls in its neighbouring fragment.
 
 `mode` lets the eval run the same pipeline on one method only ("bm25" or "vector").
 """
@@ -45,6 +49,12 @@ BOOST_OTHER_COUNTRY = 0.8
 # hybrid MRR 0.928 vs 0.878 (plain RRF) and 0.917 (vector only), hit@5 and hit@8 1.0.
 BOOST_SUPPLEMENT_NO_TARGET = 0.9
 METHOD_WEIGHTS: dict[str, float] = {"bm25": 0.6, "vector": 1.0}
+# Multi-part questions: each part is guaranteed this many sources (budget permitting), within
+# an overall cap. Chunks are ~600 tokens.
+SOURCES_PER_PART = 2
+TOKENS_PER_PART = 1500
+MAX_SOURCES = 16
+MAX_TOKEN_BUDGET = 12000
 # Concurrent searches; the engine pool is 5 + 5 and the request itself holds connections too.
 SEARCH_CONCURRENCY = 6
 
@@ -63,6 +73,16 @@ class SearchFilter:
         return ",".join(self.departments) if self.departments else "all"
 
 
+@dataclass(frozen=True)
+class RetrievalPart:
+    """One query searched under its own filters and ranked under its own jurisdiction."""
+
+    query: str
+    vector: Sequence[float] | None = None
+    filters: tuple[SearchFilter, ...] = (SearchFilter(),)
+    jurisdiction: str | None = None
+
+
 @dataclass
 class RankedList:
     method: Method
@@ -70,6 +90,7 @@ class RankedList:
     filter: SearchFilter
     hits: list[uuid.UUID]
     fallback: bool = False  # the unfiltered re-run of a sparse department list
+    part: int = 0
 
 
 @dataclass
@@ -79,6 +100,7 @@ class Fused:
     bm25_rank: int | None = None  # best (lowest) rank across BM25 lists
     vector_rank: int | None = None
     score: float = 0.0  # rrf × jurisdiction boost
+    part: int = 0  # the part whose ranking it came from
 
 
 @dataclass
@@ -144,6 +166,7 @@ class RetrievalResult:
                     "filter": item.filter.label,
                     "hits": len(item.hits),
                     "fallback": item.fallback,
+                    "part": item.part,
                 }
                 for item in self.lists
             ],
@@ -164,7 +187,7 @@ def rrf_fuse(lists: Sequence[RankedList], k: int = RRF_K) -> dict[uuid.UUID, Fus
     for ranked in lists:
         weight = METHOD_WEIGHTS.get(ranked.method, 1.0)
         for rank, chunk_id in enumerate(ranked.hits, start=1):
-            item = fused.setdefault(chunk_id, Fused(chunk_id))
+            item = fused.setdefault(chunk_id, Fused(chunk_id, part=ranked.part))
             item.rrf += weight / (k + rank)
             attr = "bm25_rank" if ranked.method == "bm25" else "vector_rank"
             best = getattr(item, attr)
@@ -276,6 +299,29 @@ def select_chunks(
     return chosen
 
 
+def source_limits(parts: int, top_k: int, token_budget: int) -> tuple[int, int]:
+    """(source count, token budget): a single question keeps the org's `top_k`; several parts
+    get at least `SOURCES_PER_PART` sources each, within `MAX_SOURCES` / `MAX_TOKEN_BUDGET`."""
+    if parts <= 1:
+        return top_k, token_budget
+    count = min(max(top_k, SOURCES_PER_PART * parts), max(top_k, MAX_SOURCES))
+    budget = min(max(token_budget, TOKENS_PER_PART * parts), max(token_budget, MAX_TOKEN_BUDGET))
+    return count, budget
+
+
+def interleave(rankings: Sequence[Sequence[ChunkInfo]]) -> list[tuple[int, ChunkInfo]]:
+    """Round-robin over the parts' rankings (best first in each), skipping chunks already taken,
+    so the first n×k chunks hold every part's top k. Each chunk comes with its part's index."""
+    merged: list[tuple[int, ChunkInfo]] = []
+    seen: set[uuid.UUID] = set()
+    for rank in range(max((len(r) for r in rankings), default=0)):
+        for part, ranking in enumerate(rankings):
+            if rank < len(ranking) and ranking[rank].id not in seen:
+                seen.add(ranking[rank].id)
+                merged.append((part, ranking[rank]))
+    return merged
+
+
 def to_sources(chosen: Sequence[ChunkInfo], fused: dict[uuid.UUID, Fused]) -> list[Source]:
     sources = []
     for n, chunk in enumerate(chosen, start=1):
@@ -286,6 +332,7 @@ def to_sources(chosen: Sequence[ChunkInfo], fused: dict[uuid.UUID, Fused]) -> li
             "rrf": round(item.rrf, 6) if item else None,
             "score": round(item.score, 6) if item else None,
             "added_as": None if item else "table_fragment",
+            "part": item.part if item else None,
         }
         sources.append(
             Source(
@@ -398,88 +445,98 @@ async def _run_search(semaphore: asyncio.Semaphore, search: Callable[[AsyncSessi
 
 async def run_lists(
     org_id: str,
-    queries: Sequence[str],
-    vectors: Sequence[Sequence[float]] | None,
-    filters: Sequence[SearchFilter],
+    parts: Sequence[RetrievalPart],
     mode: Mode = "hybrid",
     k: int = LIST_K,
 ) -> list[RankedList]:
-    """All ranked lists for queries × filters × methods, plus unfiltered fallbacks."""
+    """All ranked lists for parts × their filters × methods, plus unfiltered fallbacks; the
+    searches of every part share one concurrency limit."""
     methods: list[Method] = ["bm25", "vector"] if mode == "hybrid" else [mode]
-    if "vector" in methods and (vectors is None or len(vectors) != len(queries)):
-        raise ValueError("vector search needs one embedding per query")
+    if "vector" in methods and any(part.vector is None for part in parts):
+        raise ValueError("vector search needs one embedding per part")
     semaphore = asyncio.Semaphore(SEARCH_CONCURRENCY)
 
-    def plan(method: Method, qi: int, flt: SearchFilter, fallback: bool = False) -> Any:
-        query = queries[qi]
+    def plan(method: Method, pi: int, flt: SearchFilter, fallback: bool = False) -> Any:
+        part = parts[pi]
         departments = None if fallback else flt.departments
         doc_ids = flt.document_ids
 
         async def search(session: AsyncSession) -> RankedList:
             if method == "bm25":
                 hits = await bm25_search(
-                    session, org_id, query, k=k, document_ids=doc_ids, departments=departments
+                    session, org_id, part.query, k=k, document_ids=doc_ids, departments=departments
                 )
             else:
-                assert vectors is not None
+                assert part.vector is not None
                 hits = await vector_search(
                     session,
                     org_id,
-                    vectors[qi],
+                    part.vector,
                     k=k,
                     document_ids=doc_ids,
                     departments=departments,
                 )
-            return RankedList(method, query, flt, [chunk_id for chunk_id, _ in hits], fallback)
+            ids = [chunk_id for chunk_id, _ in hits]
+            return RankedList(method, part.query, flt, ids, fallback, part=pi)
 
         return _run_search(semaphore, search)
 
     jobs = [
-        (method, qi, flt) for qi in range(len(queries)) for flt in filters for method in methods
+        (method, pi, flt)
+        for pi, part in enumerate(parts)
+        for flt in part.filters or (SearchFilter(),)
+        for method in methods
     ]
     lists: list[RankedList] = list(await asyncio.gather(*(plan(*job) for job in jobs)))
 
     sparse = [
-        (method, qi, flt)
-        for (method, qi, flt), ranked in zip(jobs, lists, strict=True)
+        (method, pi, flt)
+        for (method, pi, flt), ranked in zip(jobs, lists, strict=True)
         if flt.departments and len(ranked.hits) < MIN_FILTERED_HITS
     ]
     if sparse:
-        lists += await asyncio.gather(*(plan(m, qi, f, fallback=True) for m, qi, f in sparse))
+        lists += await asyncio.gather(*(plan(m, pi, f, fallback=True) for m, pi, f in sparse))
     return lists
 
 
 async def retrieve(
     org_id: str,
-    queries: Sequence[str],
-    vectors: Sequence[Sequence[float]] | None,
-    filters: Sequence[SearchFilter],
+    parts: Sequence[RetrievalPart],
     *,
-    jurisdiction: str | None = None,
     top_k: int = DEFAULT_TOP_K,
     mode: Mode = "hybrid",
     token_budget: int = TOKEN_BUDGET,
 ) -> RetrievalResult:
+    if not parts:
+        raise ValueError("retrieval needs at least one part")
     started = time.perf_counter()
-    lists = await run_lists(org_id, queries, vectors, filters or [SearchFilter()], mode)
+    lists = await run_lists(org_id, parts, mode)
     searched = time.perf_counter()
 
-    fused = rrf_fuse(lists)
+    # Fuse, boost and rank each part on its own, then merge the rankings round-robin.
+    fused_by_part = [rrf_fuse([r for r in lists if r.part == pi]) for pi in range(len(parts))]
+    candidates = {cid for fused in fused_by_part for cid in fused}
+    count, budget = source_limits(len(parts), top_k, token_budget)
     async with SessionLocal() as session:
-        info = await load_chunks(session, org_id, list(fused))
-        apply_boost(fused, info, jurisdiction)
-        ranked_ids = sorted(fused, key=lambda cid: (-fused[cid].score, str(cid)))
-        ranked = dedupe_adjacent([info[cid] for cid in ranked_ids if cid in info])
+        info = await load_chunks(session, org_id, list(candidates))
+        rankings = []
+        for part, fused in zip(parts, fused_by_part, strict=True):
+            apply_boost(fused, info, part.jurisdiction)
+            ranked_ids = sorted(fused, key=lambda cid: (-fused[cid].score, str(cid)))
+            rankings.append(dedupe_adjacent([info[cid] for cid in ranked_ids if cid in info]))
+        merged = interleave(rankings)
+        origin = {chunk.id: fused_by_part[pi][chunk.id] for pi, chunk in merged}
+        ranked = dedupe_adjacent([chunk for _, chunk in merged])
         # Only the table chunks that could be selected need their neighbours.
-        tables = [c for c in ranked[: top_k * 2] if c.content_type == "table"]
+        tables = [c for c in ranked[: count * 2] if c.content_type == "table"]
         neighbours = await load_neighbours(session, org_id, tables) if tables else {}
-    chosen = select_chunks(ranked, top_k, token_budget, neighbours)
+    chosen = select_chunks(ranked, count, budget, neighbours)
     finished = time.perf_counter()
 
     return RetrievalResult(
-        sources=to_sources(chosen, fused),
+        sources=to_sources(chosen, origin),
         lists=lists,
-        candidates=len(fused),
+        candidates=len(candidates),
         timings_ms={
             "search": round((searched - started) * 1000),
             "fuse_select": round((finished - searched) * 1000),

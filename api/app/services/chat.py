@@ -36,7 +36,7 @@ from app.llm import client as llm
 from app.llm.usage import UsageCtx
 from app.models.chat import Conversation, Message
 from app.models.document import Document
-from app.rag.hybrid import RetrievalResult, SearchFilter, Source, retrieve
+from app.rag.hybrid import RetrievalResult, Source, retrieve
 from app.schemas.chat import ChatRequest
 from app.services.org_settings import EffectiveSettings, effective_settings
 
@@ -186,14 +186,6 @@ async def prepare_turn(
 # --- the pipeline ----------------------------------------------------------------------------
 
 
-def search_filters(route: Route, document_ids: list[uuid.UUID] | None) -> list[SearchFilter]:
-    if document_ids:
-        return [SearchFilter(document_ids=tuple(document_ids))]
-    if route.departments:
-        return [SearchFilter(departments=(department,)) for department in route.departments]
-    return [SearchFilter()]
-
-
 def policy_owners(
     catalog: Catalog, departments: list[str], document_ids: list[uuid.UUID] | None
 ) -> list[str]:
@@ -321,6 +313,10 @@ async def run_chat(turn: ChatTurn) -> AsyncIterator[dict[str, str]]:
                 "jurisdiction": route.jurisdiction,
                 "standalone_query": route.standalone_query,
                 "sub_queries": route.sub_queries,
+                "parts": [
+                    {"departments": p.departments, "jurisdiction": p.jurisdiction}
+                    for p in route.parts
+                ],
                 "bypassed": route.bypassed,
                 "document_ids": [str(d) for d in turn.document_ids or []],
             },
@@ -338,10 +334,7 @@ async def run_chat(turn: ChatTurn) -> AsyncIterator[dict[str, str]]:
             )
             retrieval = await retrieve(
                 turn.org_id,
-                queries,
-                vectors,
-                search_filters(route, turn.document_ids),
-                jurisdiction=route.jurisdiction,
+                route.retrieval_parts(vectors, turn.document_ids),
                 top_k=settings.top_k,
             )
             sources = retrieval.sources
@@ -354,6 +347,7 @@ async def run_chat(turn: ChatTurn) -> AsyncIterator[dict[str, str]]:
                 departments=route.departments,
                 owners=policy_owners(catalog, route.departments, turn.document_ids),
                 standalone_query=route.standalone_query,
+                parts=route.sub_queries,
                 jurisdiction=route.jurisdiction,
                 model=settings.chat_model,
                 tier=settings.chat_service_tier,

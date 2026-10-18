@@ -72,7 +72,7 @@ class FakeOpenAI:
             "departments": ["HR"],
             "jurisdiction": "DE",
             "standalone_query": "How much annual leave do employees in Germany get?",
-            "sub_queries": [],
+            "parts": [],
             "needs_clarification": False,
             "clarifying_question": None,
         }
@@ -466,6 +466,57 @@ async def test_clarifying_question_skips_retrieval(
     assert events[3][1]["text"].startswith("Which country")
     assert not any("embed" in call for call in fake_openai.calls)
     assert not any(call.get("stream") for call in fake_openai.calls)
+    await _wait_for_titles()
+
+
+async def test_multi_part_question_retrieves_each_part(
+    client: AsyncClient,
+    api_key: str,
+    seed: Seed,
+    corpus: dict[str, uuid.UUID],
+    fake_openai: FakeOpenAI,
+) -> None:
+    leave = "How much annual leave do employees in Germany get?"
+    tools = "Which AI tools may I use?"
+    fake_openai.route = fake_openai.route | {
+        "departments": ["HR", "IT"],
+        "jurisdiction": None,
+        "standalone_query": f"{leave} {tools}",
+        "parts": [
+            {"query": leave, "departments": ["HR"], "jurisdiction": "DE"},
+            {"query": tools, "departments": ["IT"], "jurisdiction": None},
+        ],
+    }
+    member = {"X-API-Key": api_key, "X-User-Id": seed.member_id}
+    response = await client.post(
+        f"/v1/orgs/{seed.org_id}/chat",
+        headers=member,
+        json={"message": "Leave in Germany, and which AI tools are allowed?"},
+    )
+    events = parse_sse(response.text)
+    data = dict((name, payload) for name, payload in events if name != "delta")
+    routing = data["routing"]
+    assert routing["departments"] == ["HR", "IT"] and routing["sub_queries"] == [leave, tools]
+    assert routing["parts"] == [
+        {"departments": ["HR"], "jurisdiction": "DE"},
+        {"departments": ["IT"], "jurisdiction": None},
+    ]
+    assert {s["doc_code"] for s in data["sources"]} == {"SIM-HR-102", "SIM-IT-001"}
+
+    # One embedding per part (not the combined standalone query).
+    assert next(c["embed"] for c in fake_openai.calls if "embed" in c) == [leave, tools]
+    stream_call = next(c for c in fake_openai.calls if c.get("stream"))
+    prompt = stream_call["input"][-1]["content"]
+    assert f"1. {leave}\n2. {tools}" in prompt
+
+    (stored,) = await _rows(
+        "SELECT retrieval FROM messages WHERE conversation_id = :c AND role = 'assistant'",
+        c=data["meta"]["conversation_id"],
+    )
+    lists = stored.retrieval["lists"]
+    assert {(item["part"], item["filter"]) for item in lists} == {(0, "HR"), (1, "IT")}
+    # Each part's best chunk leads its round: HR first (part 0), then IT (part 1).
+    assert [s["part"] for s in stored.retrieval["sources"][:2]] == [0, 1]
     await _wait_for_titles()
 
 

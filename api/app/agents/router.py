@@ -1,5 +1,6 @@
 """The orchestrator: one structured call that picks the department specialist(s) and the
-jurisdiction, rewrites follow-ups into a standalone query, and splits multi-part questions.
+jurisdiction, rewrites follow-ups into a standalone query, and splits multi-part questions into
+parts that each carry their own departments and jurisdiction (retrieved separately).
 
 Prompt layout (for prompt caching): static instructions, then the org catalog (both in
 `instructions`), then the last turns of history, then the question.
@@ -10,6 +11,8 @@ When the user scoped the chat to documents, routing is bypassed: only the query 
 
 import json
 import logging
+import uuid
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
@@ -17,13 +20,14 @@ from app.agents.catalog import Catalog
 from app.ingestion.metadata import GLOBAL, normalize_jurisdiction
 from app.llm import client as llm
 from app.llm.usage import UsageCtx
+from app.rag.hybrid import RetrievalPart, SearchFilter
 
 logger = logging.getLogger(__name__)
 
 HISTORY_TURNS = 6
 HISTORY_CHARS = 1500
-MAX_DEPARTMENTS = 3
-MAX_SUB_QUERIES = 3
+MAX_DEPARTMENTS = 3  # per question, or per part of a multi-part question
+MAX_PARTS = 6
 
 
 @dataclass
@@ -33,11 +37,20 @@ class HistoryTurn:
 
 
 @dataclass
-class Route:
+class QueryPart:
+    """One self-contained part of a multi-part question, retrieved on its own."""
+
+    query: str
     departments: list[str]
     jurisdiction: str | None
+
+
+@dataclass
+class Route:
+    departments: list[str]  # multi-part: the union of the parts' departments
+    jurisdiction: str | None
     standalone_query: str
-    sub_queries: list[str] = field(default_factory=list)
+    parts: list[QueryPart] = field(default_factory=list)  # [] = a single question
     needs_clarification: bool = False
     clarifying_question: str | None = None
     bypassed: bool = False
@@ -46,11 +59,47 @@ class Route:
     def as_dict(self) -> dict[str, Any]:
         data = asdict(self)
         data.pop("usage_row")
+        data["sub_queries"] = self.sub_queries
         return data
 
     @property
+    def sub_queries(self) -> list[str]:
+        return [part.query for part in self.parts]
+
+    @property
     def queries(self) -> list[str]:
-        return [self.standalone_query, *self.sub_queries]
+        """What gets embedded: one query per part, or the standalone query."""
+        return self.sub_queries or [self.standalone_query]
+
+    def retrieval_parts(
+        self,
+        vectors: Sequence[Sequence[float]] | None,
+        document_ids: Sequence[uuid.UUID] | None = None,
+    ) -> list[RetrievalPart]:
+        """One retrieval per part (aligned with `queries` and their `vectors`), each filtered to
+        its own departments, or to the user's documents."""
+        specs = [(p.query, p.departments, p.jurisdiction) for p in self.parts] or [
+            (self.standalone_query, self.departments, self.jurisdiction)
+        ]
+        return [
+            RetrievalPart(
+                query=query,
+                vector=vectors[i] if vectors is not None else None,
+                filters=search_filters(departments, document_ids),
+                jurisdiction=jurisdiction,
+            )
+            for i, (query, departments, jurisdiction) in enumerate(specs)
+        ]
+
+
+def search_filters(
+    departments: Sequence[str], document_ids: Sequence[uuid.UUID] | None = None
+) -> tuple[SearchFilter, ...]:
+    if document_ids:
+        return (SearchFilter(document_ids=tuple(document_ids)),)
+    if departments:
+        return tuple(SearchFilter(departments=(department,)) for department in departments)
+    return (SearchFilter(),)
 
 
 ROUTER_SCHEMA: dict[str, Any] = {
@@ -71,10 +120,19 @@ ROUTER_SCHEMA: dict[str, Any] = {
                 "description": "ISO-3166 alpha-2 code, only if stated or clearly implied.",
             },
             "standalone_query": {"type": "string"},
-            "sub_queries": {
+            "parts": {
                 "type": "array",
-                "items": {"type": "string"},
-                "description": "0-3 self-contained parts of a multi-part question.",
+                "description": "2-6 parts of a multi-part question; [] for a single question.",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        "query": {"type": "string"},
+                        "departments": {"type": "array", "items": {"type": "string"}},
+                        "jurisdiction": {"type": ["string", "null"]},
+                    },
+                    "required": ["query", "departments", "jurisdiction"],
+                },
             },
             "needs_clarification": {"type": "boolean"},
             "clarifying_question": {"type": ["string", "null"]},
@@ -83,7 +141,7 @@ ROUTER_SCHEMA: dict[str, Any] = {
             "departments",
             "jurisdiction",
             "standalone_query",
-            "sub_queries",
+            "parts",
             "needs_clarification",
             "clarifying_question",
         ],
@@ -121,9 +179,13 @@ document catalog is below. Return JSON only.
   references from the conversation (e.g. "and in France?" after a German leave question →
   "How much paid annual leave do employees in France get?"). Keep the user's wording and
   any document codes or section numbers. Do not answer it.
-- sub_queries: for a question with several distinct parts, up to 3 self-contained
-  sub-questions (one per part); [] for a single question.
-- needs_clarification / clarifying_question: set true only if ALL hold: the answer materially
+- parts: for a message with several distinct questions, one entry per question (up to 6), each
+  with its own self-contained query, its own 1-3 departments (chosen as above) and its own
+  jurisdiction (null unless that part names or implies a country). The top-level departments
+  are then all the parts' departments, and the top-level jurisdiction is set only if the whole
+  message is about one country. [] for a single question, however long.
+- needs_clarification / clarifying_question: never for a multi-part message. Otherwise set
+  true only if ALL hold: the answer materially
   differs by country, the user gave no hint of their country, and the catalog has several
   country versions for this topic. Even then prefer false — the assistant answers with the
   base policy and notes country variations. If true, ask one short question offering the
@@ -150,33 +212,59 @@ def history_input(history: list[HistoryTurn], question: str) -> list[dict[str, A
     return messages
 
 
-def normalize_route(raw: dict[str, Any], catalog: Catalog, question: str) -> Route:
-    """Keep only catalog departments, a country jurisdiction, distinct sub-queries, and apply
-    the clarification policy."""
+def _departments(values: Any, catalog: Catalog) -> list[str]:
     known = {d.lower(): d for d in catalog.departments}
     departments: list[str] = []
-    for value in raw.get("departments") or []:
+    for value in values or []:
         department = known.get(str(value).strip().lower())
         if department and department not in departments:
             departments.append(department)
-    departments = departments[:MAX_DEPARTMENTS]
+    return departments[:MAX_DEPARTMENTS]
 
-    jurisdiction = normalize_jurisdiction(raw.get("jurisdiction"))
-    if jurisdiction == GLOBAL:
-        jurisdiction = None
 
+def _jurisdiction(value: Any) -> str | None:
+    jurisdiction = normalize_jurisdiction(value)
+    return None if jurisdiction == GLOBAL else jurisdiction
+
+
+def _parts(values: Any, catalog: Catalog, jurisdiction: str | None) -> list[QueryPart]:
+    """Distinct, non-empty parts; a part without a country inherits the message's. Fewer than
+    two parts is a single question."""
+    parts: list[QueryPart] = []
+    seen: set[str] = set()
+    for value in values or []:
+        if not isinstance(value, dict):
+            continue
+        query = str(value.get("query") or "").strip()
+        if not query or query.lower() in seen:
+            continue
+        seen.add(query.lower())
+        parts.append(
+            QueryPart(
+                query=query,
+                departments=_departments(value.get("departments"), catalog),
+                jurisdiction=_jurisdiction(value.get("jurisdiction")) or jurisdiction,
+            )
+        )
+    return parts[:MAX_PARTS] if len(parts) > 1 else []
+
+
+def normalize_route(raw: dict[str, Any], catalog: Catalog, question: str) -> Route:
+    """Keep only catalog departments, country jurisdictions, distinct parts, and apply the
+    clarification policy."""
+    departments = _departments(raw.get("departments"), catalog)
+    jurisdiction = _jurisdiction(raw.get("jurisdiction"))
     standalone = (raw.get("standalone_query") or "").strip() or question
-    sub_queries: list[str] = []
-    for value in raw.get("sub_queries") or []:
-        query = str(value).strip()
-        if query and query.lower() != standalone.lower() and query not in sub_queries:
-            sub_queries.append(query)
+    parts = _parts(raw.get("parts"), catalog, jurisdiction)
+    if parts:
+        departments = list(dict.fromkeys(d for part in parts for d in part.departments))
 
     countries = catalog.jurisdictions_for(departments) - {GLOBAL}
     clarifying = (raw.get("clarifying_question") or "").strip() or None
     needs_clarification = bool(
         raw.get("needs_clarification")
         and clarifying
+        and not parts
         and jurisdiction is None
         and len(countries) > 1
     )
@@ -184,7 +272,7 @@ def normalize_route(raw: dict[str, Any], catalog: Catalog, question: str) -> Rou
         departments=departments,
         jurisdiction=jurisdiction,
         standalone_query=standalone,
-        sub_queries=sub_queries[:MAX_SUB_QUERIES],
+        parts=parts,
         needs_clarification=needs_clarification,
         clarifying_question=clarifying if needs_clarification else None,
     )

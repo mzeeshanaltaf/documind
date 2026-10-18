@@ -27,7 +27,7 @@ from app.core.db import SessionLocal, engine
 from app.llm import client as llm
 from app.llm.usage import UsageCtx
 from app.models.auth import organization_table
-from app.rag.hybrid import Mode, SearchFilter, Source, retrieve
+from app.rag.hybrid import Mode, Source, retrieve
 from app.services.org_settings import effective_settings
 
 EVAL_DIR = Path(__file__).resolve().parent
@@ -98,19 +98,11 @@ async def evaluate_one(
     )
     queries = routed.queries
     vectors = await llm.embed(queries, operation="embed_query", ctx=ctx)
-    filters = [SearchFilter(departments=(d,)) for d in routed.departments] or [SearchFilter()]
+    parts = routed.retrieval_parts(vectors)
     ranks: dict[str, int | None] = {}
     top: dict[str, list[str]] = {}
     for mode in MODES:
-        result = await retrieve(
-            org_id,
-            queries,
-            vectors,
-            filters,
-            jurisdiction=routed.jurisdiction,
-            top_k=top_k,
-            mode=mode,
-        )
+        result = await retrieve(org_id, parts, top_k=top_k, mode=mode)
         ranks[mode] = first_hit(result.sources, golden, top_k)
         top[mode] = [label(s) for s in result.sources[:top_k]]
     departments_by_code = {d.doc_code: d.department for d in catalog.documents}

@@ -3,8 +3,15 @@
 import uuid
 
 from app.agents.catalog import Catalog, CatalogDoc
-from app.agents.router import HISTORY_TURNS, HistoryTurn, history_input, normalize_route
+from app.agents.router import (
+    HISTORY_TURNS,
+    MAX_PARTS,
+    HistoryTurn,
+    history_input,
+    normalize_route,
+)
 from app.agents.specialists import specialist_instructions
+from app.rag.hybrid import SearchFilter
 
 
 def doc(code: str, department: str, jurisdiction: str) -> CatalogDoc:
@@ -40,11 +47,15 @@ def raw(**overrides: object) -> dict[str, object]:
         "departments": ["HR"],
         "jurisdiction": None,
         "standalone_query": "How much leave do I get?",
-        "sub_queries": [],
+        "parts": [],
         "needs_clarification": False,
         "clarifying_question": None,
     }
     return base | overrides
+
+
+def part(query: str, departments: list[str], jurisdiction: str | None = None) -> dict[str, object]:
+    return {"query": query, "departments": departments, "jurisdiction": jurisdiction}
 
 
 def test_departments_are_matched_to_the_catalog() -> None:
@@ -60,15 +71,68 @@ def test_jurisdiction_is_normalized() -> None:
     assert normalize_route(raw(jurisdiction="Germany"), CATALOG, "q").jurisdiction is None
 
 
-def test_sub_queries_are_distinct_and_capped() -> None:
+def test_single_question_searches_the_standalone_query() -> None:
+    route = normalize_route(raw(), CATALOG, "q")
+    assert route.parts == [] and route.queries == ["How much leave do I get?"]
+    assert normalize_route(raw(standalone_query=""), CATALOG, "orig").standalone_query == "orig"
+    # One part is just the question again.
+    assert normalize_route(raw(parts=[part("A?", ["IT"])]), CATALOG, "q").parts == []
+
+
+def test_parts_keep_their_own_departments_and_jurisdiction() -> None:
     route = normalize_route(
-        raw(sub_queries=["How much leave do I get?", "A?", "A?", "B?", "C?", "D?", " "]),
+        raw(
+            departments=["HR"],
+            parts=[
+                part("Password rules?", ["it", "Legal"]),
+                part("password rules?", ["IT"]),  # duplicate
+                part(" ", ["HR"]),
+                part("Dogs in the office?", ["Facilities"], "GLOBAL"),
+                part("Leave in Germany?", ["HR"], "Germany"),
+                part("Leave in France?", ["HR"], "FR"),
+                part("Anything else?", []),
+            ],
+        ),
         CATALOG,
         "q",
     )
-    assert route.sub_queries == ["A?", "B?", "C?"]
-    assert route.queries == ["How much leave do I get?", "A?", "B?", "C?"]
-    assert normalize_route(raw(standalone_query=""), CATALOG, "orig").standalone_query == "orig"
+    assert [(p.query, p.departments, p.jurisdiction) for p in route.parts] == [
+        ("Password rules?", ["IT"], None),
+        ("Dogs in the office?", ["Facilities"], None),
+        ("Leave in Germany?", ["HR"], None),  # not an ISO code
+        ("Leave in France?", ["HR"], "FR"),
+        ("Anything else?", [], None),
+    ]
+    assert route.departments == ["IT", "Facilities", "HR"]  # the parts' union
+    assert route.queries == route.sub_queries == [p.query for p in route.parts]
+    assert route.as_dict()["sub_queries"] == route.sub_queries
+
+
+def test_parts_inherit_the_message_jurisdiction_and_are_capped() -> None:
+    parts = [part(f"Q{i}?", ["HR"]) for i in range(MAX_PARTS + 2)]
+    route = normalize_route(raw(jurisdiction="DE", parts=parts), CATALOG, "q")
+    assert len(route.parts) == MAX_PARTS
+    assert {p.jurisdiction for p in route.parts} == {"DE"}
+
+
+def test_retrieval_parts() -> None:
+    vectors = [[0.1], [0.2]]
+    route = normalize_route(
+        raw(parts=[part("A?", ["HR", "IT"], "FR"), part("B?", [])]), CATALOG, "q"
+    )
+    first, second = route.retrieval_parts(vectors)
+    assert (first.query, first.vector, first.jurisdiction) == ("A?", [0.1], "FR")
+    assert first.filters == (SearchFilter(departments=("HR",)), SearchFilter(departments=("IT",)))
+    assert second.filters == (SearchFilter(),)
+    # Scoped to documents: every part searches just those.
+    doc_id = uuid.uuid4()
+    scoped = route.retrieval_parts(None, [doc_id])
+    assert {p.filters for p in scoped} == {(SearchFilter(document_ids=(doc_id,)),)}
+    assert scoped[0].vector is None
+    # A single question is one part with the route's own filters.
+    (single,) = normalize_route(raw(jurisdiction="DE"), CATALOG, "q").retrieval_parts([[0.3]])
+    assert (single.query, single.jurisdiction) == ("How much leave do I get?", "DE")
+    assert single.filters == (SearchFilter(departments=("HR",)),)
 
 
 def test_clarification_only_when_policy_allows() -> None:
@@ -80,6 +144,9 @@ def test_clarification_only_when_policy_allows() -> None:
     assert not normalize_route(raw(**ask, jurisdiction="DE"), CATALOG, "q").needs_clarification
     # IT has a single (global) version: never.
     assert not normalize_route(raw(**ask, departments=["IT"]), CATALOG, "q").needs_clarification
+    # A multi-part message: never (the other parts would go unanswered).
+    two = [part("Leave?", ["HR"]), part("Dogs?", ["Facilities"])]
+    assert not normalize_route(raw(**ask, parts=two), CATALOG, "q").needs_clarification
     # No question text: never.
     assert not normalize_route(
         raw(needs_clarification=True, clarifying_question=" "), CATALOG, "q"

@@ -73,6 +73,7 @@ def answer_input(
     history: list[HistoryTurn],
     *,
     standalone_query: str | None = None,
+    parts: Sequence[str] = (),
     jurisdiction: str | None = None,
 ) -> list[dict[str, Any]]:
     messages: list[dict[str, Any]] = [
@@ -84,6 +85,12 @@ def answer_input(
     lines = [f"Sources:\n\n{block}", f"Question: {question}"]
     if standalone_query and standalone_query.strip() != question.strip():
         lines.append(f"(Interpreted as: {standalone_query})")
+    if len(parts) > 1:
+        numbered = "\n".join(f"{i}. {part}" for i, part in enumerate(parts, start=1))
+        lines.append(
+            "(The message asks several questions. Answer each one in turn under a short bold "
+            "label, and say for each one the sources don't cover:\n" + numbered + ")"
+        )
     if jurisdiction:
         lines.append(f"(The user is asking about jurisdiction {jurisdiction}.)")
     messages.append({"role": "user", "content": "\n\n".join(lines)})
@@ -98,6 +105,7 @@ def synthesize(
     departments: list[str],
     owners: list[str],
     standalone_query: str | None,
+    parts: Sequence[str] = (),
     jurisdiction: str | None,
     model: str,
     tier: str,
@@ -111,6 +119,7 @@ def synthesize(
             sources,
             history,
             standalone_query=standalone_query,
+            parts=parts,
             jurisdiction=jurisdiction,
         ),
         instructions=answer_instructions(departments, owners),

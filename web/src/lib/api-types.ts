@@ -109,6 +109,8 @@ export type Routing = {
   jurisdiction: string | null;
   standalone_query?: string;
   sub_queries?: string[];
+  /** Multi-part questions: each part's own departments and jurisdiction (aligned with sub_queries). */
+  parts?: { departments: string[]; jurisdiction: string | null }[];
   bypassed: boolean;
   needs_clarification?: boolean;
   document_ids?: string[];

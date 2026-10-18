@@ -11,9 +11,11 @@ from app.rag.hybrid import (
     SearchFilter,
     apply_boost,
     dedupe_adjacent,
+    interleave,
     jurisdiction_factor,
     rrf_fuse,
     select_chunks,
+    source_limits,
     texts_overlap,
     to_sources,
 )
@@ -168,3 +170,31 @@ def test_select_pulls_in_sibling_table_fragment() -> None:
     assert sources[0].scores["bm25_rank"] == 1
     assert sources[1].scores["added_as"] == "table_fragment"
     assert sources[2].scores["bm25_rank"] == 2
+
+
+def test_source_limits_grow_with_parts() -> None:
+    assert source_limits(1, 8, 6000) == (8, 6000)  # a single question: the org's top_k
+    assert source_limits(2, 8, 6000) == (8, 6000)
+    assert source_limits(6, 8, 6000) == (12, 9000)  # 2 sources and 1,500 tokens per part
+    assert source_limits(10, 8, 6000) == (16, 12000)  # capped
+    assert source_limits(6, 20, 6000) == (20, 9000)  # a larger top_k is never cut
+
+
+def test_interleave_gives_every_part_its_best_chunks() -> None:
+    a = [chunk(i) for i in range(5)]
+    b = [chunk(10 + i, doc=DOC_B) for i in range(2)]
+    shared = chunk(30)
+    merged = interleave([[a[0], shared, *a[1:]], [shared, *b]])
+    # Round 2: part 0's `shared` is already taken (by part 1), so only part 1 adds one.
+    assert merged[:4] == [(0, a[0]), (1, shared), (1, b[0]), (0, a[1])]
+    assert [c for _, c in merged].count(shared) == 1
+    # A strong first part can't crowd out the second within a small top_k.
+    chosen = select_chunks([c for _, c in interleave([a, b])], top_k=4)
+    assert chosen == [a[0], b[0], a[1], b[1]]
+    assert interleave([]) == [] and interleave([[], b]) == [(1, b[0]), (1, b[1])]
+
+
+def test_fused_remembers_its_part() -> None:
+    a = uuid.uuid4()
+    fused = rrf_fuse([RankedList("vector", "q", SearchFilter(), [a], part=2)])
+    assert fused[a].part == 2

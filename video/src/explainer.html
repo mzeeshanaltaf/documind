@@ -31,10 +31,11 @@ html,body{margin:0;height:100%;background:#0b0f0d;overflow:hidden}
 </head>
 <body>
 <div id="stage"><div id="cam"></div></div>
-<div id="ui"><button id="pp">Play</button><input id="scr" type="range" min="0" max="16" step="0.01" value="0"><span id="tm">0.00s</span></div>
+<div id="ui"><button id="pp">Play</button><input id="scr" type="range" min="0" max="18" step="0.01" value="0"><span id="tm">0.00s</span></div>
 <script>
 /* ============================================================================
-   DocuMind: one-take explainer (hero ball travels the RAG workflow). Loops at 16 s, 120 BPM.
+   DocuMind: one-take explainer (hero ball travels the RAG workflow). Loops at 18 s, 120 BPM.
+   NOTE: the beat sheet below is the original 16 s plan; the current times live in the `T` object.
    BEAT SHEET            time   what happens                                   sound
    toggle land           0.00   hero lands as the "Upload" toggle knob           marimba C + thump (seam)
    toggle on             0.50   knob slides on, PDF rows appear                  switch click, soft pops
@@ -79,7 +80,7 @@ const dipLong = tau => tau < 0 ? 0 : tau < .04 ? tau / .04 : tau < .2 ? 1 : Math
 // squash after an impact (1 at contact, springs back)
 const pulse = tau => tau < 0 || tau > .5 ? 0 : Math.exp(-tau * 10) * Math.cos(tau * 14);
 
-const D = 16, W = 1920, H = 1080, G = 5600, R = 38;
+const D = 18, W = 1920, H = 1080, G = 4200, R = 38;
 window.VIDEO = { w: W, h: H, duration: D };
 const RENDER = location.search.includes('render');
 if (RENDER) document.documentElement.classList.add('render');
@@ -88,16 +89,18 @@ if (RENDER) document.documentElement.classList.add('render');
 const C = { paper: hex('#fbfdfc'), rule: hex('#dce1de'), edge: hex('#c6cfca'), green: hex('#1a5d48'), wash: hex('#e3eee9'), ink: hex('#121916'), muted: hex('#616a66') };
 
 // ---------- timeline ----------
-const T = { knobA: .5, knobB: .9, hop1: 1.0, slider: 1.75, rollEnd: 3.25, c1: 3.5, c2: 4.0, c3: 4.5,
-  kC: 5.5, kA: 6.0, kR1: 6.5, kR2: 6.75, kY: 7.25, ret: 7.75, launch2: 7.85, chip: 8.5, press: 9.2, page: 9.3, hlA: 9.7, hlB: 10.3, launch: 11.0 };
+const T = { knobA: .5, knobB: .9, hop1: 1.0, slider: 1.75, rollEnd: 4.0, c1: 4.5, c2: 5.5, c3: 6.5,
+  kC: 7.7, kA: 8.4, kR1: 9.1, kR2: 9.6, kY: 10.3, ret: 11.0, launch2: 11.1, chip: 11.8, press: 12.7, page: 12.8, hlA: 13.3, hlB: 14.0, launch: 15.0 };
+const RS = x => T.launch + (x - 11) * .55;   // resets run during the reveal (old 11 s timeline compressed)
+const DS = T.launch + 1.6;     // the camera starts its dive here
 const CONTACTS = [0, T.slider, T.c1, T.c2, T.c3, T.kC, T.kA, T.kR1, T.kR2, T.kY, T.ret, T.chip];
 
 // ---------- world layout ----------
 const KX0 = -1770, KX1 = -1670, KY = -960;               // toggle knob off/on, centre y
 const SX0 = -780, SX1 = 330, SY = -800;                  // slider track
-const ROLL_P = 1.9, ROLL_DUR = T.rollEnd - T.slider, ROLL_VX = (SX1 - SX0) * ROLL_P / ROLL_DUR;
-const CARD_X = [SX1 + ROLL_VX * .25, 0, 0]; CARD_X[1] = CARD_X[0] - 640; CARD_X[2] = CARD_X[1] - 640;
-const CARD_HY = [SY + .5 * G * .0625, 0, 0]; CARD_HY[1] = CARD_HY[0] + 230; CARD_HY[2] = CARD_HY[1] + 230;   // hero centre y on each card
+const ROLL_P = 1.6, ROLL_DUR = T.rollEnd - T.slider, ROLL_VX = (SX1 - SX0) * ROLL_P / ROLL_DUR;
+const CARD_X = [SX1 + ROLL_VX * (T.c1 - T.rollEnd), 0, 0]; CARD_X[1] = CARD_X[0] - 640; CARD_X[2] = CARD_X[1] - 640;
+const CARD_HY = [SY + .5 * G * (T.c1 - T.rollEnd) ** 2, 0, 0]; CARD_HY[1] = CARD_HY[0] + 200; CARD_HY[2] = CARD_HY[1] + 200;   // hero centre y on each card
 const KB = { x0: -1434, pitch: 128, rowTop: [700, 828, 956], off: [0, 26, 64] };
 const keyPos = (row, i) => [KB.x0 + KB.off[row] + i * KB.pitch + 56, KB.rowTop[row] - R];
 const P_C = keyPos(2, 2), P_A = keyPos(1, 0), P_R = keyPos(0, 3), P_Y = keyPos(0, 5), P_RET = [-161, KB.rowTop[1] - R];
@@ -115,14 +118,15 @@ add(T.hop1, T.slider, par([KX1, KY], [SX0, SY], T.hop1, T.slider));
 add(T.slider, T.rollEnd, t => [SX0 + (SX1 - SX0) * Math.pow((t - T.slider) / ROLL_DUR, ROLL_P), SY]);
 add(T.rollEnd, T.c1, t => { const s = t - T.rollEnd; return [SX1 + ROLL_VX * s, SY + .5 * G * s * s]; });
 const PC = i => [CARD_X[i], CARD_HY[i]];
-add(T.c1, T.c2, par(PC(0), PC(1), T.c1, T.c2));
-add(T.c2, T.c3, par(PC(1), PC(2), T.c2, T.c3));
-add(T.c3, T.kC, par(PC(2), P_C, T.c3, T.kC));
-add(T.kC, T.kA, par(P_C, P_A, T.kC, T.kA));
-add(T.kA, T.kR1, par(P_A, P_R, T.kA, T.kR1));
-add(T.kR1, T.kR2, par(P_R, P_R, T.kR1, T.kR2));
-add(T.kR2, T.kY, par(P_R, P_Y, T.kR2, T.kY));
-add(T.kY, T.ret, par(P_Y, P_RET, T.kY, T.ret));
+const hop = (p0, p1, a, b) => add(a, b, par(p0, p1, a, b));
+hop(PC(0), PC(1), T.c1, T.c2);
+hop(PC(1), PC(2), T.c2, T.c3);
+hop(PC(2), P_C, T.c3, T.kC);
+hop(P_C, P_A, T.kC, T.kA);
+hop(P_A, P_R, T.kA, T.kR1);
+hop(P_R, P_R, T.kR1, T.kR2);
+hop(P_R, P_Y, T.kR2, T.kY);
+hop(P_Y, P_RET, T.kY, T.ret);
 stay(T.ret, T.launch2, P_RET);
 add(T.launch2, T.chip, par(P_RET, P_CHIP, T.launch2, T.chip));
 add(T.chip, T.launch, t => [P_CHIP[0], P_CHIP[1] + 8 * dip(t - T.press)]);
@@ -158,12 +162,12 @@ const hero = t => ({ x: samp(HX, t), y: samp(HY, t), vx: samp(HVX, t), vy: samp(
 const ANCH = [
   [0, .9, -2050, -800, .90, .85],
   [1.3, 1.6, -1200, -850, .70, .20],
-  [2.0, 3.1, -285, -800, .72, .80],
-  [3.6, 4.4, 100, -300, .62, .45],
-  [4.9, 5.0, -700, 350, .50, .15],
-  [5.7, 7.7, -750, 820, .72, .85],
-  [8.0, 8.2, 150, 850, .50, .30],
-  [8.7, 11.0, 1300, 800, .62, .85],
+  [2.0, T.rollEnd - .15, -285, -800, .78, .80],
+  [T.rollEnd + .2, T.c3 + .15, 85, -250, .65, .50],
+  [T.c3 + .3, T.c3 + .5, -700, 350, .50, .15],
+  [T.kC + .2, T.ret - .05, -750, 820, .72, .85],
+  [T.launch2 + .15, T.launch2 + .35, 150, 850, .50, .30],
+  [T.chip + .2, T.launch, 1300, 800, .62, .85],
 ];
 const ach = i => kf(ANCH.flatMap(r => [[r[0], r[i]], [r[1], r[i]]]));
 const AXf = ach(2), AYf = ach(3), AZf = ach(4), AWf = ach(5);
@@ -181,16 +185,22 @@ const CAMB = new Float32Array(NS * 3);
   }
 })();
 const WIDE = { x: -70, y: -200, z: .34 };
-const revC = { x: kf([[13.6, WIDE.x], [15.7, A0.x]]), y: kf([[13.6, WIDE.y], [15.7, A0.y]]), z: kf([[13.6, Math.log(WIDE.z)], [15.7, Math.log(A0.z)]]) };
+// the dive locks onto the falling hero (so it is on screen the whole way down), then settles on the opening framing
+const diveLock = t => ease(seg(t, DS, DS + .9)), diveSettle = t => ease(seg(t, D - .6, D));
+const revC = {
+  x: t => lerp(lerp(WIDE.x, hero(t).x, diveLock(t)), A0.x, diveSettle(t)),
+  y: t => lerp(lerp(WIDE.y, hero(t).y, diveLock(t)), A0.y, diveSettle(t)),
+  z: kf([[DS, Math.log(WIDE.z)], [DS + 1.3, Math.log(A0.z)]]),
+};
 function camAt(t) {
   const f = clamp(t, 0, D) / STEP, i = Math.min(NS - 2, Math.floor(f)), u = f - i;
   const sx = lerp(CAMB[i * 3], CAMB[i * 3 + 3], u), sy = lerp(CAMB[i * 3 + 1], CAMB[i * 3 + 4], u), sz = lerp(CAMB[i * 3 + 2], CAMB[i * 3 + 5], u);
   const a = ease(seg(t, 0, .8));
   const fx = lerp(A0.x, sx, a), fy = lerp(A0.y, sy, a), fz = Math.exp(lerp(Math.log(A0.z), Math.log(sz), a));
-  const r = ease(seg(t, LA, LA + 1.2));
+  const r = ease(seg(t, LA, LA + .7));
   const zr = Math.exp(revC.z(t));
   const z = Math.exp(lerp(Math.log(fz), Math.log(zr), r));
-  const tilt = 18 * r * (1 - ease(seg(t, 13.6, 15.7)));
+  const tilt = 18 * r * (1 - ease(seg(t, DS, DS + 1.2)));
   return { x: lerp(fx, revC.x(t), r), y: lerp(fy, revC.y(t), r), z, tilt, r };
 }
 
@@ -229,7 +239,7 @@ const fileRows = FILES.map((n, i) => {
 });
 
 // --- station 2: indexing slider ---
-const S2 = { x: -960, y: -1000, w: 1350, h: 400 };
+const S2 = { x: -960, y: -1000, w: 1350, h: 350 };
 const lab2 = E('lab', cam, S2.x, S2.y - 74);
 E('card', cam, S2.x, S2.y, S2.w, S2.h);
 E('serif', cam, S2.x + 56, S2.y + 36, null, null, { fontSize: '56px', lineHeight: '66px' }, 'Indexing');
@@ -317,7 +327,7 @@ function seek(tt) {
   let p = 0; for (const ct of CONTACTS) p = Math.max(p, pulse(t - ct));
   const sp = Math.hypot(h.vx, h.vy), ang = Math.atan2(h.vy, h.vx) * 180 / Math.PI;
   const st = clamp(sp / 5000) * .3 * (1 - clamp(p * 3));
-  const hs = 1 + .75 * ease(seg(t, LA, LA + 1)) * (1 - ease(seg(t, 14.2, 15.6)));
+  const hs = 1 + .75 * ease(seg(t, LA, LA + .6)) * (1 - ease(seg(t, D - 1.0, D - .3)));
   const sqx = 1 + .28 * p, sqy = 1 - .22 * p;
   heroEl.style.transform = `translate(${h.x}px,${h.y + R * (1 - sqy) * hs}px) scale(${hs}) rotate(${ang}deg) scale(${1 + st},${1 - st * .55}) rotate(${-ang}deg) scale(${sqx},${sqy})`;
   heroDot.style.transform = `rotate(${h.spin}rad)`;
@@ -325,34 +335,34 @@ function seek(tt) {
   halo.style.opacity = clamp(hl / .75); halo.style.transform = `translate(${h.x}px,${h.y}px) scale(${.6 + hl * 1.4})`;
 
   // ---- station 1: toggle ----
-  const on = ease(seg(t, T.knobA, T.knobB)) * (1 - ease(seg(t, 13.0, 13.4)));
+  const on = ease(seg(t, T.knobA, T.knobB)) * (1 - ease(seg(t, RS(13.0), RS(13.4))));
   tgTrack.style.background = mixc(C.edge, C.green, on);
   tgSlot.style.left = px(lerp(KX0, KX1, on) - R); tgSlot.style.borderColor = on > .5 ? 'rgba(249,252,250,.55)' : 'rgba(18,25,22,.28)';
   txt(lab1, on > .5 ? 'Upload · PDFs added' : 'Upload · Policy PDFs');
   fileRows.forEach((r, i) => {
-    const a = spring(t - (T.knobA + .12 + i * .14), 16, .8) * (1 - ease(seg(t, 13.0 + i * .1, 13.2 + i * .1)));
+    const a = spring(t - (T.knobA + .12 + i * .14), 16, .8) * (1 - ease(seg(t, RS(13.0) + i * .1, RS(13.2) + i * .1)));
     r.style.opacity = clamp(a * 1.4); r.style.transform = `translateY(${(1 - a) * 28}px)`;
   });
 
   // ---- station 2: slider ----
   const roll = clamp((t - T.slider) / ROLL_DUR);
-  const v = (t < T.slider ? 0 : t < T.rollEnd ? Math.pow(roll, ROLL_P) : 1) * (1 - ease(seg(t, 12.9, 13.5)));
+  const v = (t < T.slider ? 0 : t < T.rollEnd ? Math.pow(roll, ROLL_P) : 1) * (1 - ease(seg(t, RS(12.9), RS(13.5))));
   slFill.style.width = px(Math.max(0, (SX1 - SX0) * v + 0));
   ticks.forEach((e, i) => { e.style.background = v * 10 >= i - 0.001 && v > 0 ? 'var(--green)' : 'var(--edge)'; });
   const tipOp = clamp((t - T.slider) / .1) * (1 - clamp((t - T.rollEnd) / .2));
   tip.style.opacity = tipOp; tip.style.left = px(SX0 + (SX1 - SX0) * v - 60); tip.style.transform = `translateY(${(1 - tipOp) * 10}px)`;
   txt(tip, Math.round(v * 100) + '%');
-  slSlot.style.opacity = t > T.slider + .02 && t < 12.9 ? 1 : 1;
+  slSlot.style.opacity = t > T.slider + .02 && t < RS(12.9) ? 1 : 1;
   txt(lab2, v >= 1 ? 'Indexing · Reached 100' : 'Indexing · Reading every page');
 
   // ---- station 3: cards ----
-  const hit = [T.c1, T.c2, T.c3], dis = [12.6, 12.75, 12.9];
+  const hit = [T.c1, T.c2, T.c3], dis = [RS(12.6), RS(12.75), RS(12.9)];
   notif.forEach((n, i) => {
-    const pop = spring(t - hit[i], 22, .6) * (1 - ease(seg(t, dis[i], dis[i] + .25)));
+    const pop = spring(t - (hit[i] - .1), 26, .7) * (1 - ease(seg(t, dis[i], dis[i] + .25)));   // starts just before contact so the card is there when the ball lands
     n.style.opacity = clamp(pop * 1.6);
     n.style.transform = `translateY(${dip(t - hit[i]) * 12}px) scale(${.82 + .18 * clamp(pop, 0, 1.15)})`;
   });
-  const allHit = t >= T.c3 && t < 12.9;
+  const allHit = t >= T.c3 && t < RS(12.9);
   txt(lab3, allHit ? 'Pipeline · Ready to answer' : 'Pipeline · Something is falling');
 
   // ---- station 4: keyboard ----
@@ -363,23 +373,23 @@ function seek(tt) {
   });
   { const d = dipLong(t - T.ret); retKey.style.transform = `translateY(${d * 7}px)`; retKey.style.boxShadow = `0 ${7 - d * 7}px 0 var(--rule)`; retKey.style.background = mixc(C.paper, C.wash, d); }
   const nTyped = t < T.ret ? TYPE_T.filter(x => t >= x - .005).length : 0;
-  const ghostOp = ease(seg(t, 7.3, 7.5)) * (t < T.ret ? 1 : 0);
+  const ghostOp = ease(seg(t, T.kY + .05, T.kY + .25)) * (t < T.ret ? 1 : 0);
   const caret = t >= T.kC - .15 && t < T.ret && (Math.floor(t * 6) % 2 === 0 || nTyped > 0 && t - TYPE_T[nTyped - 1] < .3);
   if (nTyped === 0) html(inpText, `<span style="color:#8e9792">Ask about your documents</span>`);
   else html(inpText, `${'carry'.slice(0, nTyped)}${caret ? '<span style="display:inline-block;width:3px;height:44px;background:#1a5d48;vertical-align:-6px;margin-left:2px"></span>' : ''}<span style="color:#8e9792;opacity:${ghostOp}"> over unused leave in Germany?</span>`);
-  txt(lab4, t >= T.ret && t < 12.5 ? 'Ask · Sent' : 'Ask · Type a question');
+  txt(lab4, t >= T.ret && t < RS(12.5) ? 'Ask · Sent' : 'Ask · Type a question');
 
   // ---- station 5: answer ----
-  const rs = 1 - ease(seg(t, 12.3, 12.7));
-  const bA = spring(t - 7.85, 18, .8) * rs;
+  const rs = 1 - ease(seg(t, RS(12.3), RS(12.7)));
+  const bA = spring(t - (T.ret + .1), 18, .8) * rs;
   bubble.style.opacity = clamp(bA * 1.5); bubble.style.transform = `translateY(${(1 - bA) * 30}px)`;
-  const gA = spring(t - 8.05, 18, .8) * rs;
+  const gA = spring(t - (T.ret + .3), 18, .8) * rs;
   badge.style.opacity = clamp(gA * 1.5); badge.style.transform = `translateY(${(1 - gA) * 20}px)`;
-  const prog = ease(seg(t, 8.1, 9.1)) * rs; let n = Math.round(ANS_LEN * prog), out = '';
+  const prog = ease(seg(t, T.ret + .35, T.ret + 1.6)) * rs; let n = Math.round(ANS_LEN * prog), out = '';
   for (const [s, b] of PIECES) { if (n <= 0) break; const part = s.slice(0, n); n -= s.length; out += b ? `<b style="font-weight:600">${part}</b>` : part; }
   if (prog >= 1) out += ` <span class="mono" style="background:#1a5d48;color:#f9fcfa;border-radius:8px;padding:2px 10px;font-size:26px;vertical-align:3px">1</span>`;
   html(ans, out);
-  const cA = spring(t - 7.95, 18, .8) * rs;
+  const cA = spring(t - (T.ret + .2), 18, .8) * rs;
   srcCap.style.opacity = clamp(cA * 1.5); chip1.style.opacity = clamp(cA * 1.5); chip2.style.opacity = clamp(cA * 1.5);
   chip1.style.transform = chip2.style.transform = `translateY(${(1 - cA) * 20}px)`;
   const act = ease(seg(t, T.press, T.press + .2)) * rs;
@@ -388,10 +398,10 @@ function seek(tt) {
   txt(lab5, act > .5 ? 'Source · Page 16, highlighted' : 'Answer · From your documents');
 
   // ---- cited page ----
-  const pg = spring(t - T.page, 15, .85) * (1 - ease(seg(t, 12.0, 12.4)));
+  const pg = spring(t - T.page, 15, .85) * (1 - ease(seg(t, RS(12.0), RS(12.4))));
   page.style.opacity = clamp(pg * 1.6);
   page.style.transform = `translate(${(1 - pg) * -70}px,${(1 - pg) * 40}px) scale(${.94 + .06 * clamp(pg, 0, 1.1)})`;
-  hlmark.style.backgroundSize = (ease(seg(t, T.hlA, T.hlB)) * (1 - ease(seg(t, 12.0, 12.3))) * 100).toFixed(2) + '% 100%';
+  hlmark.style.backgroundSize = (ease(seg(t, T.hlA, T.hlB)) * (1 - ease(seg(t, RS(12.0), RS(12.3)))) * 100).toFixed(2) + '% 100%';
 }
 window.seek = seek;
 seek(0);
@@ -422,7 +432,7 @@ function schedule(c) {
 
   // groove: 120 BPM
   const roots = [36, 33, 41, 43], chords = [[60, 64, 67, 71], [57, 60, 64, 67], [60, 65, 69, 72], [59, 62, 67, 71]];
-  for (let bar = 0; bar < 8; bar++) {
+  for (let bar = 0; bar < D / 2; bar++) {
     const t0 = bar * 2, ci = Math.floor(bar / 2) % 4, root = roots[ci];
     if (bar % 2 === 0) chords[ci].forEach(m => { [-4, 4].forEach(dt => {
       const o = c.createOscillator(), fl = c.createBiquadFilter(), g = c.createGain(); o.type = 'triangle'; o.frequency.value = mtof(m); o.detune.value = dt; fl.type = 'lowpass'; fl.frequency.value = 1100;
@@ -448,12 +458,12 @@ function schedule(c) {
   [T.kC, T.kA, T.kR1, T.kR2, T.kY].forEach(kt => noise(kt, .03, 'bandpass', 3400, 2.5, .26));
   noise(T.ret, .06, 'lowpass', 900, 1, .45); osc('sine', 150, T.ret, .12, .3, .12, master, 0, 70);
   // answer stream: soft ticks, chip press, page swish
-  for (let i = 0; i < 26; i++) noise(8.1 + i * (1 / 26), .012, 'bandpass', 5200, 3, .035);
+  for (let i = 0; i < 26; i++) noise(T.ret + .35 + i * (1.25 / 26), .012, 'bandpass', 5200, 3, .035);
   noise(T.press, .05, 'bandpass', 2200, 2, .25); noise(T.page, .35, 'bandpass', 3800, .8, .1, 1400);
   // launch and reveal
-  whoosh(T.launch, 1.4, 260, 3600, .26); whoosh(13.6, 1.7, 3400, 260, .22);
+  whoosh(T.launch, .9, 260, 3600, .26); whoosh(DS, 1.4, 3400, 260, .22);
   // resets: descending ticks while the world rewinds
-  [12.0, 12.3, 12.6, 12.75, 12.9, 13.1, 13.3, 13.45].forEach((tt, i) => osc('sine', 900 - i * 70, tt, .09, .09, .08, master, .25, 500 - i * 30));
+  [12.0, 12.3, 12.6, 12.75, 12.9, 13.1, 13.3, 13.45].forEach((tt, i) => osc('sine', 900 - i * 70, RS(tt), .09, .09, .08, master, .25, 500 - i * 30));
 }
 window.buildAudio = async function (ctx) {
   const sr = ctx.sampleRate, TAIL = 1.8, n = Math.ceil(sr * D);

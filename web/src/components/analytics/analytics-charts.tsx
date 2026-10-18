@@ -14,8 +14,8 @@ import { formatCompact, formatCost, formatDayMonth, formatDuration } from "@/lib
 
 /* Mark specs (dataviz): bars ≤ 24px with a 4px rounded data-end, 2px surface gaps
    between stacked segments, 2px lines, hairline recessive grid, no dual axes. */
-const BAR_SIZE = 24;
-const TOP_RADIUS: [number, number, number, number] = [4, 4, 0, 0];
+export const BAR_SIZE = 24;
+export const TOP_RADIUS: [number, number, number, number] = [4, 4, 0, 0];
 
 const costConfig = { cost_usd: { label: "Cost", color: "var(--chart-1)" } } satisfies ChartConfig;
 const tokenConfig = {
@@ -28,7 +28,7 @@ const latencyConfig = { p95_latency_ms: { label: "p95 latency", color: "var(--ch
 type Formatter = (value: number) => string;
 
 /** Tooltip row: swatch, label, formatted value (the default prints raw numbers). */
-function row(format: Formatter) {
+export function row(format: Formatter) {
   function TooltipRow(value: unknown, name: unknown, item: { color?: string; payload?: { fill?: string } }) {
     return (
       <div className="flex w-full items-center gap-2">
@@ -41,11 +41,11 @@ function row(format: Formatter) {
   return TooltipRow;
 }
 
-function axisDate(value: string) {
+export function axisDate(value: string) {
   return formatDayMonth(value);
 }
 
-function ChartFrame({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
+export function ChartFrame({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
   return (
     <figure className="flex min-w-0 flex-col gap-3">
       <figcaption className="flex flex-col gap-0.5">

@@ -2,6 +2,7 @@
 
 import {
   AlertCircleIcon,
+  BookmarkIcon,
   CheckIcon,
   ChevronRightIcon,
   CopyIcon,
@@ -12,7 +13,7 @@ import {
 } from "lucide-react";
 import { useId, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { submitFeedback } from "@/app/(app)/app/[orgSlug]/chat/actions";
+import { setBookmark, submitFeedback } from "@/app/(app)/app/[orgSlug]/chat/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -38,6 +39,9 @@ type Props = {
   onOpenSource: (target: CitationTarget) => void;
   onRetry: (turn: AssistantTurn) => void;
   onFeedback: (id: string, value: 1 | -1 | null, comment: string | null) => void;
+  onBookmark: (id: string, bookmarked: boolean) => void;
+  /** Briefly ringed when a bookmark link brought the reader here. */
+  highlighted?: boolean;
 };
 
 function list(items: string[]) {
@@ -90,7 +94,18 @@ function RoutingChips({ routing, scopeCount }: { routing: Routing; scopeCount: n
   );
 }
 
-export function AssistantMessage({ turn, orgSlug, isAdmin, scopeCount, isLast, onOpenSource, onRetry, onFeedback }: Props) {
+export function AssistantMessage({
+  turn,
+  orgSlug,
+  isAdmin,
+  scopeCount,
+  isLast,
+  onOpenSource,
+  onRetry,
+  onFeedback,
+  onBookmark,
+  highlighted,
+}: Props) {
   const streaming = turn.status === "streaming";
 
   // Citations (with the highlight text) win; live sources fill in until they arrive.
@@ -107,7 +122,14 @@ export function AssistantMessage({ turn, orgSlug, isAdmin, scopeCount, isLast, o
   }, [turn.citations, citationContext]);
 
   return (
-    <article className="flex flex-col gap-3" aria-label="Answer">
+    <article
+      id={`message-${turn.id}`}
+      className={cn(
+        "flex scroll-mt-4 flex-col gap-3 rounded-lg transition-shadow duration-500",
+        highlighted && "ring-2 ring-ring/60 ring-offset-8 ring-offset-background",
+      )}
+      aria-label="Answer"
+    >
       {turn.routing && (
         <div className="flex flex-wrap gap-1.5">
           <RoutingChips routing={turn.routing} scopeCount={scopeCount} />
@@ -150,7 +172,7 @@ export function AssistantMessage({ turn, orgSlug, isAdmin, scopeCount, isLast, o
       {!streaming && cited.length > 0 && <SourcesList sources={cited} onOpen={onOpenSource} />}
 
       {!streaming && turn.status !== "error" && turn.content && (
-        <AnswerFooter turn={turn} orgSlug={orgSlug} isAdmin={isAdmin} onFeedback={onFeedback} />
+        <AnswerFooter turn={turn} orgSlug={orgSlug} isAdmin={isAdmin} onFeedback={onFeedback} onBookmark={onBookmark} />
       )}
     </article>
   );
@@ -201,13 +223,16 @@ function AnswerFooter({
   orgSlug,
   isAdmin,
   onFeedback,
+  onBookmark,
 }: {
   turn: AssistantTurn;
   orgSlug: string;
   isAdmin: boolean;
   onFeedback: Props["onFeedback"];
+  onBookmark: Props["onBookmark"];
 }) {
   const [pending, startTransition] = useTransition();
+  const [bookmarkPending, startBookmark] = useTransition();
   const [commentOpen, setCommentOpen] = useState(false);
   const [comment, setComment] = useState(turn.feedbackComment ?? "");
   const [copied, setCopied] = useState(false);
@@ -227,6 +252,22 @@ function AnswerFooter({
       // Adding a note to an existing 👎 re-records the same vote; count only changes.
       if (previous.feedback !== value) track("feedback_given", { value: value === 1 ? "up" : "down" });
       after?.();
+    });
+  }
+
+  function toggleBookmark() {
+    if (!turn.persisted) return;
+    const next = !turn.bookmarked;
+    onBookmark(turn.id, next);
+    startBookmark(async () => {
+      const result = await setBookmark(orgSlug, turn.id, next);
+      if (!result.ok) {
+        onBookmark(turn.id, !next);
+        toast.error(result.error);
+        return;
+      }
+      if (next) track("bookmark_added");
+      toast.success(next ? "Bookmarked. Find it under Bookmarks." : "Bookmark removed.");
     });
   }
 
@@ -329,6 +370,24 @@ function AnswerFooter({
           {copied ? <CheckIcon /> : <CopyIcon />}
         </TooltipTrigger>
         <TooltipContent>{copied ? "Copied" : "Copy answer"}</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={turn.bookmarked ? "Remove bookmark" : "Bookmark answer"}
+              aria-pressed={turn.bookmarked}
+              disabled={bookmarkPending || !turn.persisted}
+              className="aria-pressed:text-primary"
+              onClick={toggleBookmark}
+            />
+          }
+        >
+          <BookmarkIcon className={cn(turn.bookmarked && "fill-current")} />
+        </TooltipTrigger>
+        <TooltipContent>{turn.bookmarked ? "Remove bookmark" : "Bookmark answer"}</TooltipContent>
       </Tooltip>
 
       {isAdmin && turn.usage && (turn.usage.latency_ms !== null || turn.usage.cost_usd !== null) && (

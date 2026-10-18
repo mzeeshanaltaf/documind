@@ -46,6 +46,10 @@ class Settings(BaseSettings):
 
     pricing_file: Path = REPO_ROOT / "model-pricing.json"
 
+    # Monthly quota for a user nobody has customised (platform admins are not limited).
+    default_message_quota: int = 25
+    default_token_quota: int = 100_000
+
     max_upload_mb: int = 50
     ingest_concurrency: int = 1
 

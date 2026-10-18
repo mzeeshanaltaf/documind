@@ -3,6 +3,7 @@
 import { refresh } from "next/cache";
 import { headers } from "next/headers";
 import { z } from "zod";
+import { ApiError, apiJson } from "@/lib/api";
 import { auth, platformAdminEmails } from "@/lib/auth";
 import { requireAdmin } from "@/lib/auth-guards";
 import { pool } from "@/lib/db";
@@ -48,6 +49,56 @@ export async function setPlatformAdmin(userId: string, makeAdmin: boolean): Prom
     };
   } catch (err) {
     return failure(err, "We couldn't change that role. Try again in a moment.");
+  }
+}
+
+const QUOTA_MAX_MESSAGES = 1_000_000;
+const QUOTA_MAX_TOKENS = 10_000_000_000;
+const quotaSchema = z.object({
+  userId: userIdSchema,
+  messageLimit: z.number().int().min(0).max(QUOTA_MAX_MESSAGES),
+  tokenLimit: z.number().int().min(0).max(QUOTA_MAX_TOKENS),
+});
+
+function quotaFailure(err: unknown, fallback: string): ActionResult {
+  if (err instanceof ApiError && err.status < 500) return { ok: false, error: err.message };
+  return failure(err, fallback);
+}
+
+/** Raise or lower one user's monthly message and token limits (takes effect immediately). */
+export async function updateUserQuota(userId: string, messageLimit: number, tokenLimit: number): Promise<ActionResult> {
+  const { user: actor } = await requireAdmin();
+  const parsed = quotaSchema.safeParse({ userId, messageLimit, tokenLimit });
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: `Use whole numbers: up to ${QUOTA_MAX_MESSAGES.toLocaleString("en-US")} messages and ${QUOTA_MAX_TOKENS.toLocaleString("en-US")} tokens.`,
+    };
+  }
+  try {
+    await apiJson(`admin/users/${encodeURIComponent(parsed.data.userId)}/quota`, {
+      userId: actor.id,
+      method: "PUT",
+      body: { message_limit: parsed.data.messageLimit, token_limit: parsed.data.tokenLimit },
+    });
+    refresh();
+    return { ok: true, message: "Quota updated. It applies to their next message." };
+  } catch (err) {
+    return quotaFailure(err, "We couldn't update that quota. Try again in a moment.");
+  }
+}
+
+/** Back to the default allowance. */
+export async function resetUserQuota(userId: string): Promise<ActionResult> {
+  const { user: actor } = await requireAdmin();
+  const parsed = userIdSchema.safeParse(userId);
+  if (!parsed.success) return { ok: false, error: "That user no longer exists." };
+  try {
+    await apiJson(`admin/users/${encodeURIComponent(parsed.data)}/quota`, { userId: actor.id, method: "DELETE" });
+    refresh();
+    return { ok: true, message: "Quota reset to the default." };
+  } catch (err) {
+    return quotaFailure(err, "We couldn't reset that quota. Try again in a moment.");
   }
 }
 

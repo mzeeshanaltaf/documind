@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from app.core.db import session_scope
 from app.llm.pricing import cost
 from app.models.usage import LlmUsage
+from app.services import quota
 
 logger = logging.getLogger(__name__)
 
@@ -80,4 +81,5 @@ async def record_usage(
             session.add(row)
     except Exception:
         logger.exception("Failed to record llm_usage for %s/%s", operation, model)
+    await quota.add_tokens(ctx.user_id, tokens.input_tokens + tokens.output_tokens)
     return row

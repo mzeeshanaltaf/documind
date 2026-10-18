@@ -1,6 +1,14 @@
 "use client";
 
-import { ChartLineIcon, FileTextIcon, MessageSquareTextIcon, Settings2Icon, UsersIcon } from "lucide-react";
+import {
+  ActivityIcon,
+  BookmarkIcon,
+  ChartLineIcon,
+  FileTextIcon,
+  MessageSquareTextIcon,
+  Settings2Icon,
+  UsersIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -20,9 +28,17 @@ import { OrgSwitcher } from "./org-switcher";
 import type { ShellOrg, ShellUser } from "./types";
 import { UserMenu } from "./user-menu";
 
-const ASK = [{ segment: "chat", label: "Chat", icon: MessageSquareTextIcon }];
+const ASK = [
+  { segment: "chat", label: "Chat", icon: MessageSquareTextIcon },
+  { segment: "bookmarks", label: "Bookmarks", icon: BookmarkIcon },
+  { segment: "my-analytics", label: "My analytics", icon: ActivityIcon },
+];
 // Members browse the library read-only; admins manage it under Manage.
-const MEMBER_ASK = [...ASK, { segment: "documents", label: "Documents", icon: FileTextIcon }];
+const MEMBER_ASK = [
+  ASK[0],
+  { segment: "documents", label: "Documents", icon: FileTextIcon },
+  ...ASK.slice(1),
+];
 // Admin-only: hidden here, and every page re-checks server-side.
 const MANAGE = [
   { segment: "documents", label: "Documents", icon: FileTextIcon },

@@ -55,6 +55,18 @@ export async function deleteConversation(orgSlug: string, conversationId: string
   }
 }
 
+export async function setBookmark(orgSlug: string, messageId: string, bookmarked: boolean): Promise<ChatActionResult> {
+  const userId = await actor(orgSlug);
+  const id = uuidSchema.safeParse(messageId);
+  if (!id.success) return { ok: false, error: "That answer no longer exists." };
+  try {
+    await apiJson(`messages/${id.data}/bookmark`, { userId, method: bookmarked ? "PUT" : "DELETE" });
+    return { ok: true, data: undefined };
+  } catch (error) {
+    return failure(error, bookmarked ? "Couldn't save the bookmark. Try again." : "Couldn't remove the bookmark. Try again.");
+  }
+}
+
 export async function submitFeedback(
   orgSlug: string,
   messageId: string,

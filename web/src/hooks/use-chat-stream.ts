@@ -14,6 +14,8 @@ type Options = {
   initialTurns: Turn[];
   onConversationStarted?: (conversationId: string) => void;
   onTurnFinished?: (conversationId: string) => void;
+  /** After every attempt, accepted or not: the monthly quota may have changed. */
+  onSettled?: () => void;
 };
 
 export type SendResult = "sent" | "rejected";
@@ -31,6 +33,7 @@ export function useChatStream({
   initialTurns,
   onConversationStarted,
   onTurnFinished,
+  onSettled,
 }: Options) {
   const [turns, setTurns] = useState<Turn[]>(initialTurns);
   const [conversationId, setConversationId] = useState<string | null>(initialConversationId);
@@ -72,6 +75,7 @@ export function useChatStream({
           usage: null,
           feedback: null,
           feedbackComment: null,
+          bookmarked: false,
           error: null,
           question: message,
           documentIds,
@@ -148,7 +152,9 @@ export function useChatStream({
         if (!response.ok || !response.body) {
           const body = (await response.json().catch(() => ({}))) as ApiErrorBody;
           dropTurn();
-          if (response.status === 429) {
+          if (body.error?.code === "quota_exceeded") {
+            toast.error("Monthly quota reached", { description: body.error.message });
+          } else if (response.status === 429) {
             const wait = response.headers.get("Retry-After");
             toast.error("Slow down a little", {
               description: wait ? `Too many questions in a minute. Try again in ${wait}s.` : body.error?.message,
@@ -184,10 +190,11 @@ export function useChatStream({
         controllerRef.current = null;
         setStreaming(false);
         if (activeConversation) onTurnFinished?.(activeConversation);
+        onSettled?.();
       }
       return "sent";
     },
-    [basePath, conversationId, onConversationStarted, onTurnFinished, orgId, patch],
+    [basePath, conversationId, onConversationStarted, onSettled, onTurnFinished, orgId, patch],
   );
 
   const stop = useCallback(() => controllerRef.current?.abort(), []);
@@ -212,11 +219,13 @@ export function useChatStream({
     [patch],
   );
 
+  const setBookmarked = useCallback((id: string, bookmarked: boolean) => patch(id, () => ({ bookmarked })), [patch]);
+
   /** Back to an empty new chat (only between turns). */
   const reset = useCallback(() => {
     setTurns([]);
     setConversationId(null);
   }, []);
 
-  return { turns, conversationId, streaming, send, stop, retry, setFeedback, reset };
+  return { turns, conversationId, streaming, send, stop, retry, setFeedback, setBookmarked, reset };
 }

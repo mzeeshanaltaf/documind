@@ -1,6 +1,6 @@
 "use client";
 
-import { BanIcon, MoreHorizontalIcon, ShieldIcon, ShieldOffIcon, UserCheckIcon } from "lucide-react";
+import { BanIcon, GaugeIcon, MoreHorizontalIcon, ShieldIcon, ShieldOffIcon, UserCheckIcon } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
@@ -23,7 +23,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Spinner } from "@/components/ui/spinner";
+import type { Quota } from "@/lib/api-types";
 import { type ActionResult, setBanned, setPlatformAdmin } from "./actions";
+import { QuotaDialog } from "./quota-dialog";
 
 type Confirm = { kind: "demote" | "ban" } | null;
 
@@ -33,15 +35,20 @@ export function UserRowActions({
   isAdmin,
   isBanned,
   isEnvAdmin,
+  quota,
+  quotaDefaults,
 }: {
   userId: string;
   label: string;
   isAdmin: boolean;
   isBanned: boolean;
   isEnvAdmin: boolean;
+  quota: Quota | null;
+  quotaDefaults: { message_limit: number; token_limit: number };
 }) {
   const [pending, startTransition] = useTransition();
   const [confirm, setConfirm] = useState<Confirm>(null);
+  const [quotaOpen, setQuotaOpen] = useState(false);
 
   function run(action: () => Promise<ActionResult>) {
     startTransition(async () => {
@@ -61,6 +68,13 @@ export function UserRowActions({
           {pending ? <Spinner /> : <MoreHorizontalIcon />}
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-52">
+          <DropdownMenuGroup>
+            <DropdownMenuItem onClick={() => setQuotaOpen(true)}>
+              <GaugeIcon />
+              Edit monthly quota
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
           <DropdownMenuGroup>
             {isAdmin ? (
               <DropdownMenuItem
@@ -94,6 +108,17 @@ export function UserRowActions({
           </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {quotaOpen && (
+        <QuotaDialog
+          open
+          onOpenChange={setQuotaOpen}
+          userId={userId}
+          label={label}
+          quota={quota}
+          defaults={quotaDefaults}
+        />
+      )}
 
       <AlertDialog open={confirm !== null} onOpenChange={(open) => !open && setConfirm(null)}>
         <AlertDialogContent>

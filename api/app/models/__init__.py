@@ -12,6 +12,7 @@ from app.models.document import (
     IngestionJob,
 )
 from app.models.org_settings import OrgSettings
+from app.models.quota import QuotaUsage, UserQuota
 from app.models.usage import LlmUsage
 
 __all__ = [
@@ -27,6 +28,8 @@ __all__ = [
     "LlmUsage",
     "Message",
     "OrgSettings",
+    "QuotaUsage",
+    "UserQuota",
     "member_table",
     "metadata",
     "organization_table",

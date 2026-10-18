@@ -2,10 +2,12 @@
 and the owner must still have access to the conversation's org."""
 
 import base64
+import re
 import uuid
 from datetime import datetime
+from typing import Any
 
-from sqlalchemy import select, tuple_
+from sqlalchemy import func, select, text, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ApiError
@@ -104,6 +106,77 @@ async def rename(session: AsyncSession, conversation: Conversation, title: str) 
 async def delete(session: AsyncSession, conversation: Conversation) -> None:
     await session.delete(conversation)  # messages cascade
     await session.commit()
+
+
+async def _owned_answer(session: AsyncSession, actor: Actor, message_id: uuid.UUID) -> Message:
+    message = await session.get(Message, message_id)
+    if message is None:
+        raise ApiError(404, "not_found", "Message not found.")
+    try:
+        await get_owned_conversation(session, actor, message.conversation_id)
+    except ApiError:
+        raise ApiError(404, "not_found", "Message not found.") from None
+    if message.role != "assistant":
+        raise ApiError(422, "not_an_answer", "Only answers can be bookmarked.")
+    return message
+
+
+async def set_bookmark(
+    session: AsyncSession, actor: Actor, message_id: uuid.UUID, bookmarked: bool
+) -> Message:
+    message = await _owned_answer(session, actor, message_id)
+    if bookmarked and message.bookmarked_at is None:
+        message.bookmarked_at = func.now()
+    elif not bookmarked:
+        message.bookmarked_at = None
+    await session.commit()
+    await session.refresh(message)
+    return message
+
+
+BOOKMARKS_SQL = text(
+    """
+    SELECT m.id AS message_id, m.conversation_id, c.title AS conversation_title,
+           m.content, m.citations, m.bookmarked_at, m.created_at,
+           (SELECT q.content FROM messages q
+             WHERE q.conversation_id = m.conversation_id AND q.role = 'user'
+               AND q.created_at <= m.created_at
+             ORDER BY q.created_at DESC LIMIT 1) AS question
+    FROM messages m JOIN conversations c ON c.id = m.conversation_id
+    WHERE c.org_id = :org AND c.user_id = :user AND m.bookmarked_at IS NOT NULL
+    ORDER BY m.bookmarked_at DESC, m.id
+    LIMIT :limit
+    """
+)
+CITATION_MARK = re.compile(r"\s*\[\d+(?:\s*,\s*\d+)*\]")
+EXCERPT_CHARS = 400
+
+
+def _excerpt(content: str) -> str:
+    plain = " ".join(CITATION_MARK.sub("", content).split())
+    return plain if len(plain) <= EXCERPT_CHARS else plain[:EXCERPT_CHARS].rstrip() + "…"
+
+
+async def list_bookmarks(
+    session: AsyncSession, org_id: str, actor: Actor, *, limit: int
+) -> list[dict[str, Any]]:
+    """The actor's bookmarked answers in the org, most recently bookmarked first."""
+    rows = await session.execute(BOOKMARKS_SQL, {"org": org_id, "user": actor.id, "limit": limit})
+    return [
+        {
+            "message_id": row.message_id,
+            "conversation_id": row.conversation_id,
+            "conversation_title": row.conversation_title,
+            "question": row.question,
+            "answer_excerpt": _excerpt(row.content),
+            "doc_codes": list(
+                dict.fromkeys(c["doc_code"] for c in row.citations or [] if c.get("doc_code"))
+            ),
+            "bookmarked_at": row.bookmarked_at,
+            "created_at": row.created_at,
+        }
+        for row in rows
+    ]
 
 
 async def set_feedback(

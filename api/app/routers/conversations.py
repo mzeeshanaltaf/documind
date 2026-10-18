@@ -7,6 +7,9 @@ from fastapi import APIRouter, Query, Response, status
 
 from app.core.security import ActorDep, OrgDep, SessionDep
 from app.schemas.chat import (
+    BookmarkItemOut,
+    BookmarkListOut,
+    BookmarkOut,
     ConversationDetailOut,
     ConversationListOut,
     ConversationOut,
@@ -75,6 +78,33 @@ async def delete_conversation(
     conversation = await service.get_owned_conversation(session, actor, conversation_id)
     await service.delete(session, conversation)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/orgs/{org_id}/bookmarks")
+async def list_bookmarks(
+    org: OrgDep,
+    actor: ActorDep,
+    session: SessionDep,
+    limit: Annotated[int, Query(ge=1, le=200)] = 100,
+) -> BookmarkListOut:
+    """The actor's bookmarked answers in this org, most recently bookmarked first."""
+    rows = await service.list_bookmarks(session, org.org_id, actor, limit=limit)
+    return BookmarkListOut(bookmarks=[BookmarkItemOut(**row) for row in rows])
+
+
+@router.put("/messages/{message_id}/bookmark")
+async def add_bookmark(actor: ActorDep, session: SessionDep, message_id: uuid.UUID) -> BookmarkOut:
+    """Bookmark an answer (idempotent). Only the conversation's owner can."""
+    message = await service.set_bookmark(session, actor, message_id, True)
+    return BookmarkOut(message_id=message.id, bookmarked_at=message.bookmarked_at)
+
+
+@router.delete("/messages/{message_id}/bookmark")
+async def remove_bookmark(
+    actor: ActorDep, session: SessionDep, message_id: uuid.UUID
+) -> BookmarkOut:
+    message = await service.set_bookmark(session, actor, message_id, False)
+    return BookmarkOut(message_id=message.id, bookmarked_at=None)
 
 
 @router.post("/messages/{message_id}/feedback")

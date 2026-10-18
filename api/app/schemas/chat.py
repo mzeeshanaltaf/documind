@@ -79,6 +79,7 @@ class MessageOut(BaseModel):
     status: str
     feedback: int | None
     feedback_comment: str | None
+    bookmarked_at: datetime | None
     created_at: datetime
     usage: MessageUsageOut | None = Field(
         default=None, description="Answer latency and cost; platform admins only."
@@ -113,3 +114,25 @@ class FeedbackOut(BaseModel):
     message_id: uuid.UUID
     feedback: int
     feedback_comment: str | None
+
+
+class BookmarkOut(BaseModel):
+    message_id: uuid.UUID
+    bookmarked_at: datetime | None
+
+
+class BookmarkItemOut(BaseModel):
+    """A bookmarked answer with the question it answered, for the bookmarks list."""
+
+    message_id: uuid.UUID
+    conversation_id: uuid.UUID
+    conversation_title: str | None
+    question: str | None
+    answer_excerpt: str
+    doc_codes: list[str]
+    bookmarked_at: datetime
+    created_at: datetime
+
+
+class BookmarkListOut(BaseModel):
+    bookmarks: list[BookmarkItemOut]

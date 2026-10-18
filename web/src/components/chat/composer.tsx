@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpIcon, SquareIcon } from "lucide-react";
+import { ArrowUpIcon, LockIcon, SquareIcon } from "lucide-react";
 import { useId, useImperativeHandle, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { SendResult } from "@/hooks/use-chat-stream";
@@ -17,11 +17,13 @@ type Props = {
   scope: string[];
   onScopeChange: (ids: string[]) => void;
   streaming: boolean;
+  /** Set once a monthly limit is reached: the composer explains why it can't send. */
+  blockedReason?: string | null;
   onSend: (text: string) => Promise<SendResult>;
   onStop: () => void;
 };
 
-export function Composer({ ref, documents, scope, onScopeChange, streaming, onSend, onStop }: Props) {
+export function Composer({ ref, documents, scope, onScopeChange, streaming, blockedReason, onSend, onStop }: Props) {
   const [text, setText] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const hintId = useId();
@@ -30,7 +32,7 @@ export function Composer({ ref, documents, scope, onScopeChange, streaming, onSe
 
   async function submit() {
     const value = text.trim();
-    if (!value || streaming) return;
+    if (!value || streaming || blockedReason) return;
     setText("");
     // A rejected send (rate limit, network) gives the question back.
     if ((await onSend(value)) === "rejected") setText((current) => current || value);
@@ -45,6 +47,12 @@ export function Composer({ ref, documents, scope, onScopeChange, streaming, onSe
       }}
     >
       <ScopeChips documents={documents} selected={scope} onChange={onScopeChange} disabled={streaming} />
+      {blockedReason && (
+        <p role="alert" className="flex items-start gap-2 border-b px-3.5 py-2.5 text-sm">
+          <LockIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
+          {blockedReason}
+        </p>
+      )}
       <label htmlFor={`${hintId}-input`} className="sr-only">
         Your question
       </label>
@@ -54,7 +62,14 @@ export function Composer({ ref, documents, scope, onScopeChange, streaming, onSe
         value={text}
         maxLength={MAX_CHARS}
         rows={1}
-        placeholder={scope.length ? "Ask about the selected documents…" : "Ask a question about your policies…"}
+        disabled={!!blockedReason}
+        placeholder={
+          blockedReason
+            ? "Your monthly quota is used up"
+            : scope.length
+              ? "Ask about the selected documents…"
+              : "Ask a question about your policies…"
+        }
         aria-describedby={hintId}
         className="field-sizing-content block max-h-60 min-h-12 w-full resize-none bg-transparent px-3.5 pt-3 pb-1 text-[0.9375rem] leading-relaxed outline-none placeholder:text-muted-foreground"
         onChange={(e) => setText(e.target.value)}
@@ -75,7 +90,7 @@ export function Composer({ ref, documents, scope, onScopeChange, streaming, onSe
             <SquareIcon className="fill-current" />
           </Button>
         ) : (
-          <Button type="submit" size="icon" aria-label="Send question" disabled={!text.trim()} className="max-sm:ml-auto">
+          <Button type="submit" size="icon" aria-label="Send question" disabled={!text.trim() || !!blockedReason} className="max-sm:ml-auto">
             <ArrowUpIcon />
           </Button>
         )}

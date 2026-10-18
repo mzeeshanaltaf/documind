@@ -31,6 +31,7 @@ export type AssistantTurn = {
   usage: MessageUsage | null;
   feedback: 1 | -1 | null;
   feedbackComment: string | null;
+  bookmarked: boolean;
   error: string | null;
   /** The question and scope that produced this answer, for Retry. */
   question: string;
@@ -61,6 +62,7 @@ export function turnsFromStored(messages: StoredMessage[], documentIds: string[]
       usage: m.usage ?? null,
       feedback: m.feedback,
       feedbackComment: m.feedback_comment,
+      bookmarked: m.bookmarked_at !== null,
       error: m.status === "error" ? "This answer failed before it finished." : null,
       question: lastQuestion,
       documentIds: documentIds.length ? documentIds : null,

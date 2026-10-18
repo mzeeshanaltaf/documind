@@ -12,15 +12,34 @@ import { ButtonLink } from "@/components/button-link";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { searchUsers, USERS_PAGE_SIZE } from "@/lib/admin-users";
+import { apiJson } from "@/lib/api";
+import type { Quota, QuotaList } from "@/lib/api-types";
 import { platformAdminEmails } from "@/lib/auth";
 import { requireAdmin } from "@/lib/auth-guards";
-import { searchUsers, USERS_PAGE_SIZE } from "@/lib/admin-users";
+import { formatCompact, formatCount } from "@/lib/format";
 import { initials } from "@/lib/initials";
 import { UserRowActions } from "./user-row-actions";
 
 export const metadata: Metadata = { title: "Users" };
 
 const dateFormat = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" });
+
+function QuotaSummary({ quota }: { quota: Quota | null }) {
+  if (!quota) return <span className="text-muted-foreground">n/a</span>;
+  if (quota.unlimited) return <span className="text-muted-foreground">Unlimited (admin)</span>;
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className={quota.exhausted === "messages" ? "font-medium text-destructive" : undefined}>
+        {formatCount(quota.messages_used)} / {formatCount(quota.message_limit)} messages
+      </span>
+      <span className={quota.exhausted === "tokens" ? "font-medium text-destructive" : undefined}>
+        {formatCompact(quota.tokens_used)} / {formatCompact(quota.token_limit)} tokens
+      </span>
+      {quota.is_custom && <span className="text-muted-foreground">Custom limits</span>}
+    </div>
+  );
+}
 
 export default function AdminUsersPage({ searchParams }: PageProps<"/admin/users">) {
   return (
@@ -36,6 +55,10 @@ async function Users({ searchParams }: { searchParams: Promise<Record<string, st
   const q = typeof sp.q === "string" ? sp.q.slice(0, 200) : "";
   const page = Math.max(1, Number(typeof sp.page === "string" ? sp.page : 1) || 1);
   const { users, total } = await searchUsers(q, (page - 1) * USERS_PAGE_SIZE);
+  const { quotas, defaults: quotaDefaults } = users.length
+    ? await apiJson<QuotaList>(`admin/quotas?${new URLSearchParams(users.map((u) => ["user_id", u.id]))}`, { userId: actor.id })
+    : { quotas: [], defaults: { message_limit: 0, token_limit: 0 } };
+  const quotaByUser = new Map(quotas.map((quota) => [quota.user_id, quota]));
   const envAdmins = new Set(platformAdminEmails());
   const pages = Math.max(1, Math.ceil(total / USERS_PAGE_SIZE));
   const pageHref = (p: number) => `/admin/users?${new URLSearchParams({ ...(q ? { q } : {}), page: String(p) })}`;
@@ -85,6 +108,7 @@ async function Users({ searchParams }: { searchParams: Promise<Record<string, st
                   <TableHead>Role</TableHead>
                   <TableHead className="hidden sm:table-cell">Status</TableHead>
                   <TableHead className="hidden md:table-cell">Organizations</TableHead>
+                  <TableHead className="hidden xl:table-cell">Monthly quota</TableHead>
                   <TableHead className="hidden lg:table-cell">Joined</TableHead>
                   <TableHead className="w-12">
                     <span className="sr-only">Actions</span>
@@ -145,6 +169,9 @@ async function Users({ searchParams }: { searchParams: Promise<Record<string, st
                           </ul>
                         )}
                       </TableCell>
+                      <TableCell className="hidden text-xs tabular-nums xl:table-cell">
+                        <QuotaSummary quota={quotaByUser.get(u.id) ?? null} />
+                      </TableCell>
                       <TableCell className="hidden text-muted-foreground tabular-nums lg:table-cell">
                         {dateFormat.format(new Date(u.createdAt))}
                       </TableCell>
@@ -156,6 +183,8 @@ async function Users({ searchParams }: { searchParams: Promise<Record<string, st
                             isAdmin={u.role === "admin"}
                             isBanned={!!u.banned}
                             isEnvAdmin={isEnvAdmin}
+                            quota={quotaByUser.get(u.id) ?? null}
+                            quotaDefaults={quotaDefaults}
                           />
                         )}
                       </TableCell>

@@ -38,6 +38,7 @@ from app.models.chat import Conversation, Message
 from app.models.document import Document
 from app.rag.hybrid import RetrievalResult, Source, retrieve
 from app.schemas.chat import ChatRequest
+from app.services import quota
 from app.services.org_settings import EffectiveSettings, effective_settings
 
 logger = logging.getLogger(__name__)
@@ -130,6 +131,7 @@ async def prepare_turn(
     session: AsyncSession, org_id: str, actor: Actor, request: ChatRequest
 ) -> ChatTurn:
     """Load (or create) the conversation, check scoped documents, store the user message."""
+    await quota.enforce(session, actor)
     document_ids = request.document_ids
     history: list[HistoryTurn] = []
     if request.conversation_id:
@@ -167,6 +169,7 @@ async def prepare_turn(
         id=uuid.uuid4(), conversation_id=conversation.id, role="user", content=request.message
     )
     session.add(user_message)
+    await quota.record_message(session, actor.id)
     await session.commit()
 
     return ChatTurn(

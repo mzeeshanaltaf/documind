@@ -158,8 +158,72 @@ export type StoredMessage = {
   status: MessageStatus;
   feedback: 1 | -1 | null;
   feedback_comment: string | null;
+  bookmarked_at: string | null;
   created_at: string;
   usage?: MessageUsage | null;
+};
+
+export type Bookmark = {
+  message_id: string;
+  conversation_id: string;
+  conversation_title: string | null;
+  question: string | null;
+  answer_excerpt: string;
+  doc_codes: string[];
+  bookmarked_at: string;
+  created_at: string;
+};
+
+// --- quota -----------------------------------------------------------------------------------
+
+/** Monthly allowance (UTC calendar month) and what's been used. Platform admins are `unlimited`. */
+export type Quota = {
+  user_id: string;
+  message_limit: number;
+  token_limit: number;
+  messages_used: number;
+  tokens_used: number;
+  period_start: string;
+  resets_on: string;
+  is_custom: boolean;
+  unlimited: boolean;
+  exhausted: "messages" | "tokens" | null;
+};
+
+export type QuotaList = { quotas: Quota[]; defaults: { message_limit: number; token_limit: number } };
+
+export const QUOTA_URL = "/api/backend/me/quota";
+
+// --- personal analytics ----------------------------------------------------------------------
+
+export type MyAnalytics = {
+  range: { from: string; to: string; granularity: "day" | "week"; org_id: string };
+  totals: {
+    conversations: number;
+    conversations_total: number;
+    questions: number;
+    answers: number;
+    stopped: number;
+    failed: number;
+    up: number;
+    down: number;
+    bookmarks: number;
+    input_tokens: number;
+    output_tokens: number;
+    total_tokens: number;
+    p50_latency_ms: number | null;
+    p95_latency_ms: number | null;
+    avg_latency_ms: number | null;
+    p50_ttft_ms: number | null;
+  };
+  timeseries: {
+    date: string;
+    questions: number;
+    input_tokens: number;
+    output_tokens: number;
+    avg_latency_ms: number | null;
+  }[];
+  quota: Quota;
 };
 
 export type Conversation = {

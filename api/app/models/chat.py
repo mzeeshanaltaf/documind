@@ -1,7 +1,18 @@
 import uuid
+from datetime import datetime
 from typing import Any
 
-from sqlalchemy import ARRAY, CheckConstraint, ForeignKey, Index, SmallInteger, Text, Uuid
+from sqlalchemy import (
+    ARRAY,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    SmallInteger,
+    Text,
+    Uuid,
+    text,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -50,6 +61,11 @@ class Message(Base):
         CheckConstraint(in_values("role", MESSAGE_ROLES), name="role"),
         CheckConstraint(in_values("status", MESSAGE_STATUSES), name="status"),
         CheckConstraint("feedback IS NULL OR feedback IN (-1, 1)", name="feedback"),
+        Index(
+            "ix_messages_bookmarked_at",
+            "bookmarked_at",
+            postgresql_where=text("bookmarked_at IS NOT NULL"),
+        ),
     )
 
     id: Mapped[UuidPk]
@@ -67,4 +83,5 @@ class Message(Base):
     )
     feedback: Mapped[int | None] = mapped_column(SmallInteger)
     feedback_comment: Mapped[str | None] = mapped_column(Text)
+    bookmarked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[CreatedAt]

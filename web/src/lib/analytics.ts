@@ -26,6 +26,7 @@ type EventData = {
   citation_opened: { doc_type?: string };
   document_uploaded: { count: number };
   feedback_given: { value: "up" | "down" };
+  bookmark_added: undefined;
 };
 
 export type AnalyticsEvent = keyof EventData;

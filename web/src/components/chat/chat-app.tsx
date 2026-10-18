@@ -1,8 +1,9 @@
 "use client";
 
 import { FileTextIcon, HistoryIcon, PanelLeftCloseIcon, PanelLeftOpenIcon, SquarePenIcon } from "lucide-react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import useSWR from "swr";
 import { ButtonLink } from "@/components/button-link";
 import { PdfViewerProvider, usePdfViewer } from "@/components/pdf/pdf-viewer-provider";
@@ -14,12 +15,14 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useChatStream } from "@/hooks/use-chat-stream";
 import { track } from "@/lib/analytics";
-import type { Conversation, ConversationDetail } from "@/lib/api-types";
+import { type Conversation, type ConversationDetail, QUOTA_URL, type Quota } from "@/lib/api-types";
+import { formatCount, formatDayMonth } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { AssistantMessage } from "./assistant-message";
 import type { CitationTarget } from "./citation-chip";
 import { Composer, type ComposerHandle } from "./composer";
 import { ConversationList } from "./conversation-list";
+import { QuotaMeter } from "./quota-meter";
 import { buildSuggestions } from "./suggestions";
 import { type CatalogDoc, type ChatOrg, turnsFromStored } from "./types";
 
@@ -29,6 +32,7 @@ export type ChatAppProps = {
   conversations: Conversation[];
   documents: CatalogDoc[];
   conversation: ConversationDetail | null;
+  quota: Quota;
 };
 
 type ConversationList = { conversations: Conversation[]; next_cursor: string | null };
@@ -47,9 +51,17 @@ export function ChatApp(props: ChatAppProps) {
   );
 }
 
-function ChatWorkspace({ org, isAdmin, conversations: initialConversations, documents, conversation }: ChatAppProps) {
+function ChatWorkspace({
+  org,
+  isAdmin,
+  conversations: initialConversations,
+  documents,
+  conversation,
+  quota: initialQuota,
+}: ChatAppProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const targetMessage = useSearchParams().get("message");
   const basePath = `/app/${org.slug}/chat`;
   const { openDocument } = usePdfViewer();
   const composerRef = useRef<ComposerHandle>(null);
@@ -85,6 +97,25 @@ function ChatWorkspace({ org, isAdmin, conversations: initialConversations, docu
     [mutateList, org.id],
   );
 
+  // The allowance is per account, so one cache entry serves every org's chat view.
+  const { data: quotaData, mutate: mutateQuota } = useSWR<Quota>(QUOTA_URL, fetchJson, {
+    fallbackData: initialQuota,
+    revalidateOnMount: false,
+  });
+  const quota = quotaData ?? initialQuota;
+  const blockedReason =
+    !quota.unlimited && quota.exhausted
+      ? quota.exhausted === "messages"
+        ? `You've used all ${formatCount(quota.message_limit)} messages in your monthly quota. It renews on ${formatDayMonth(quota.resets_on)}. Ask an administrator if you need more.`
+        : `You've used your monthly quota of ${formatCount(quota.token_limit)} tokens. It renews on ${formatDayMonth(quota.resets_on)}. Ask an administrator if you need more.`
+      : null;
+
+  const refreshQuota = useCallback(() => {
+    // Tokens for the title are metered in the background just after `done`.
+    void mutateQuota();
+    setTimeout(() => void mutateQuota(), 3000);
+  }, [mutateQuota]);
+
   const initialTurns = useMemo(
     () => (conversation ? turnsFromStored(conversation.messages, conversation.document_ids) : []),
     [conversation],
@@ -96,6 +127,7 @@ function ChatWorkspace({ org, isAdmin, conversations: initialConversations, docu
     initialTurns,
     onConversationStarted,
     onTurnFinished: refreshTitles,
+    onSettled: refreshQuota,
   });
 
   const [scope, setScope] = useState<string[]>(conversation?.document_ids ?? []);
@@ -143,13 +175,30 @@ function ChatWorkspace({ org, isAdmin, conversations: initialConversations, docu
 
   // Follow the stream while the reader is at the bottom; leave them be once they scroll up.
   const threadRef = useRef<HTMLDivElement>(null);
-  const pinned = useRef(true);
+  const pinned = useRef(!targetMessage);
   useEffect(() => {
     const el = threadRef.current;
     if (el && pinned.current) el.scrollTop = el.scrollHeight;
   }, [chat.turns]);
 
+  // A bookmark link (?message=<id>) opens the conversation at that answer and ringed for a moment.
+  const [highlightDone, setHighlightDone] = useState<string | null>(null);
+  const highlightId = targetMessage !== highlightDone ? targetMessage : null;
+  useEffect(() => {
+    if (!targetMessage) return;
+    const el = document.getElementById(`message-${targetMessage}`);
+    if (!el) return;
+    pinned.current = false;
+    el.scrollIntoView({ block: "start", behavior: "instant" });
+    const timer = setTimeout(() => setHighlightDone(targetMessage), 3000);
+    return () => clearTimeout(timer);
+  }, [targetMessage, conversation?.id]);
+
   const send = async (text: string) => {
+    if (blockedReason) {
+      toast.error("Monthly quota reached", { description: blockedReason });
+      return "rejected" as const;
+    }
     pinned.current = true;
     const result = await chat.send(text, scope.length ? scope : null);
     // A conversation started with documents keeps that scope on later turns.
@@ -282,6 +331,8 @@ function ChatWorkspace({ org, isAdmin, conversations: initialConversations, docu
                       void chat.retry(t);
                     }}
                     onFeedback={chat.setFeedback}
+                    onBookmark={chat.setBookmarked}
+                    highlighted={turn.id === highlightId}
                   />
                 ),
               )
@@ -297,12 +348,16 @@ function ChatWorkspace({ org, isAdmin, conversations: initialConversations, docu
               scope={scope}
               onScopeChange={setScope}
               streaming={chat.streaming}
+              blockedReason={blockedReason}
               onSend={send}
               onStop={chat.stop}
             />
-            <p className="pt-2 text-center text-[0.7rem] text-muted-foreground">
-              Answers come from {org.name}&apos;s documents. Open a citation to check the exact wording.
-            </p>
+            <div className="flex flex-col gap-1 pt-2">
+              <QuotaMeter quota={quota} myAnalyticsHref={`/app/${org.slug}/my-analytics`} />
+              <p className="text-center text-[0.7rem] text-muted-foreground">
+                Answers come from {org.name}&apos;s documents. Open a citation to check the exact wording.
+              </p>
+            </div>
           </div>
         </div>
       </div>

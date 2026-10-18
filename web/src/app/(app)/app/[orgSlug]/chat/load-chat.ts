@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import type { ChatAppProps } from "@/components/chat/chat-app";
 import type { CatalogDoc } from "@/components/chat/types";
 import { ApiError, apiJson } from "@/lib/api";
-import { type ConversationDetail, type DocumentRow, isSearchable } from "@/lib/api-types";
+import { type ConversationDetail, type DocumentRow, isSearchable, type Quota } from "@/lib/api-types";
 import { requireOrgAccess } from "@/lib/auth-guards";
 
 /** Everything the chat needs, fetched in parallel. A foreign or missing conversation 404s. */
@@ -11,13 +11,14 @@ export async function loadChat(orgSlug: string, conversationId?: string): Promis
   const { user, org, isAdmin } = await requireOrgAccess(orgSlug);
   const userId = user.id;
 
-  const [list, docs, conversation] = await Promise.all([
+  const [list, docs, conversation, quota] = await Promise.all([
     apiJson<{ conversations: ChatAppProps["conversations"] }>(`orgs/${org.id}/conversations`, {
       userId,
       query: { limit: 100 },
     }),
     apiJson<{ documents: DocumentRow[] }>(`orgs/${org.id}/documents`, { userId }),
     conversationId ? loadConversation(userId, conversationId) : Promise.resolve(null),
+    apiJson<Quota>("me/quota", { userId }),
   ]);
   if (conversation && conversation.org_id !== org.id) notFound();
 
@@ -40,6 +41,7 @@ export async function loadChat(orgSlug: string, conversationId?: string): Promis
     conversations: list.conversations,
     documents,
     conversation,
+    quota,
   };
 }
 

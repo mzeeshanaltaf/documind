@@ -28,7 +28,7 @@
 web/                Next.js app
   src/app/(marketing)/   landing, contact, privacy (+ app/api/contact → n8n; opengraph-image, sitemap, robots)
   src/app/(auth)/        sign-in, sign-up, verify-email, forgot/reset-password, accept-invitation
-  src/app/(app)/app/[orgSlug]/  chat, documents, members, settings, analytics
+  src/app/(app)/app/[orgSlug]/  chat, bookmarks, my-analytics (own stats), documents, members, settings, analytics (org, admin)
   src/app/admin/         platform admin (orgs, users, analytics)
   src/app/api/auth/[...all]/     Better Auth handler
   src/app/api/backend/[...path]/ BFF proxy → FastAPI (adds X-API-Key + X-User-Id)
@@ -38,7 +38,7 @@ web/                Next.js app
 api/                FastAPI app
   app/core/       config, db (URL normalizer), security (API key + actor), storage (MinIO), log, errors
   app/models/     SQLAlchemy models (+ read-only mirrors of Better Auth tables)
-  app/routers/    v1 (key-gated aggregator), me, documents, chat (SSE), conversations, settings, analytics, health
+  app/routers/    v1 (key-gated aggregator), me, documents, chat (SSE), conversations (+bookmarks), settings, analytics, my_analytics, quota, health
   app/ingestion/  parser (pdfplumber), header, metadata, chunker, indexer, worker
   app/rag/        tokenizer, bm25, vector, hybrid (RRF)
   app/agents/     catalog, router (orchestrator), specialists, answer, citations
@@ -81,7 +81,7 @@ cd api && uv run python -m eval.run_eval --org-slug simtora   # writes eval/resu
   - Responses (SSE, PDFs) are streamed through unbuffered.
 - **FastAPI authorizes everything.** `verify_api_key` runs on all `/v1` routes. `get_actor` loads the user from Better Auth's `"user"` table. `require_org_access` allows `is_admin` OR a `member` row; `require_admin` guards admin routes.
 - **Table ownership.** Better Auth owns `user, session, account, verification, organization, member, invitation`, which use camelCase quoted columns such as `"organizationId"`. Alembic owns everything else and must exclude the Better Auth tables (`include_object`).
-- **Every OpenAI call goes through `app/llm/client.py`.** It writes an `llm_usage` row covering tokens (input, cached, output, reasoning), the requested and actual tier, latency, TTFT and `cost_usd` from `model-pricing.json`, priced at the *actual* tier.
+- **Every OpenAI call goes through `app/llm/client.py`.** It writes an `llm_usage` row covering tokens (input, cached, output, reasoning), the requested and actual tier, latency, TTFT and `cost_usd` from `model-pricing.json`, priced at the *actual* tier. The same call adds input+output tokens to the caller's monthly `quota_usage` counter (`services/quota.py`; limits in `user_quotas` or env defaults 25 msgs/100K tokens; `prepare_turn` refuses with 429 `quota_exceeded`; platform admins unlimited; the month is UTC).
 - **Service tiers.** The settings values are `standard|flex|auto`; the API values are `default|flex|auto`. Flex retries once, then falls back to default.
 - **Chunks keep the metadata needed for citations and filters.** That means `section_path`, `section_number`, `page_start/end`, `content_type`, and the denormalized `department`/`jurisdiction`/`doc_type`.
   - `embed_text` = contextual header + text; it's what gets embedded and BM25-indexed.

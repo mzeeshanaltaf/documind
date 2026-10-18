@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DocuMind explainer</title>
+<style>
+/*__FONTS__*/
+:root{
+  --paper:#f9fcfa; --card:#fbfdfc; --canvas:#eef3f0; --dot:#d2dad6;
+  --ink:#121916; --muted:#616a66; --rule:#dce1de; --edge:#c6cfca;
+  --green:#1a5d48; --wash:#e3eee9; --hl:#f6e5a4; --hlink:#3a3420; --well:#f1f4f2;
+}
+html,body{margin:0;height:100%;background:#0b0f0d;overflow:hidden}
+#stage{position:absolute;left:0;top:0;width:1920px;height:1080px;overflow:hidden;background:var(--canvas);
+  font-family:"Instrument Sans",system-ui,sans-serif;color:var(--ink);transform-origin:0 0}
+#cam{position:absolute;left:960px;top:540px;width:0;height:0;transform-origin:0 0}
+#cam div{position:absolute;box-sizing:border-box;white-space:nowrap}
+.card{background:var(--card);border:2px solid var(--rule);border-radius:40px}
+.lab{font:500 31px "Instrument Sans",sans-serif;color:var(--muted);background:var(--wash);padding:8px 22px 9px;border-radius:999px;height:52px;line-height:35px}
+.serif{font-family:"Source Serif 4",Georgia,serif;font-weight:600;letter-spacing:-.01em}
+.mono{font-family:"Geist Mono",ui-monospace,monospace}
+.row{border:2px solid var(--rule);border-radius:22px;background:var(--card)}
+.key{background:var(--card);border:2px solid var(--rule);border-radius:22px;font:500 42px/108px "Instrument Sans",sans-serif;text-align:center;color:var(--ink)}
+.ghost{border:3px dashed var(--edge);border-radius:30px}
+#ui{position:fixed;left:0;right:0;bottom:0;height:56px;display:flex;gap:14px;align-items:center;padding:0 16px;background:#0b0f0d;color:#cfd8d3;font:14px system-ui}
+#ui button{height:34px;padding:0 16px;border-radius:8px;border:1px solid #3a4540;background:#18211d;color:#e8efeb;cursor:pointer}
+#ui input{flex:1}
+.render #ui{display:none}
+</style>
+</head>
+<body>
+<div id="stage"><div id="cam"></div></div>
+<div id="ui"><button id="pp">Play</button><input id="scr" type="range" min="0" max="16" step="0.01" value="0"><span id="tm">0.00s</span></div>
+<script>
+/* ============================================================================
+   DocuMind: one-take explainer (hero ball travels the RAG workflow). Loops at 16 s, 120 BPM.
+   BEAT SHEET            time   what happens                                   sound
+   toggle land           0.00   hero lands as the "Upload" toggle knob           marimba C + thump (seam)
+   toggle on             0.50   knob slides on, PDF rows appear                  switch click, soft pops
+   hop to slider         1.00   hero leaves the toggle (slot stays)              -
+   slider land           1.75   hero becomes the Indexing thumb                  marimba
+   roll to 100           1.75-3.25 value counts up, ticks speed up              ticks (accelerate)
+   fall off the end      3.25   leaves slider at speed                           -
+   card 1/2/3            3.50 / 4.00 / 4.50  pipeline cards pop as hit           pop + marimba (rising)
+   fall to keyboard      4.50-5.50                                               -
+   keys C A R R Y        5.50 6.00 6.50 6.75 7.25  letters appear in input       key clicks + marimba (rising)
+   return                7.75   hero hits return, key presses                    thunk
+   launch to answer      7.85-8.50  question + answer stream in                 -
+   land on citation      8.50   hero sits on the source chip                     marimba
+   press chip            9.20   chip turns green, cited page opens 9.3          click, paper swish
+   highlight sweep       9.70-10.3 carry-over passage highlighted                -
+   payoff hold           10.3-11.0
+   launch + reveal       11.0   hero arcs high in slow motion, camera pulls out  whoosh up
+   resets                12.0-13.5 everything resets behind it                   descending ticks
+   dive                  13.6-15.2 camera dives to the toggle                    whoosh down
+   land                  16.00  hero lands on the toggle knob (= t 0)
+   ============================================================================ */
+
+// ---------- helpers (from the skill) ----------
+function spring(t, w = 14, z = 0.82) {
+  if (t <= 0) return 0;
+  if (z >= 1) return 1 - Math.exp(-w * t) * (1 + w * t);
+  const wd = w * Math.sqrt(1 - z * z);
+  return 1 - Math.exp(-z * w * t) * (Math.cos(wd * t) + (z * w / wd) * Math.sin(wd * t));
+}
+const track = (v0, keys) => t => { let v = v0, p = v0; for (const [tk, val, w, z] of keys) { v += (val - p) * spring(t - tk, w, z); p = val; } return v; };
+const kf = keys => t => { if (t <= keys[0][0]) return keys[0][1]; for (let i = 1; i < keys.length; i++) { const [a, va] = keys[i - 1], [b, vb, e = ease] = keys[i]; if (t <= b) return lerp(va, vb, e((t - a) / (b - a))); } return keys[keys.length - 1][1]; };
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const ease = x => (x = clamp(x), x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+const lerp = (a, b, k) => a + (b - a) * k;
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const rng = s => () => (s = (s + 0x6D2B79F5) | 0, s = Math.imul(s ^ (s >>> 15), 1 | s), s ^= s + Math.imul(s ^ (s >>> 7), 61 | s), ((s ^ (s >>> 14)) >>> 0) / 4294967296);
+const hex = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+const mixc = (a, b, k) => 'rgb(' + a.map((v, i) => Math.round(lerp(v, b[i], k))).join() + ')';
+// quick press that springs back
+const dip = tau => tau < 0 ? 0 : tau < .06 ? tau / .06 : Math.exp(-(tau - .06) * 12);
+const dipLong = tau => tau < 0 ? 0 : tau < .04 ? tau / .04 : tau < .2 ? 1 : Math.exp(-(tau - .2) * 14);
+// squash after an impact (1 at contact, springs back)
+const pulse = tau => tau < 0 || tau > .5 ? 0 : Math.exp(-tau * 10) * Math.cos(tau * 14);
+
+const D = 16, W = 1920, H = 1080, G = 5600, R = 38;
+window.VIDEO = { w: W, h: H, duration: D };
+const RENDER = location.search.includes('render');
+if (RENDER) document.documentElement.classList.add('render');
+
+// ---------- colours ----------
+const C = { paper: hex('#fbfdfc'), rule: hex('#dce1de'), edge: hex('#c6cfca'), green: hex('#1a5d48'), wash: hex('#e3eee9'), ink: hex('#121916'), muted: hex('#616a66') };
+
+// ---------- timeline ----------
+const T = { knobA: .5, knobB: .9, hop1: 1.0, slider: 1.75, rollEnd: 3.25, c1: 3.5, c2: 4.0, c3: 4.5,
+  kC: 5.5, kA: 6.0, kR1: 6.5, kR2: 6.75, kY: 7.25, ret: 7.75, launch2: 7.85, chip: 8.5, press: 9.2, page: 9.3, hlA: 9.7, hlB: 10.3, launch: 11.0 };
+const CONTACTS = [0, T.slider, T.c1, T.c2, T.c3, T.kC, T.kA, T.kR1, T.kR2, T.kY, T.ret, T.chip];
+
+// ---------- world layout ----------
+const KX0 = -1770, KX1 = -1670, KY = -960;               // toggle knob off/on, centre y
+const SX0 = -780, SX1 = 330, SY = -800;                  // slider track
+const ROLL_P = 1.9, ROLL_DUR = T.rollEnd - T.slider, ROLL_VX = (SX1 - SX0) * ROLL_P / ROLL_DUR;
+const CARD_X = [SX1 + ROLL_VX * .25, 0, 0]; CARD_X[1] = CARD_X[0] - 640; CARD_X[2] = CARD_X[1] - 640;
+const CARD_HY = [SY + .5 * G * .0625, 0, 0]; CARD_HY[1] = CARD_HY[0] + 230; CARD_HY[2] = CARD_HY[1] + 230;   // hero centre y on each card
+const KB = { x0: -1434, pitch: 128, rowTop: [700, 828, 956], off: [0, 26, 64] };
+const keyPos = (row, i) => [KB.x0 + KB.off[row] + i * KB.pitch + 56, KB.rowTop[row] - R];
+const P_C = keyPos(2, 2), P_A = keyPos(1, 0), P_R = keyPos(0, 3), P_Y = keyPos(0, 5), P_RET = [-161, KB.rowTop[1] - R];
+const P_CHIP = [646, 1030 - R];
+
+// ---------- hero path (pure function of time) ----------
+const SEGS = [];
+const add = (a, b, f) => SEGS.push({ a, b, f });
+const par = (p0, p1, a, b) => { const dt = b - a, vx = (p1[0] - p0[0]) / dt, vy = (p1[1] - p0[1]) / dt - .5 * G * dt; return t => { const s = t - a; return [p0[0] + vx * s, p0[1] + vy * s + .5 * G * s * s]; }; };
+const stay = (a, b, p) => add(a, b, () => p);
+add(0, T.knobA, () => [KX0, KY]);
+add(T.knobA, T.knobB, t => [lerp(KX0, KX1, ease((t - T.knobA) / (T.knobB - T.knobA))), KY]);
+stay(T.knobB, T.hop1, [KX1, KY]);
+add(T.hop1, T.slider, par([KX1, KY], [SX0, SY], T.hop1, T.slider));
+add(T.slider, T.rollEnd, t => [SX0 + (SX1 - SX0) * Math.pow((t - T.slider) / ROLL_DUR, ROLL_P), SY]);
+add(T.rollEnd, T.c1, t => { const s = t - T.rollEnd; return [SX1 + ROLL_VX * s, SY + .5 * G * s * s]; });
+const PC = i => [CARD_X[i], CARD_HY[i]];
+add(T.c1, T.c2, par(PC(0), PC(1), T.c1, T.c2));
+add(T.c2, T.c3, par(PC(1), PC(2), T.c2, T.c3));
+add(T.c3, T.kC, par(PC(2), P_C, T.c3, T.kC));
+add(T.kC, T.kA, par(P_C, P_A, T.kC, T.kA));
+add(T.kA, T.kR1, par(P_A, P_R, T.kA, T.kR1));
+add(T.kR1, T.kR2, par(P_R, P_R, T.kR1, T.kR2));
+add(T.kR2, T.kY, par(P_R, P_Y, T.kR2, T.kY));
+add(T.kY, T.ret, par(P_Y, P_RET, T.kY, T.ret));
+stay(T.ret, T.launch2, P_RET);
+add(T.launch2, T.chip, par(P_RET, P_CHIP, T.launch2, T.chip));
+add(T.chip, T.launch, t => [P_CHIP[0], P_CHIP[1] + 8 * dip(t - T.press)]);
+// the big launch: a ballistic arc warped into slow motion around the apex
+const LA = T.launch, WD = D - LA, APEX = -1700;
+const lvy = -Math.sqrt(2 * G * (P_CHIP[1] - APEX));
+const LT = (-lvy + Math.sqrt(lvy * lvy - 2 * G * (P_CHIP[1] - KY))) / G;
+const QA = -lvy / G / LT;
+const spd = q => 1 - .88 * Math.exp(-Math.pow((q - QA) / .2, 2));
+const NT = 4000, CUM = new Float64Array(NT + 1);
+for (let i = 1; i <= NT; i++) CUM[i] = CUM[i - 1] + (1 / NT) / spd((i - .5) / NT);
+function qOf(s) {
+  const tgt = clamp(s / WD) * CUM[NT]; let lo = 0, hi = NT;
+  while (hi - lo > 1) { const m = (lo + hi) >> 1; if (CUM[m] <= tgt) lo = m; else hi = m; }
+  return (lo + (tgt - CUM[lo]) / (CUM[hi] - CUM[lo] || 1)) / NT;
+}
+add(LA, D + 1, t => { const q = qOf(t - LA), tau = q * LT; return [lerp(P_CHIP[0], KX0, q), P_CHIP[1] + lvy * tau + .5 * G * tau * tau]; });
+function heroRaw(t) { for (const s of SEGS) if (t >= s.a && t < s.b) return s.f(t); return SEGS[SEGS.length - 1].f(t); }
+
+// ---------- bake: hero samples + spin, then the camera ----------
+const STEP = 1 / 240, NS = Math.round(D / STEP) + 1;
+const HX = new Float32Array(NS), HY = new Float32Array(NS), HVX = new Float32Array(NS), HVY = new Float32Array(NS), HSP = new Float32Array(NS);
+for (let i = 0; i < NS; i++) { const p = heroRaw(Math.min(i * STEP, D)); HX[i] = p[0]; HY[i] = p[1]; }
+for (let i = 0; i < NS; i++) {
+  const a = Math.max(0, i - 1), b = Math.min(NS - 1, i + 1);
+  HVX[i] = (HX[b] - HX[a]) / ((b - a) * STEP); HVY[i] = (HY[b] - HY[a]) / ((b - a) * STEP);
+  HSP[i] = (i ? HSP[i - 1] : 0) + HVX[i] * STEP / R * .8;
+}
+function samp(arr, t) { const f = clamp(t, 0, D) / STEP, i = Math.min(NS - 2, Math.floor(f)); return lerp(arr[i], arr[i + 1], f - i); }
+const hero = t => ({ x: samp(HX, t), y: samp(HY, t), vx: samp(HVX, t), vy: samp(HVY, t), spin: samp(HSP, t) });
+
+// camera anchors: rows [arrive, hold-until, x, y, zoom, weight toward the anchor]
+const ANCH = [
+  [0, .9, -2050, -800, .90, .85],
+  [1.3, 1.6, -1200, -850, .70, .20],
+  [2.0, 3.1, -285, -800, .72, .80],
+  [3.6, 4.4, 100, -300, .62, .45],
+  [4.9, 5.0, -700, 350, .50, .15],
+  [5.7, 7.7, -750, 820, .72, .85],
+  [8.0, 8.2, 150, 850, .50, .30],
+  [8.7, 11.0, 1300, 800, .62, .85],
+];
+const ach = i => kf(ANCH.flatMap(r => [[r[0], r[i]], [r[1], r[i]]]));
+const AXf = ach(2), AYf = ach(3), AZf = ach(4), AWf = ach(5);
+const A0 = { x: ANCH[0][2], y: ANCH[0][3], z: ANCH[0][4] };
+const CAMB = new Float32Array(NS * 3);
+(function bakeCam() {
+  let cx = A0.x, cy = A0.y, cz = A0.z, vx = 0, vy = 0, vz = 0; const w = 6, wz = 5;
+  for (let i = 0; i < NS; i++) {
+    const t = i * STEP, h = { x: HX[i], y: HY[i], vx: HVX[i], vy: HVY[i] }, k = AWf(t);
+    const tx = lerp(h.x + h.vx * .15, AXf(t), k), ty = lerp(h.y + h.vy * .15, AYf(t), k), tz = AZf(t);
+    vx += (-2 * w * vx - w * w * (cx - tx)) * STEP; cx += vx * STEP;
+    vy += (-2 * w * vy - w * w * (cy - ty)) * STEP; cy += vy * STEP;
+    vz += (-2 * wz * vz - wz * wz * (cz - tz)) * STEP; cz += vz * STEP;
+    CAMB[i * 3] = cx; CAMB[i * 3 + 1] = cy; CAMB[i * 3 + 2] = cz;
+  }
+})();
+const WIDE = { x: -70, y: -200, z: .34 };
+const revC = { x: kf([[13.6, WIDE.x], [15.7, A0.x]]), y: kf([[13.6, WIDE.y], [15.7, A0.y]]), z: kf([[13.6, Math.log(WIDE.z)], [15.7, Math.log(A0.z)]]) };
+function camAt(t) {
+  const f = clamp(t, 0, D) / STEP, i = Math.min(NS - 2, Math.floor(f)), u = f - i;
+  const sx = lerp(CAMB[i * 3], CAMB[i * 3 + 3], u), sy = lerp(CAMB[i * 3 + 1], CAMB[i * 3 + 4], u), sz = lerp(CAMB[i * 3 + 2], CAMB[i * 3 + 5], u);
+  const a = ease(seg(t, 0, .8));
+  const fx = lerp(A0.x, sx, a), fy = lerp(A0.y, sy, a), fz = Math.exp(lerp(Math.log(A0.z), Math.log(sz), a));
+  const r = ease(seg(t, LA, LA + 1.2));
+  const zr = Math.exp(revC.z(t));
+  const z = Math.exp(lerp(Math.log(fz), Math.log(zr), r));
+  const tilt = 18 * r * (1 - ease(seg(t, 13.6, 15.7)));
+  return { x: lerp(fx, revC.x(t), r), y: lerp(fy, revC.y(t), r), z, tilt, r };
+}
+
+// ---------- DOM ----------
+const cam = document.getElementById('cam'), stage = document.getElementById('stage');
+const px = n => n + 'px';
+const E = (cls, parent, l, t, w, h, css, html) => {
+  const e = document.createElement('div'); if (cls) e.className = cls;
+  const s = e.style; if (l != null) s.left = px(l); if (t != null) s.top = px(t); if (w != null) s.width = px(w); if (h != null) s.height = px(h);
+  if (css) Object.assign(s, css); if (html != null) e.innerHTML = html; (parent || cam).appendChild(e); return e;
+};
+const txt = (e, s) => { if (e._t !== s) { e._t = s; e.textContent = s; } };
+const html = (e, s) => { if (e._h !== s) { e._h = s; e.innerHTML = s; } };
+const pdfIcon = `<svg width="44" height="56" viewBox="0 0 44 56"><rect x="1" y="1" width="42" height="54" rx="7" fill="#fbfdfc" stroke="#c6cfca" stroke-width="2"/><rect x="9" y="14" width="26" height="5" rx="2" fill="#c6cfca"/><rect x="9" y="26" width="26" height="8" rx="2" fill="#f6e5a4"/><rect x="9" y="42" width="17" height="5" rx="2" fill="#c6cfca"/></svg>`;
+const logoTile = `<svg width="84" height="84" viewBox="0 0 84 84"><rect width="84" height="84" rx="20" fill="#1a5d48"/><rect x="24" y="16" width="36" height="52" rx="6" fill="#f9fcfa"/><rect x="31" y="27" width="22" height="4" rx="2" fill="#a9bdb5"/><rect x="31" y="37" width="22" height="7" rx="2" fill="#f6e5a4"/><rect x="31" y="50" width="14" height="4" rx="2" fill="#a9bdb5"/></svg>`;
+
+// dot grid (moves with the camera)
+E('', cam, -5000, -3000, 10000, 6000, { backgroundImage: 'radial-gradient(circle, #d2dad6 4px, transparent 4.6px)', backgroundSize: '80px 80px' });
+
+// --- station 1: upload toggle ---
+const S1 = { x: -2540, y: -1060, w: 980, h: 560 };
+E('lab', cam, S1.x, S1.y - 74, null, null, null, '');
+const lab1 = cam.lastChild;
+E('card', cam, S1.x, S1.y, S1.w, S1.h);
+const s1Title = E('serif', cam, S1.x + 56, S1.y + 36, null, null, { fontSize: '56px', lineHeight: '66px' }, 'Policy documents');
+const tgTrack = E('', cam, -1820, -1010, 200, 100, { borderRadius: '50px' });
+const tgSlot = E('', cam, 0, KY - R, R * 2, R * 2, { borderRadius: '50%', border: '3px solid rgba(18,25,22,.28)' });
+const FILES = ['HR-Policy-Manual.pdf', 'IT-Policy-Manual.pdf', 'Finance-and-Accounting-Manual.pdf'];
+const fileRows = FILES.map((n, i) => {
+  const r = E('row', cam, S1.x + 56, S1.y + 190 + i * 118, S1.w - 112, 100);
+  E('', r, 28, 20, 44, 56, null, pdfIcon);
+  E('mono', r, 108, 0, null, 96, { fontSize: '31px', lineHeight: '96px' }, n);
+  const ok = E('', r, S1.w - 112 - 100, 24, 52, 52, { borderRadius: '50%', background: 'var(--green)' },
+    '<svg width="52" height="52" viewBox="0 0 52 52"><path d="M15 27l8 8 15-17" fill="none" stroke="#f9fcfa" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+  return r;
+});
+
+// --- station 2: indexing slider ---
+const S2 = { x: -960, y: -1000, w: 1350, h: 400 };
+const lab2 = E('lab', cam, S2.x, S2.y - 74);
+E('card', cam, S2.x, S2.y, S2.w, S2.h);
+E('serif', cam, S2.x + 56, S2.y + 36, null, null, { fontSize: '56px', lineHeight: '66px' }, 'Indexing');
+E('', cam, SX0, SY - 10, SX1 - SX0, 20, { borderRadius: '10px', background: 'var(--well)', border: '2px solid var(--rule)' });
+const slFill = E('', cam, SX0, SY - 10, 0, 20, { borderRadius: '10px', background: 'var(--green)' });
+const ticks = []; for (let i = 0; i <= 10; i++) ticks.push(E('', cam, SX0 + (SX1 - SX0) * i / 10 - 1.5, SY + 52, 3, 22, { background: 'var(--edge)', borderRadius: '2px' }));
+const slSlot = E('', cam, SX0 - R, SY - R, R * 2, R * 2, { borderRadius: '50%', border: '3px solid rgba(18,25,22,.28)' });
+const tip = E('mono', cam, 0, SY - R - 86, 120, 56, { background: 'var(--ink)', color: 'var(--paper)', borderRadius: '16px', textAlign: 'center', fontSize: '31px', lineHeight: '56px' });
+
+// --- station 3: pipeline cards ---
+const lab3 = E('lab', cam, CARD_X[2] - 280, -520);
+const NOTES = [['Parsed', 'Sections and pages kept'], ['Embedded', 'Meaning, not just keywords'], ['Ready', 'Keyword + vector search']];
+const notif = NOTES.map((n, i) => {
+  const l = CARD_X[i] - 280, t = CARD_HY[i] + R;
+  const g = E('ghost', cam, l, t, 560, 150);
+  const c = E('card', cam, l, t, 560, 150, { borderRadius: '30px', boxShadow: '0 10px 30px rgba(18,25,22,.10)' });
+  E('', c, 28, 33, 84, 84, null, logoTile);
+  E('', c, 136, 28, null, null, { fontSize: '36px', fontWeight: 500, lineHeight: '44px' }, n[0]);
+  E('', c, 136, 76, null, null, { fontSize: '29px', color: 'var(--muted)', lineHeight: '40px' }, n[1]);
+  E('mono', c, 470, 30, null, null, { fontSize: '22px', color: 'var(--muted)' }, 'now');
+  return c;
+});
+
+// --- station 4: keyboard ---
+const KBC = { x: -1530, y: 500, w: 1560, h: 620 };
+const lab4 = E('lab', cam, KBC.x, KBC.y - 74);
+E('card', cam, KBC.x, KBC.y, KBC.w, KBC.h);
+const inp = E('', cam, KBC.x + 56, KBC.y + 40, KBC.w - 112, 110, { border: '2px solid var(--edge)', borderRadius: '26px', background: 'var(--paper)' });
+const inpText = E('', inp, 36, 0, null, 106, { fontSize: '46px', lineHeight: '106px' });
+const keyEls = {};
+['qwertyuiop', 'asdfghjkl', 'zxcvbnm'].forEach((row, r) => [...row].forEach((ch, i) => {
+  keyEls[ch + r] = E('key', cam, KB.x0 + KB.off[r] + i * KB.pitch, KB.rowTop[r], 112, 112, { boxShadow: '0 7px 0 var(--rule)' }, ch);
+}));
+const retKey = E('key', cam, KB.x0 + KB.off[1] + 9 * KB.pitch, KB.rowTop[1], 190, 112, { boxShadow: '0 7px 0 var(--rule)', fontSize: '34px' }, 'return');
+const KEYHITS = [['c2', [T.kC]], ['a1', [T.kA]], ['r0', [T.kR1, T.kR2]], ['y0', [T.kY]]];
+const TYPE_T = [T.kC, T.kA, T.kR1, T.kR2, T.kY];
+
+// --- station 5: answer ---
+const AN = { x: 400, y: 560, w: 1100, h: 600 };
+const lab5 = E('lab', cam, AN.x, AN.y - 74);
+E('card', cam, AN.x, AN.y, AN.w, AN.h);
+const bubble = E('', cam, 0, 0, null, null, { padding: '18px 28px', background: 'var(--well)', borderRadius: '30px 30px 8px 30px', fontSize: '33px', lineHeight: '44px' }, 'Can I carry over unused leave in Germany?');
+bubble.style.right = ''; bubble.style.left = px(AN.x + AN.w - 56 - 700); bubble.style.top = px(AN.y + 40); bubble.style.width = '700px'; bubble.style.whiteSpace = 'normal';
+const badge = E('', cam, AN.x + 56, AN.y + 150, null, 44, { border: '2px solid var(--edge)', borderRadius: '999px', padding: '0 20px', fontSize: '26px', lineHeight: '40px', fontWeight: 500, color: 'var(--muted)' }, '<span style="color:var(--ink)">HR agent</span> · Germany');
+const ans = E('', cam, AN.x + 56, AN.y + 218, AN.w - 112, 190, { fontSize: '36px', lineHeight: '54px', whiteSpace: 'normal' });
+const PIECES = [['Yes, until ', 0], ['31 March', 1], [' of the following year. It only lapses if HR wrote to you by 1 October with the days left and the lapse date.', 0]];
+const ANS_LEN = PIECES.reduce((s, p) => s + p[0].length, 0);
+const srcCap = E('', cam, AN.x + 56, AN.y + 412, null, 40, { fontSize: '26px', color: 'var(--muted)', lineHeight: '40px' }, '2 sources');
+const chip1 = E('mono', cam, 456, 1030, 400, 64, { background: 'var(--wash)', color: '#1d3a30', borderRadius: '16px', fontSize: '26px', lineHeight: '64px', textAlign: 'center' }, 'SIM-HR-102 §5.2 · p. 16');
+const chip2 = E('mono', cam, 876, 1030, 470, 64, { background: 'var(--wash)', color: '#1d3a30', borderRadius: '16px', fontSize: '26px', lineHeight: '64px', textAlign: 'center' }, 'SIM-HR-102 App. A · p. 31');
+
+// --- cited PDF page ---
+const PG = { x: 1640, y: 300, w: 760, h: 920 };
+const page = E('card', cam, PG.x, PG.y, PG.w, PG.h, { borderRadius: '30px', boxShadow: '0 22px 60px rgba(18,25,22,.14)', overflow: 'hidden', background: '#fff', whiteSpace: 'normal' });
+E('', page, 0, 0, PG.w, 88, { background: 'var(--well)', borderBottom: '2px solid var(--rule)' });
+E('mono', page, 40, 0, null, 88, { fontSize: '25px', color: 'var(--muted)', lineHeight: '88px' }, 'SIM-HR-102');
+E('', page, 232, 0, null, 88, { fontSize: '27px', fontWeight: 500, lineHeight: '88px' }, 'Germany HR Manual (Berlin)');
+E('mono', page, PG.w - 150, 0, null, 88, { fontSize: '25px', color: 'var(--muted)', lineHeight: '88px' }, '16 / 32');
+E('serif', page, 44, 118, null, 60, { fontSize: '44px', lineHeight: '60px' }, '<span class="mono" style="font-weight:400;font-size:26px;color:#616a66;margin-right:14px">5.2</span>Annual Leave');
+const PROWS = [
+  ['Entitlement', '30 working days per calendar year (for a 5-day week). The statutory minimum is 20 days (24 on a 6-day week); the remaining 10 days are contractual.'],
+  ['Request', 'In the HR system; managers decide within 3 business days.'],
+  ['Carry-over', '<mark id="hlmark" style="background:linear-gradient(#f4e090,#f4e090) no-repeat;background-size:0% 100%;color:#26220f">Unused leave carries over to March 31 of the following year. Leave does not lapse unless the Company has written to the employee in good time (by October 1)</mark> telling them how many days remain and the date it would lapse.'],
+];
+E('', page, 44, 200, PG.w - 88, 640, { borderTop: '2px solid var(--rule)', whiteSpace: 'normal' },
+  PROWS.map(r => `<div style="position:static;display:flex;gap:20px;padding:18px 0;border-bottom:2px solid #dce1de"><div class="serif" style="position:static;width:176px;flex:none;font-size:27px;line-height:38px">${r[0]}</div><div style="position:static;flex:1;min-width:0;font-size:25px;line-height:38px;color:#616a66;white-space:normal">${r[1]}</div></div>`).join(''));
+E('mono', page, PG.w - 230, PG.h - 64, null, null, { fontSize: '22px', color: 'var(--muted)' }, 'Page 16 of 32');
+const hlmark = page.querySelector('#hlmark');
+
+// --- hero ---
+const halo = E('', cam, -300, -300, 600, 600, { borderRadius: '50%', background: 'radial-gradient(circle, rgba(26,93,72,.34) 0%, rgba(26,93,72,.14) 38%, rgba(26,93,72,0) 70%)', opacity: 0 });
+const heroEl = E('', cam, -R, -R, R * 2, R * 2, { borderRadius: '50%', background: 'radial-gradient(circle at 34% 30%, #2f7a62 0%, #1a5d48 55%, #124333 100%)', boxShadow: '0 0 0 5px #fbfdfc, 0 10px 22px rgba(18,25,22,.30)' });
+const heroDot = E('', heroEl, 0, 0, R * 2, R * 2);
+E('', heroDot, 17, 11, 15, 15, { borderRadius: '50%', background: 'rgba(249,252,250,.8)' });
+
+// ---------- seek ----------
+function seek(tt) {
+  const t = ((tt % D) + D) % D;
+  // camera
+  const c = camAt(t);
+  cam.style.transform = `perspective(2600px) rotateX(${c.tilt}deg) scale(${c.z}) translate(${-c.x}px,${-c.y}px)`;
+
+  // hero
+  const h = hero(t);
+  let p = 0; for (const ct of CONTACTS) p = Math.max(p, pulse(t - ct));
+  const sp = Math.hypot(h.vx, h.vy), ang = Math.atan2(h.vy, h.vx) * 180 / Math.PI;
+  const st = clamp(sp / 5000) * .3 * (1 - clamp(p * 3));
+  const hs = 1 + .75 * ease(seg(t, LA, LA + 1)) * (1 - ease(seg(t, 14.2, 15.6)));
+  const sqx = 1 + .28 * p, sqy = 1 - .22 * p;
+  heroEl.style.transform = `translate(${h.x}px,${h.y + R * (1 - sqy) * hs}px) scale(${hs}) rotate(${ang}deg) scale(${1 + st},${1 - st * .55}) rotate(${-ang}deg) scale(${sqx},${sqy})`;
+  heroDot.style.transform = `rotate(${h.spin}rad)`;
+  const hl = hs - 1;
+  halo.style.opacity = clamp(hl / .75); halo.style.transform = `translate(${h.x}px,${h.y}px) scale(${.6 + hl * 1.4})`;
+
+  // ---- station 1: toggle ----
+  const on = ease(seg(t, T.knobA, T.knobB)) * (1 - ease(seg(t, 13.0, 13.4)));
+  tgTrack.style.background = mixc(C.edge, C.green, on);
+  tgSlot.style.left = px(lerp(KX0, KX1, on) - R); tgSlot.style.borderColor = on > .5 ? 'rgba(249,252,250,.55)' : 'rgba(18,25,22,.28)';
+  txt(lab1, on > .5 ? 'Upload · PDFs added' : 'Upload · Policy PDFs');
+  fileRows.forEach((r, i) => {
+    const a = spring(t - (T.knobA + .12 + i * .14), 16, .8) * (1 - ease(seg(t, 13.0 + i * .1, 13.2 + i * .1)));
+    r.style.opacity = clamp(a * 1.4); r.style.transform = `translateY(${(1 - a) * 28}px)`;
+  });
+
+  // ---- station 2: slider ----
+  const roll = clamp((t - T.slider) / ROLL_DUR);
+  const v = (t < T.slider ? 0 : t < T.rollEnd ? Math.pow(roll, ROLL_P) : 1) * (1 - ease(seg(t, 12.9, 13.5)));
+  slFill.style.width = px(Math.max(0, (SX1 - SX0) * v + 0));
+  ticks.forEach((e, i) => { e.style.background = v * 10 >= i - 0.001 && v > 0 ? 'var(--green)' : 'var(--edge)'; });
+  const tipOp = clamp((t - T.slider) / .1) * (1 - clamp((t - T.rollEnd) / .2));
+  tip.style.opacity = tipOp; tip.style.left = px(SX0 + (SX1 - SX0) * v - 60); tip.style.transform = `translateY(${(1 - tipOp) * 10}px)`;
+  txt(tip, Math.round(v * 100) + '%');
+  slSlot.style.opacity = t > T.slider + .02 && t < 12.9 ? 1 : 1;
+  txt(lab2, v >= 1 ? 'Indexing · Reached 100' : 'Indexing · Reading every page');
+
+  // ---- station 3: cards ----
+  const hit = [T.c1, T.c2, T.c3], dis = [12.6, 12.75, 12.9];
+  notif.forEach((n, i) => {
+    const pop = spring(t - hit[i], 22, .6) * (1 - ease(seg(t, dis[i], dis[i] + .25)));
+    n.style.opacity = clamp(pop * 1.6);
+    n.style.transform = `translateY(${dip(t - hit[i]) * 12}px) scale(${.82 + .18 * clamp(pop, 0, 1.15)})`;
+  });
+  const allHit = t >= T.c3 && t < 12.9;
+  txt(lab3, allHit ? 'Pipeline · Ready to answer' : 'Pipeline · Something is falling');
+
+  // ---- station 4: keyboard ----
+  for (const k in keyEls) { keyEls[k].style.transform = ''; keyEls[k].style.background = 'var(--card)'; keyEls[k].style.boxShadow = '0 7px 0 var(--rule)'; }
+  KEYHITS.forEach(([id, ts]) => {
+    let d = 0; ts.forEach(h0 => { d = Math.max(d, dip(t - h0)); });
+    const e = keyEls[id]; e.style.transform = `translateY(${d * 7}px)`; e.style.boxShadow = `0 ${7 - d * 7}px 0 var(--rule)`; e.style.background = mixc(C.paper, C.wash, clamp(d * 1.3));
+  });
+  { const d = dipLong(t - T.ret); retKey.style.transform = `translateY(${d * 7}px)`; retKey.style.boxShadow = `0 ${7 - d * 7}px 0 var(--rule)`; retKey.style.background = mixc(C.paper, C.wash, d); }
+  const nTyped = t < T.ret ? TYPE_T.filter(x => t >= x - .005).length : 0;
+  const ghostOp = ease(seg(t, 7.3, 7.5)) * (t < T.ret ? 1 : 0);
+  const caret = t >= T.kC - .15 && t < T.ret && (Math.floor(t * 6) % 2 === 0 || nTyped > 0 && t - TYPE_T[nTyped - 1] < .3);
+  if (nTyped === 0) html(inpText, `<span style="color:#8e9792">Ask about your documents</span>`);
+  else html(inpText, `${'carry'.slice(0, nTyped)}${caret ? '<span style="display:inline-block;width:3px;height:44px;background:#1a5d48;vertical-align:-6px;margin-left:2px"></span>' : ''}<span style="color:#8e9792;opacity:${ghostOp}"> over unused leave in Germany?</span>`);
+  txt(lab4, t >= T.ret && t < 12.5 ? 'Ask · Sent' : 'Ask · Type a question');
+
+  // ---- station 5: answer ----
+  const rs = 1 - ease(seg(t, 12.3, 12.7));
+  const bA = spring(t - 7.85, 18, .8) * rs;
+  bubble.style.opacity = clamp(bA * 1.5); bubble.style.transform = `translateY(${(1 - bA) * 30}px)`;
+  const gA = spring(t - 8.05, 18, .8) * rs;
+  badge.style.opacity = clamp(gA * 1.5); badge.style.transform = `translateY(${(1 - gA) * 20}px)`;
+  const prog = ease(seg(t, 8.1, 9.1)) * rs; let n = Math.round(ANS_LEN * prog), out = '';
+  for (const [s, b] of PIECES) { if (n <= 0) break; const part = s.slice(0, n); n -= s.length; out += b ? `<b style="font-weight:600">${part}</b>` : part; }
+  if (prog >= 1) out += ` <span class="mono" style="background:#1a5d48;color:#f9fcfa;border-radius:8px;padding:2px 10px;font-size:26px;vertical-align:3px">1</span>`;
+  html(ans, out);
+  const cA = spring(t - 7.95, 18, .8) * rs;
+  srcCap.style.opacity = clamp(cA * 1.5); chip1.style.opacity = clamp(cA * 1.5); chip2.style.opacity = clamp(cA * 1.5);
+  chip1.style.transform = chip2.style.transform = `translateY(${(1 - cA) * 20}px)`;
+  const act = ease(seg(t, T.press, T.press + .2)) * rs;
+  chip1.style.background = mixc(C.wash, C.green, act); chip1.style.color = mixc(hex('#1d3a30'), C.paper, act);
+  chip1.style.transform = `translateY(${(1 - cA) * 20 + dip(t - T.press) * 8}px)`;
+  txt(lab5, act > .5 ? 'Source · Page 16, highlighted' : 'Answer · From your documents');
+
+  // ---- cited page ----
+  const pg = spring(t - T.page, 15, .85) * (1 - ease(seg(t, 12.0, 12.4)));
+  page.style.opacity = clamp(pg * 1.6);
+  page.style.transform = `translate(${(1 - pg) * -70}px,${(1 - pg) * 40}px) scale(${.94 + .06 * clamp(pg, 0, 1.1)})`;
+  hlmark.style.backgroundSize = (ease(seg(t, T.hlA, T.hlB)) * (1 - ease(seg(t, 12.0, 12.3))) * 100).toFixed(2) + '% 100%';
+}
+window.seek = seek;
+seek(0);
+
+// ---------- sound ----------
+function schedule(c) {
+  const sr = c.sampleRate, rand = rng(11);
+  const master = c.createGain(); master.gain.value = .85; master.connect(c.destination);
+  const noiseB = c.createBuffer(1, sr * 2, sr); { const d = noiseB.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = rand() * 2 - 1; }
+  const rev = c.createConvolver(); { const len = Math.floor(sr * 1.6), ir = c.createBuffer(2, len, sr); for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (rand() * 2 - 1) * Math.pow(1 - i / len, 3.2); } rev.buffer = ir; }
+  const revG = c.createGain(); revG.gain.value = .5; rev.connect(revG); revG.connect(master);
+  const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+  const env = (g, t0, a, peak, dec, end = .0001) => { g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(peak, t0 + a); g.gain.exponentialRampToValueAtTime(end, t0 + a + dec); };
+  function osc(type, f, t0, dur, peak, dec, dest, send = 0, f2) {
+    const o = c.createOscillator(), g = c.createGain(); o.type = type; o.frequency.setValueAtTime(f, t0); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t0 + dur);
+    env(g, t0, .003, peak, dec); o.connect(g); g.connect(dest || master); if (send) { const s = c.createGain(); s.gain.value = send; g.connect(s); s.connect(rev); }
+    o.start(t0); o.stop(t0 + dur + .05);
+  }
+  function noise(t0, dur, type, f, q, peak, f2) {
+    const s = c.createBufferSource(), fl = c.createBiquadFilter(), g = c.createGain(); s.buffer = noiseB; s.loop = true; fl.type = type; fl.frequency.setValueAtTime(f, t0); fl.Q.value = q;
+    if (f2) fl.frequency.exponentialRampToValueAtTime(f2, t0 + dur);
+    env(g, t0, .002, peak, dur); s.connect(fl); fl.connect(g); g.connect(master); s.start(t0, rand() * 1.5); s.stop(t0 + dur + .05);
+  }
+  const penta = [0, 2, 4, 7, 9], deg = k => 12 * Math.floor(k / 5) + penta[k % 5];
+  const marimba = (t0, k, vel = 1) => { const m = 60 + deg(k), f = mtof(m); osc('sine', f, t0, .6, .34 * vel, .55, master, .35); osc('sine', f * 4, t0, .2, .08 * vel, .12, master, .2); };
+  const whoosh = (t0, dur, f0, f1, peak) => { const s = c.createBufferSource(), fl = c.createBiquadFilter(), g = c.createGain(); s.buffer = noiseB; s.loop = true; fl.type = 'bandpass'; fl.Q.value = 1.1; fl.frequency.setValueAtTime(f0, t0); fl.frequency.exponentialRampToValueAtTime(f1, t0 + dur);
+    g.gain.setValueAtTime(.0001, t0); g.gain.linearRampToValueAtTime(peak, t0 + dur * .55); g.gain.linearRampToValueAtTime(.0001, t0 + dur); s.connect(fl); fl.connect(g); g.connect(master); s.start(t0, 0); s.stop(t0 + dur + .05); };
+
+  // groove: 120 BPM
+  const roots = [36, 33, 41, 43], chords = [[60, 64, 67, 71], [57, 60, 64, 67], [60, 65, 69, 72], [59, 62, 67, 71]];
+  for (let bar = 0; bar < 8; bar++) {
+    const t0 = bar * 2, ci = Math.floor(bar / 2) % 4, root = roots[ci];
+    if (bar % 2 === 0) chords[ci].forEach(m => { [-4, 4].forEach(dt => {
+      const o = c.createOscillator(), fl = c.createBiquadFilter(), g = c.createGain(); o.type = 'triangle'; o.frequency.value = mtof(m); o.detune.value = dt; fl.type = 'lowpass'; fl.frequency.value = 1100;
+      g.gain.setValueAtTime(.0001, t0); g.gain.linearRampToValueAtTime(.022, t0 + 1.2); g.gain.setValueAtTime(.022, t0 + 3.2); g.gain.linearRampToValueAtTime(.0001, t0 + 4.4); o.connect(fl); fl.connect(g); g.connect(master); o.start(t0); o.stop(t0 + 4.5); }); });
+    if (t0 >= 2) [[0, 0], [.75, 7], [1.5, 0]].forEach(([bt, iv]) => { const tt = t0 + bt, o = c.createOscillator(), fl = c.createBiquadFilter(), g = c.createGain(); o.type = 'sawtooth'; o.frequency.value = mtof(root + iv); fl.type = 'lowpass'; fl.frequency.setValueAtTime(520, tt); fl.frequency.exponentialRampToValueAtTime(140, tt + .25);
+      env(g, tt, .004, .16, .26); o.connect(fl); fl.connect(g); g.connect(master); o.start(tt); o.stop(tt + .35); });
+    for (let b = 0; b < 4; b++) {
+      const tt = t0 + b * .5;
+      if (tt >= 2) osc('sine', 120, tt, .16, .42, .22, master, 0, 46);
+      noise(tt + .25, .05, 'highpass', 8000, .7, .05);
+    }
+  }
+  // hero contacts: rising marimba line
+  CONTACTS.forEach((ct, k) => marimba(ct, k));
+  osc('sine', 90, 0, .2, .35, .2, master, 0, 45);
+  // toggle
+  noise(T.knobA, .04, 'bandpass', 2600, 2, .22); fileRows.forEach((r, i) => osc('sine', 600 + i * 120, T.knobA + .12 + i * .14, .12, .08, .1, master, .2, 380));
+  // slider ticks (accelerating)
+  for (let i = 1; i <= 20; i++) { const tt = T.slider + ROLL_DUR * Math.pow(i / 20, 1 / ROLL_P); noise(tt, .02, 'bandpass', 4200 + i * 90, 3, .1 + i * .004); }
+  // notification pops
+  [T.c1, T.c2, T.c3].forEach((ct, i) => osc('sine', 760 + i * 90, ct, .12, .18, .1, master, .3, 380));
+  // keys
+  [T.kC, T.kA, T.kR1, T.kR2, T.kY].forEach(kt => noise(kt, .03, 'bandpass', 3400, 2.5, .26));
+  noise(T.ret, .06, 'lowpass', 900, 1, .45); osc('sine', 150, T.ret, .12, .3, .12, master, 0, 70);
+  // answer stream: soft ticks, chip press, page swish
+  for (let i = 0; i < 26; i++) noise(8.1 + i * (1 / 26), .012, 'bandpass', 5200, 3, .035);
+  noise(T.press, .05, 'bandpass', 2200, 2, .25); noise(T.page, .35, 'bandpass', 3800, .8, .1, 1400);
+  // launch and reveal
+  whoosh(T.launch, 1.4, 260, 3600, .26); whoosh(13.6, 1.7, 3400, 260, .22);
+  // resets: descending ticks while the world rewinds
+  [12.0, 12.3, 12.6, 12.75, 12.9, 13.1, 13.3, 13.45].forEach((tt, i) => osc('sine', 900 - i * 70, tt, .09, .09, .08, master, .25, 500 - i * 30));
+}
+window.buildAudio = async function (ctx) {
+  const sr = ctx.sampleRate, TAIL = 1.8, n = Math.ceil(sr * D);
+  const off = new OfflineAudioContext(2, Math.ceil(sr * (D + TAIL)), sr);
+  schedule(off);
+  const buf = await off.startRendering();
+  for (let ch = 0; ch < 2; ch++) { const d = buf.getChannelData(ch); for (let i = 0; i < d.length - n; i++) d[i] += d[n + i]; }
+  const out = ctx.createBuffer(2, n, sr);
+  for (let ch = 0; ch < 2; ch++) out.getChannelData(ch).set(buf.getChannelData(ch).subarray(0, n));
+  const src = ctx.createBufferSource(); src.buffer = out; src.connect(ctx.destination); src.start(0);
+};
+
+// ---------- preview ----------
+function fit() { if (RENDER) { stage.style.transform = 'none'; return; } const k = Math.min(innerWidth / W, (innerHeight - 56) / H); stage.style.transform = `scale(${k})`; }
+addEventListener('resize', fit); fit();
+if (!RENDER) {
+  let buf, ac, src, startAt = 0, offset = 0, playing = false;
+  const pp = document.getElementById('pp'), scr = document.getElementById('scr'), tm = document.getElementById('tm');
+  async function play() {
+    ac ??= new AudioContext();
+    if (!buf) { pp.textContent = 'Rendering sound…'; const off = new OfflineAudioContext(2, Math.ceil(48000 * D), 48000); await buildAudio(off); buf = await off.startRendering(); }
+    src = ac.createBufferSource(); src.buffer = buf; src.connect(ac.destination);
+    src.start(0, offset % D); startAt = ac.currentTime; playing = true; pp.textContent = 'Pause';
+  }
+  function pause() { if (!playing) return; offset += ac.currentTime - startAt; src.stop(); playing = false; pp.textContent = 'Play'; }
+  const now = () => playing ? (offset + ac.currentTime - startAt) % D : offset;
+  pp.onclick = () => playing ? pause() : play();
+  scr.oninput = () => { const was = playing; pause(); offset = +scr.value; seek(offset); if (was) play(); };
+  (function loop() { const t = now(); seek(t); if (playing) scr.value = t; tm.textContent = t.toFixed(2) + 's'; requestAnimationFrame(loop); })();
+}
+</script>
+</body>
+</html>

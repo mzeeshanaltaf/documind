@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ButtonLink } from "@/components/button-link";
 import { AskExcerpt, IndexExcerpt, RoutingDemo, SearchDemo, UploadExcerpt } from "@/components/marketing/demos";
-import { HeroVisual } from "@/components/marketing/hero-visual";
+import { HeroVideo } from "@/components/marketing/hero-video";
 import { CONTAINER } from "@/components/marketing/nav";
 import { cn } from "@/lib/utils";
 
@@ -48,10 +48,10 @@ function Hero() {
       <div
         className={cn(
           CONTAINER,
-          "grid items-center gap-14 pt-[clamp(3rem,2rem+4vw,6rem)] pb-[clamp(4rem,3rem+4vw,7rem)] lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] lg:gap-16",
+          "flex flex-col gap-14 pt-[clamp(3rem,2rem+4vw,6rem)] pb-[clamp(4rem,3rem+4vw,7rem)] lg:gap-16",
         )}
       >
-        <div className="flex flex-col items-start">
+        <div className="flex max-w-4xl flex-col items-start">
           <p className="text-sm text-muted-foreground">For People Ops, HR, IT, Finance and Compliance teams</p>
           <h1
             id="hero-title"
@@ -87,7 +87,7 @@ function Hero() {
           </div>
         </div>
 
-        <HeroVisual />
+        <HeroVideo />
       </div>
     </section>
   );

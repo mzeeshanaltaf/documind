@@ -44,6 +44,7 @@ api/                FastAPI app
   app/agents/     catalog, router (orchestrator), specialists, answer, citations
   app/llm/        client (tiers, flex fallback, metering), pricing, usage
   alembic/  scripts/seed_policies.py  eval/ (golden.jsonl, run_eval.py)  tests/
+video/              hero explainer motion graphic (src/explainer.html, build.mjs, render.mjs; output → web/public/documind-explainer.mp4)
 docs/policies/      14 seed PDFs (fictional company "Simtora Technologies")
 docs/plan/          phase-1 … phase-9 implementation docs
 PRODUCT.md, DESIGN.md  design context (impeccable); DESIGN.json = its sidecar

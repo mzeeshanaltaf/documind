@@ -1,7 +1,11 @@
 """What one case produced (`Generated`) and how it is stored: the run case's answer, routing,
 usage and trace, its retrieved contexts per mode, and its deterministic metric scores. Saving is
 one transaction that also counts the case, so a retry after a crash either finds the case done
-or redoes all of it."""
+or redoes all of it.
+
+When the run judges (`judging.judging_enabled`), saving stops the case at `generated` and
+enqueues its `case_judge` job instead; `save_judged` then stores the judge's scores and claims,
+decides `passed` over every score, and counts the case."""
 
 import uuid
 from collections.abc import Mapping, Sequence
@@ -9,15 +13,20 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import delete, select
+from sqlalchemy import bindparam, delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import session_scope
-from app.metrics.registry import MetricConfig, Score, case_passed, evaluate
+from app.metrics.registry import REGISTRY, MetricConfig, Score, case_passed, evaluate
 from app.metrics.retrieval import is_relevant
 from app.metrics.types import CaseOutput, CaseSpec, Context
-from app.models import Case, MetricScore, RetrievedContext, Run, RunCase
+from app.models import Case, Claim, MetricScore, RetrievedContext, Run, RunCase
 from app.services import run_state
+from app.services.judging import JudgeOutcome, judging_enabled
+from app.worker import queue
+
+JUDGE_ATTEMPTS = 4  # case_judge: transient Anthropic errors back off 10 s, 20 s, 40 s
+JUDGE_PRIORITY = 1  # finish judging started cases before generating new ones
 
 
 @dataclass
@@ -53,6 +62,25 @@ def to_context(rank: int, source: Mapping[str, Any]) -> Context:
         page_end=source.get("page_end"),
         text=source.get("text"),
         chunk_id=_str(source.get("chunk_id")),
+        title=source.get("title"),
+        jurisdiction=source.get("jurisdiction"),
+    )
+
+
+def context_from_row(row: RetrievedContext) -> Context:
+    return Context(
+        rank=row.rank,
+        n=row.n,
+        document_id=_str(row.document_id),
+        doc_code=row.doc_code,
+        section_number=row.section_number,
+        section_title=row.section_title,
+        page_start=row.page_start,
+        page_end=row.page_end,
+        text=row.text,
+        chunk_id=_str(row.chunk_id),
+        title=row.title,
+        jurisdiction=row.jurisdiction,
     )
 
 
@@ -88,6 +116,8 @@ def context_rows(
                 chunk_id=_uuid(source.get("chunk_id")),
                 document_id=_uuid(source.get("document_id")),
                 doc_code=source.get("doc_code"),
+                title=source.get("title"),
+                owner=source.get("owner"),
                 section_number=source.get("section_number"),
                 section_title=source.get("section_title"),
                 section_path=list(source.get("section_path") or []),
@@ -143,12 +173,14 @@ def score_all(run: Run, case: CaseSpec, generated: Generated, config: MetricConf
 async def save_generated(
     run: Run, run_case_id: uuid.UUID, case: Case, generated: Generated
 ) -> bool:
-    """Store the outcome, score it and count the case, in one transaction. Returns False when
-    the case was already terminal (a duplicate delivery), in which case nothing changes."""
+    """Store the outcome, score it and count the case (or hand it to the judge), in one
+    transaction. Returns False when the case was already terminal (a duplicate delivery), in
+    which case nothing changes."""
     spec = CaseSpec.from_model(case)
     config = MetricConfig.from_config(run.config.get("metrics"))
     scores = score_all(run, spec, generated, config)
-    passed = case_passed(scores, config.gates)
+    judging = judging_enabled(run)
+    passed = None if judging else case_passed(scores, config.gates)
     cited_ns = {int(c["n"]) for c in generated.citations if c.get("n") is not None}
 
     async with session_scope() as session:
@@ -195,7 +227,18 @@ async def save_generated(
         run_case.passed = passed
         run_case.error_stage = None
         run_case.error = None
-        # Judge metrics (E4) would stop at `generated` and enqueue `case_judge` here.
+        if judging:
+            run_case.status = "generated"
+            await session.flush()
+            await queue.enqueue(
+                session,
+                "case_judge",
+                run_id=run.id,
+                run_case_id=run_case_id,
+                priority=JUDGE_PRIORITY,
+                max_attempts=JUDGE_ATTEMPTS,
+            )
+            return True
         run_case.status = "done"
         await session.flush()
         await run_state.count_case(session, run.id, outcome="done", passed=passed, cost_usd=cost)
@@ -207,3 +250,91 @@ async def _replace_children(session: AsyncSession, run_case_id: uuid.UUID) -> No
         delete(RetrievedContext).where(RetrievedContext.run_case_id == run_case_id)
     )
     await session.execute(delete(MetricScore).where(MetricScore.run_case_id == run_case_id))
+    await session.execute(delete(Claim).where(Claim.run_case_id == run_case_id))
+
+
+def _score_of(row: MetricScore) -> Score:
+    return Score(row.metric, row.mode, row.value, row.status, row.passed, row.details)
+
+
+async def save_judged(run: Run, run_case_id: uuid.UUID, outcome: JudgeOutcome) -> bool:
+    """Store the judge's scores, claims and source relevance, decide `passed` over every score
+    of the case, mark it done and count it, in one transaction. False = already terminal."""
+    config = MetricConfig.from_config(run.config.get("metrics"))
+    judged_keys = list(outcome.scores)
+    async with session_scope() as session:
+        run_case = (
+            await session.execute(
+                select(RunCase).where(RunCase.id == run_case_id).with_for_update()
+            )
+        ).scalar_one_or_none()
+        if run_case is None or run_case.status in run_state.CASE_TERMINAL:
+            return False
+        await session.execute(
+            delete(MetricScore).where(
+                MetricScore.run_case_id == run_case_id, MetricScore.metric.in_(judged_keys)
+            )
+        )
+        rows = []
+        for key, judged in outcome.scores.items():
+            result = judged.result
+            passed = (
+                REGISTRY[key].passes(result.value, config.threshold(REGISTRY[key]))
+                if result.status == "ok"
+                else None
+            )
+            rows.append(
+                MetricScore(
+                    id=uuid.uuid4(),
+                    run_case_id=run_case_id,
+                    metric=key,
+                    mode="chat",
+                    value=result.value,
+                    passed=passed,
+                    status=result.status,
+                    n_samples=judged.n_samples,
+                    spread=judged.spread,
+                    details=result.details,
+                    judge_call_ids=judged.call_ids,
+                )
+            )
+        session.add_all(rows)
+        if outcome.claims is not None:
+            await session.execute(delete(Claim).where(Claim.run_case_id == run_case_id))
+            session.add_all(
+                Claim(
+                    id=uuid.uuid4(),
+                    run_case_id=run_case_id,
+                    idx=claim.idx,
+                    text=claim.text,
+                    sentence_idx=claim.sentence_idx,
+                    citation_ns=list(claim.citation_ns),
+                    verdict=claim.verdict,
+                    supporting_ns=list(claim.supporting_ns),
+                    evidence_quote=claim.evidence_quote,
+                    reasoning=claim.reasoning,
+                )
+                for claim in outcome.claims
+            )
+        if outcome.relevance:
+            table = RetrievedContext.__table__
+            await session.execute(
+                update(table)
+                .where(table.c.run_case_id == run_case_id, table.c.n == bindparam("source_n"))
+                .values(judge_relevant=bindparam("relevant")),
+                [{"source_n": n, "relevant": rel} for n, rel in outcome.relevance.items()],
+            )
+        await session.flush()
+        stored = (
+            await session.scalars(select(MetricScore).where(MetricScore.run_case_id == run_case_id))
+        ).all()
+        passed = case_passed([_score_of(row) for row in stored], config.gates)
+        run_case.passed = passed
+        run_case.status = "done"
+        run_case.error_stage = None
+        run_case.error = None
+        await session.flush()
+        # A rejudge made no DocuMind calls, so its run doesn't add their (copied) cost.
+        cost = Decimal(0) if run.source_run_id else run_case.documind_cost_usd
+        await run_state.count_case(session, run.id, outcome="done", passed=passed, cost_usd=cost)
+    return True

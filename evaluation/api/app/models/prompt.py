@@ -1,7 +1,7 @@
 import uuid
 from typing import Any
 
-from sqlalchemy import CheckConstraint, ForeignKey, Text, text
+from sqlalchemy import CheckConstraint, ForeignKey, Integer, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -24,10 +24,12 @@ class PromptVersion(UuidPk, CreatedAt, Base):
     """One distinct prompt file content; synced at startup, recorded per run."""
 
     __tablename__ = "prompt_versions"
+    __table_args__ = (UniqueConstraint("prompt_id", "version"),)
 
     prompt_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("prompts.id", ondelete="CASCADE"), index=True
     )
+    version: Mapped[int] = mapped_column(Integer)  # 1, 2, … per prompt (E4)
     sha256: Mapped[str] = mapped_column(Text, unique=True)
     body: Mapped[str] = mapped_column(Text)
     output_schema: Mapped[dict[str, Any] | None] = mapped_column(JSONB)

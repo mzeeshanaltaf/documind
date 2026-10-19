@@ -30,10 +30,18 @@ class CaseSpec:
     expected_jurisdiction: str | None = None
     forbidden_doc_codes: tuple[str, ...] = ()
     injection_canary: str | None = None
+    # Read by the judge (E4).
+    setup_turns: tuple[str, ...] = ()
+    reference_answer: str | None = None
+    key_facts: tuple[Mapping[str, Any], ...] = ()
 
     @property
     def answering(self) -> bool:
         return self.expected_behavior in ANSWERING
+
+    @property
+    def has_reference(self) -> bool:
+        return bool((self.reference_answer or "").strip() or self.key_facts)
 
     @classmethod
     def from_model(cls, case: Any) -> "CaseSpec":
@@ -50,6 +58,9 @@ class CaseSpec:
             expected_jurisdiction=case.expected_jurisdiction,
             forbidden_doc_codes=tuple(case.forbidden_doc_codes or ()),
             injection_canary=case.injection_canary,
+            setup_turns=tuple(case.setup_turns or ()),
+            reference_answer=case.reference_answer,
+            key_facts=tuple(case.key_facts or ()),
         )
 
 
@@ -67,6 +78,8 @@ class Context:
     page_end: int | None = None
     text: str | None = None
     chunk_id: str | None = None
+    title: str | None = None
+    jurisdiction: str | None = None
 
     @property
     def label(self) -> str:
@@ -119,7 +132,7 @@ class MetricSpec:
     case. `compute(case, output, contexts)` is pure."""
 
     key: str
-    group: str  # retrieval | routing | citations | operational | safety (| generation, E4)
+    group: str  # retrieval | routing | citations | operational | safety | generation | behavior
     scale: Scale
     direction: Direction
     compute: Compute

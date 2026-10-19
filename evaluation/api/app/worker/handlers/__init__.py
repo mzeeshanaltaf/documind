@@ -4,7 +4,7 @@ in `app.worker.errors`."""
 
 from collections.abc import Awaitable, Callable
 
-from app.worker.handlers import case_generate, noop, run_finalize
+from app.worker.handlers import case_generate, case_judge, noop, run_finalize
 from app.worker.queue import ClaimedJob
 
 Handler = Callable[[ClaimedJob], Awaitable[None]]
@@ -12,5 +12,6 @@ Handler = Callable[[ClaimedJob], Awaitable[None]]
 HANDLERS: dict[str, Handler] = {
     "noop": noop.handle,
     "case_generate": case_generate.handle,
+    "case_judge": case_judge.handle,
     "run_finalize": run_finalize.handle,
 }

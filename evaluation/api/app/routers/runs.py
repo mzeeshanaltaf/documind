@@ -1,11 +1,12 @@
 """Runs: create, list, read (with case drill-down and aggregates), control (pause, resume, stop),
-follow (SSE progress) and export (CSV/JSON)."""
+rejudge, follow (SSE progress) and export (CSV/JSON)."""
 
 import asyncio
 import json
 import uuid
 from collections.abc import AsyncIterator
 from datetime import datetime
+from decimal import Decimal
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Header, Query, Response, status
@@ -18,14 +19,17 @@ from app.core.errors import ApiError
 from app.core.security import AdminDep, SessionDep
 from app.documind.client import get_documind
 from app.metrics.registry import describe
-from app.models import Case, MetricScore, RetrievedContext, Run, RunAggregate, RunCase
+from app.models import Case, Claim, MetricScore, RetrievedContext, Run, RunAggregate, RunCase
 from app.models.enums import RunCaseStatus, RunStatus
 from app.schemas.datasets import CaseOut
 from app.schemas.runs import (
     AggregateOut,
+    ClaimOut,
     ContextOut,
     DatasetVersionRef,
     MetricScoreOut,
+    RejudgeIn,
+    ResumeIn,
     RunCaseDetailOut,
     RunCaseListOut,
     RunCaseOut,
@@ -34,7 +38,7 @@ from app.schemas.runs import (
     RunListOut,
     RunOut,
 )
-from app.services import exports, run_state
+from app.services import exports, rejudge, run_state
 from app.services import runs as service
 
 router = APIRouter(tags=["runs"])
@@ -207,6 +211,11 @@ async def get_run_case(
             .order_by(RetrievedContext.mode, RetrievedContext.rank)
         )
     ).scalars()
+    claims = (
+        await session.scalars(
+            select(Claim).where(Claim.run_case_id == run_case_id).order_by(Claim.idx)
+        )
+    ).all()
     values: dict[str, dict[str, float | None]] = {}
     for score in scores:
         values.setdefault(score.mode, {})[score.metric] = score.value
@@ -227,7 +236,20 @@ async def get_run_case(
         case=CaseOut.model_validate(case),
         scores=[MetricScoreOut.model_validate(s) for s in scores],
         contexts=[ContextOut.model_validate(c) for c in contexts],
+        claims=[ClaimOut.model_validate(c) for c in claims],
     )
+
+
+@router.post("/runs/{run_id}/rejudge", status_code=status.HTTP_201_CREATED)
+async def rejudge_run(
+    admin: AdminDep, session: SessionDep, run_id: uuid.UUID, body: RejudgeIn
+) -> RunDetailOut:
+    """A new run that re-scores this finished full run's answers with another judge config
+    (models, samples, efforts, metrics, and the prompt files as they are now). It copies the
+    answers, contexts and deterministic scores and makes **no** DocuMind calls."""
+    run = await rejudge.create_rejudge(session, run_id, body, admin)
+    await session.commit()
+    return await _detail(session, run.id)
 
 
 # --- controls --------------------------------------------------------------------------------
@@ -242,8 +264,15 @@ async def pause_run(_: AdminDep, session: SessionDep, run_id: uuid.UUID) -> RunO
 
 
 @router.post("/runs/{run_id}/resume")
-async def resume_run(_: AdminDep, session: SessionDep, run_id: uuid.UUID) -> RunOut:
-    run = await run_state.resume(session, run_id)
+async def resume_run(
+    _: AdminDep, session: SessionDep, run_id: uuid.UUID, body: ResumeIn | None = None
+) -> RunOut:
+    """409 `budget_exhausted` when the run spent its judge budget and no higher
+    `max_judge_cost_usd` is given."""
+    budget = body.max_judge_cost_usd if body else None
+    run = await run_state.resume(
+        session, run_id, Decimal(str(budget)) if budget is not None else None
+    )
     await session.commit()
     return RunOut.model_validate(run)
 

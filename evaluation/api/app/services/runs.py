@@ -2,7 +2,8 @@
 
 A run snapshots everything that could explain a difference between two runs: DocuMind's
 version and `/admin/eval/info`, the org's effective settings and documents, the dataset
-version's `content_hash`, the eval commit and the judge pricing. `config_hash` covers the
+version's `content_hash`, the eval commit, the judge pricing and the judge prompt versions
+(`{key: {version_id, sha256, version}}`; judging loads exactly those). `config_hash` covers the
 config that shapes results (not the name, tags, budget or cleanup flag).
 """
 
@@ -23,14 +24,14 @@ from app.core.config import get_settings
 from app.core.errors import ApiError
 from app.core.security import Admin
 from app.documind.client import DocuMindClient
+from app.judge import registry
+from app.judge.pricing import PRICING_FILE as JUDGE_PRICING_FILE
 from app.models import Case, Dataset, DatasetVersion, MetricScore, Run, RunCase
 from app.schemas.runs import RETRIEVAL_MODES, RunIn
 from app.services import datasets as dataset_service
 from app.services import run_state
 from app.worker import queue
 
-API_ROOT = Path(__file__).resolve().parents[2]
-JUDGE_PRICING_FILE = API_ROOT / "judge-pricing.json"
 CASE_ATTEMPTS = 4  # case_generate: 429/5xx/timeouts back off 10 s, 20 s, 40 s
 HASH_EXCLUDE = frozenset({"cleanup_conversations"})
 
@@ -50,6 +51,13 @@ def file_sha256(path: Path) -> str | None:
 
 def correlation_id(run_id: uuid.UUID, case_key: str) -> str:
     return f"eval:{run_id}:{case_key}"
+
+
+def eval_snapshot() -> dict[str, Any]:
+    return {
+        "git_sha": get_settings().git_sha,
+        "judge_pricing_sha256": file_sha256(JUDGE_PRICING_FILE),
+    }
 
 
 def effective_settings(settings: dict[str, Any], body: RunIn) -> dict[str, Any]:
@@ -121,7 +129,7 @@ async def create_run(
         ),
         "effective": effective_settings(settings, body),
         "metrics": body.metrics.model_dump(),
-        "judge": body.judge,
+        "judge": body.judge.model_dump(),
         "canary_phrases": body.canary_phrases,
         "cleanup_conversations": body.cleanup_conversations,
     }
@@ -142,10 +150,8 @@ async def create_run(
             "content_hash": version.content_hash,
             "case_count": version.case_count,
         },
-        "eval": {
-            "git_sha": get_settings().git_sha,
-            "judge_pricing_sha256": file_sha256(JUDGE_PRICING_FILE),
-        },
+        "eval": eval_snapshot(),
+        "prompts": await registry.sync(session),
         "service_user_id": me.user.id,
     }
     run = Run(

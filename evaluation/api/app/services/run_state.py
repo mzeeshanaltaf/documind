@@ -162,10 +162,46 @@ async def pause(session: AsyncSession, run_id: uuid.UUID) -> Run:
     return run
 
 
-async def resume(session: AsyncSession, run_id: uuid.UUID) -> Run:
+def over_budget(run: Run) -> bool:
+    return run.max_judge_cost_usd is not None and run.judge_cost_usd >= run.max_judge_cost_usd
+
+
+async def pause_for(session: AsyncSession, run_id: uuid.UUID, reason: str) -> Run | None:
+    """The run pauses itself: `budget` (the judge spent `max_judge_cost_usd`) or
+    `judge_unavailable` (Anthropic refuses every call: key, permission, spend limit)."""
+    run = await lock_run(session, run_id)
+    if run is None or run.status != "running":
+        return run
+    run.status = "pausing"
+    run.status_reason = reason
+    await session.flush()
+    await settle(session, run)
+    logger.warning("Run %s pauses: %s (judge cost $%s)", run_id, reason, run.judge_cost_usd)
+    return run
+
+
+async def pause_for_budget(session: AsyncSession, run_id: uuid.UUID) -> Run | None:
+    return await pause_for(session, run_id, "budget")
+
+
+async def resume(
+    session: AsyncSession, run_id: uuid.UUID, max_judge_cost_usd: Decimal | None = None
+) -> Run:
+    """Resume a paused run, optionally with a new judge budget. A run still over its budget
+    can't resume (it would pause again on its next judge call)."""
     run = await _locked_or_404(session, run_id)
     if run.status not in ("pausing", "paused"):
         raise _invalid(run, "resume")
+    if max_judge_cost_usd is not None:
+        run.max_judge_cost_usd = max_judge_cost_usd
+    if over_budget(run):
+        raise ApiError(
+            409,
+            "budget_exhausted",
+            "The run has spent its judge budget; resume it with a higher max_judge_cost_usd.",
+            {"judge_cost_usd": float(run.judge_cost_usd),
+             "max_judge_cost_usd": float(run.max_judge_cost_usd or 0)},
+        )  # fmt: skip
     run.status = "running"
     run.status_reason = None
     await session.flush()

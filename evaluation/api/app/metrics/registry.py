@@ -3,7 +3,8 @@ them, sets thresholds and decides which ones gate a case.
 
 Run config: `{"enabled": [keys] | null (= all), "thresholds": {key: value}, "gates": [keys] | null
 (= the specs' defaults)}`. A case passes when every gating metric that applies to it passes
-(`na` is ignored, `error` fails).
+(`na` and `refusal` are ignored, `error` fails). Judge metrics (`requires_judge`) are listed here
+too, but computed by the `case_judge` job (`services/judging.py`), not by `evaluate`.
 """
 
 import logging
@@ -11,7 +12,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from app.metrics import citations, operational, retrieval, safety
+from app.metrics import behavior, citations, generation, operational, retrieval, safety
 from app.metrics.types import (
     CaseOutput,
     CaseSpec,
@@ -25,8 +26,16 @@ logger = logging.getLogger(__name__)
 
 REGISTRY: dict[str, MetricSpec] = {
     spec.key: spec
-    for spec in (*retrieval.SPECS, *citations.SPECS, *operational.SPECS, *safety.SPECS)
+    for spec in (
+        *retrieval.SPECS,
+        *citations.SPECS,
+        *operational.SPECS,
+        *safety.SPECS,
+        *behavior.SPECS,
+        *generation.SPECS,
+    )
 }
+JUDGE_METRICS = frozenset(key for key, spec in REGISTRY.items() if spec.requires_judge)
 DEFAULT_GATES = frozenset(key for key, spec in REGISTRY.items() if spec.gating)
 
 
@@ -67,6 +76,9 @@ class MetricConfig:
 
     def needs_judge(self) -> bool:
         return any(spec.requires_judge and self.is_enabled(spec) for spec in REGISTRY.values())
+
+    def enabled_judge_metrics(self) -> frozenset[str]:
+        return frozenset(key for key in JUDGE_METRICS if self.is_enabled(REGISTRY[key]))
 
 
 @dataclass(frozen=True)

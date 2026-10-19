@@ -172,6 +172,8 @@ async def published_version(questions: list[str], **fields: Any) -> uuid.UUID:
 
 
 async def start_run(api: httpx.AsyncClient, version_id: uuid.UUID, **body: Any) -> dict:
+    """The run engine without the judge (test_judge.py covers it)."""
+    body.setdefault("judge", {"enabled": False})
     response = await api.post("/v1/runs", json={"dataset_version_id": str(version_id), **body})
     assert response.status_code == 201, response.text
     return response.json()

@@ -141,6 +141,8 @@ class RetrievedContext(UuidPk, CreatedAt, Base):
     chunk_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     document_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     doc_code: Mapped[str | None] = mapped_column(Text)
+    title: Mapped[str | None] = mapped_column(Text)  # the judge renders sources like DocuMind
+    owner: Mapped[str | None] = mapped_column(Text)
     section_number: Mapped[str | None] = mapped_column(Text)
     section_title: Mapped[str | None] = mapped_column(Text)
     section_path: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default=EMPTY_TEXT_ARRAY)

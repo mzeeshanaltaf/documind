@@ -4,7 +4,7 @@
 - **Web:** `https://evaluation.documind.zeeshanai.cloud`, admin-only.
 - **API:** internal only.
 
-> Status: **E3 done** (2026-10-19): `evaluation/api` foundation, datasets, durable queue, run engine and deterministic metrics. No judge (E4) or web (E5) yet. Fill in the sections marked _TBD_ as the phases land. Keep this file ≤ 120 lines.
+> Status: **E4 done** (2026-10-19): `evaluation/api` foundation, datasets, durable queue, run engine, deterministic metrics, Claude judge + generation metrics, rejudge. No web (E5) yet. Fill in the sections marked _TBD_ as the phases land. Keep this file ≤ 120 lines.
 
 ## Start here, every session
 1. Read the root `CLAUDE.md` (DocuMind conventions apply here too), then `Status.md` › **Evaluation harness**.
@@ -29,15 +29,21 @@ Target layout: `docs/plan/eval/README.md` › Folder layout. Built so far (`eval
 app/core/       config (EVAL_* settings, parse_schema/with_schema), db, security (verify_api_key, get_admin), log, errors
 app/models/     enums (Literal values = CHECKs), dataset, prompt (+config_presets), run (runs…run_aggregates), job
 app/documind/   client (DocuMindClient, get_documind), events (typed SSE + parse_event), models
-app/worker/     queue (claim/…/enqueue, enqueue_many, enqueue_finalize), loop (slots), sweeper, limits, errors,
-                handlers/{noop, case_generate, run_finalize}
+app/worker/     queue (claim/…/enqueue, enqueue_many, enqueue_finalize), loop (slots), sweeper, limits
+                (DocuMind + judge per-model semaphores, RPM bucket), errors,
+                handlers/{noop, case_generate, case_judge, run_finalize}
+app/judge/      client (every Anthropic call), registry (prompt files → prompt_versions), render (case
+                packet), pricing (judge-pricing.json), schemas (structured outputs), prompts/*.md
 app/metrics/    types, registry (REGISTRY, MetricConfig, evaluate, case_passed), retrieval, citations,
-                operational, safety (+ fingerprints.txt)
+                operational, safety (+ fingerprints.txt), generation + behavior (judge metrics' math)
 app/stats/      intervals (Wilson), bootstrap (seeded percentile, percentile)
 app/services/   datasets, importer, runs (create/snapshot/read/delete), run_state (count, settle, pause/
-                resume/stop, sweep), case_results (persist + score), aggregates, exports
-app/routers/    v1 (get_admin on all), datasets, documind (passthrough), jobs, runs (+events, export), health
-alembic/versions/0001_core, 0002_usd_precision   scripts/{bootstrap_service_users,import_golden}.py   tests/
+                resume/stop, budget pause, sweep), case_results (persist + score, save_judged),
+                judging (judge metric groups), rejudge, prompts, aggregates, exports
+app/routers/    v1 (get_admin on all), datasets, documind (passthrough), jobs, prompts, runs (+rejudge,
+                events, export), health
+alembic/versions/0001_core, 0002_usd_precision, 0003_judge   scripts/{bootstrap_service_users,import_golden}.py
+tests/          (fake_anthropic.py = the canned judge client; test_judge_live.py is opt-in, -m live)
 ```
 
 ## Commands
@@ -45,6 +51,7 @@ alembic/versions/0001_core, 0002_usd_precision   scripts/{bootstrap_service_user
 cd evaluation/api && uv run uvicorn app.main:app --reload --port 8100
 cd evaluation/api && uv run alembic upgrade head          # `alembic check` = models vs DB drift
 cd evaluation/api && uv run pytest && uv run ruff check .  # -m "not db" skips the Postgres tests
+cd evaluation/api && uv run pytest -m live tests/test_judge_live.py  # real DocuMind + Anthropic (~1¢)
 cd evaluation/api && uv run python -m scripts.bootstrap_service_users --org-slug simtora [--dry-run]
 cd evaluation/api && uv run python -m scripts.import_golden   # needs DocuMind up; re-run = no-op
 cd evaluation/web && pnpm dev | pnpm typecheck | pnpm lint | pnpm build | pnpm auth:check   # E5
@@ -62,8 +69,10 @@ DocuMind itself must be running locally (`api` on :8000) for live runs, the gold
 - **The eval web touches only the Better Auth tables.** All eval data goes through the eval API.
 - **The eval web never migrates the auth tables.** `pnpm auth:check` is read-only. DocuMind owns those tables.
 - **DocuMind calls go through `app/documind/client.py`** and carry `X-Eval-Run-Id`, `X-Eval-Case-Id` and `X-Request-ID=eval.<run8>.<case_key>.<attempt>` (no colons).
-- **Every Anthropic call goes through `app/judge/client.py`.** It writes a `judge_calls` row (tokens incl. cache, cost from `judge-pricing.json`), checks the run budget, and reuses responses with the same `request_hash`.
-- **Judge prompts are files** (`app/judge/prompts/*.md`) whose hash becomes a `prompt_versions` row; runs record the version ids.
+- **Every Anthropic call goes through `app/judge/client.py`.** It writes a `judge_calls` row (tokens incl. cache, cost from `judge-pricing.json` at the model that served it), checks the run budget (reached → run `pausing`, reason `budget`), and reuses a run case's earlier `ok`/`refusal` call with the same `request_hash`.
+- **Judge prompts are files** (`app/judge/prompts/*.md`: frontmatter + system prompt + `<!-- task -->` line; `_rules.md` is the shared include). The hash (key, bodies, schema, params) becomes a numbered `prompt_versions` row at startup and at run creation; runs record the version ids and judge **from those rows**, so a file edit only affects new runs and rejudges.
+- **Judge flow:** with judging on (`judge.enabled` + a judge metric enabled + full run), `case_generate` stops a case at `generated` and enqueues `case_judge` (priority 1); `save_judged` decides `passed` over all scores and counts the case. Each metric group fails alone (`error`/`refusal`); 429 requeues, 5xx retries the job.
+- **Rejudge** (`POST /v1/runs/{id}/rejudge`) copies answers, contexts and deterministic scores into a new run (`source_run_id`), enqueues only `case_judge`, and never calls DocuMind (finalize skips usage/cleanup; DocuMind cost 0).
 - **Published dataset versions are immutable;** edits create a draft.
 - **Runs are server-side jobs.** They survive closed tabs and restarts (lock reclaim after 5 min).
 
@@ -81,7 +90,9 @@ All admin-only; code in `api/app/core/eval.py`, `routers/eval.py`, `services/eva
 - **Git:** commit and push only when the user asks (`/ship`).
 
 ## Gotchas already known
-- **No temperature control.** Sonnet and Haiku 5.5 reject non-default `temperature`/`top_p`/`top_k`. Use `messages.parse` structured output, not forced `tool_choice`. Sonnet 5.5 can't disable thinking.
+- **No temperature control.** Sonnet and Haiku 5.5 reject non-default `temperature`/`top_p`/`top_k`. Structured output via `output_config.format` (`anthropic.transform_schema`), not forced `tool_choice`. We call `beta.messages.create` + `model_validate_json`, not `messages.parse`: parse raises on a refusal/`max_tokens` reply before `stop_reason` can be checked. Sonnet 5.5 can't disable thinking (`between_tools` if a Haiku prompt runs on it); Haiku has no server-side fallback.
+- **The Anthropic account has its own spend limit.** Once reached, every call is a 400 "You have reached your specified API usage limits … regain access on <date>"; the judge treats it (and 401/403) as `JudgeUnavailable` → the run pauses with `status_reason = judge_unavailable`, then `POST /resume` once the limit is raised. Live judge runs cost ~$0.65 per 30 cases.
+- **Prompt caching** needs a ≥ 512-token prefix (the system prompts are ~900–1,400 tokens). The packet is rendered in a fixed section order with no ids, so equal packets are byte-identical. It gets a breakpoint only when reused (N samples: the first runs alone, the rest read; the key-facts answer/sources pair), since an unread cache write costs 1.25× input.
 - **Cookies on localhost.** DocuMind (:3000) and Eval (:3100) share localhost cookies, so the eval app uses `cookiePrefix: "documind-eval"`. Never enable `crossSubDomainCookies`.
 - **Chat isn't idempotent.** A retried case (attempt > 1) lists DocuMind's conversations for the case (a crash can land before `meta` is stored), recovers one with a complete scored answer and deletes the rest.
 - **Run state:** every transition happens with the run row locked; "in flight" = a `generating`/`judging` case whose job has a live lock. A dead worker's lock looks live for 5 min, so a pausing run turns `paused` (via the 15 s sweeper) only then. Finishing = `done + failed + skipped ≥ total`.

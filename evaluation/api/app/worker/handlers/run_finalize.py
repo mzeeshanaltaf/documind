@@ -1,8 +1,10 @@
 """`run_finalize`: aggregates, cost reconciliation, DocuMind cleanup, final status.
 
-The counters are recounted from `run_cases` (self-healing), cases left `generating`/`judging`
-by a dead worker go back to `pending` (they were never finished), and the status becomes
-`stopped` (partial), `failed` (no case succeeded) or `completed`.
+The counters are recounted from `run_cases` and `judge_calls` (self-healing), cases left
+`generating`/`judging` by a dead worker go back to `pending`/`generated` (they were never
+finished), and the status becomes `stopped` (partial), `failed` (no case succeeded) or
+`completed`. A rejudge run made no DocuMind calls: it skips reconciliation and cleanup, and its
+DocuMind cost stays 0.
 """
 
 import logging
@@ -14,7 +16,7 @@ from sqlalchemy import case, func, select, update
 
 from app.core.db import session_scope
 from app.documind.client import DocuMindError, get_documind
-from app.models import Run, RunCase
+from app.models import JudgeCall, Run, RunCase
 from app.services import aggregates, run_state
 from app.worker.queue import ClaimedJob
 
@@ -35,6 +37,9 @@ async def handle(job: ClaimedJob) -> None:
             raise
         logger.exception("Aggregates failed for run %s", run.id)
         notes.append(f"aggregates failed: {type(exc).__name__}: {exc}")
+    if run.source_run_id is not None:
+        await complete(run.id, None, notes)
+        return
 
     documind = get_documind()
     reported: Decimal | None = None
@@ -61,11 +66,12 @@ async def complete(run_id: uuid.UUID, reported: Decimal | None, notes: list[str]
         run = await run_state.lock_run(session, run_id)
         if run is None or run.status != "finalizing":
             return
-        await session.execute(
-            update(RunCase)
-            .where(RunCase.run_id == run_id, RunCase.status.in_(run_state.CASE_IN_FLIGHT))
-            .values(status="pending")
-        )
+        for in_flight, back_to in (("generating", "pending"), ("judging", "generated")):
+            await session.execute(
+                update(RunCase)
+                .where(RunCase.run_id == run_id, RunCase.status == in_flight)
+                .values(status=back_to)
+            )
         counts = (
             await session.execute(
                 select(
@@ -81,8 +87,14 @@ async def complete(run_id: uuid.UUID, reported: Decimal | None, notes: list[str]
             )
         ).one()
         done, failed, skipped, passed, cost, total = counts
+        judge_cost = await session.scalar(
+            select(func.coalesce(func.sum(JudgeCall.cost_usd), 0)).where(JudgeCall.run_id == run_id)
+        )
+        if run.source_run_id is not None:
+            cost = Decimal(0)
         run.done_cases, run.failed_cases, run.skipped_cases = done, failed, skipped
         run.passed_cases, run.documind_cost_usd, run.total_cases = passed, cost, total
+        run.judge_cost_usd = judge_cost
         run.documind_cost_reported_usd = reported
         run.partial = done + failed + skipped < total
         if run.partial:

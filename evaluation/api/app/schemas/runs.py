@@ -4,6 +4,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.judge import pricing
 from app.metrics.registry import UnknownMetricError, check_keys
 from app.models.enums import RetrievalMode, RunMode
 from app.schemas.datasets import CaseOut
@@ -40,6 +41,46 @@ class MetricsIn(BaseModel):
         return self
 
 
+Effort = Literal["low", "medium", "high", "xhigh", "max"]
+
+
+def _priced(model: str | None) -> str | None:
+    if model is not None and not pricing.known(model):
+        raise ValueError(f"{model!r} has no entry in judge-pricing.json")
+    return model
+
+
+class JudgeModels(BaseModel):
+    """Per role: `rubric` = the Sonnet prompts (answer quality, follow-up), `claims` = the Haiku
+    ones (claims, key facts, relevance, behaviour). None = the prompt file's own model."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rubric: str | None = None
+    claims: str | None = None
+
+    @field_validator("rubric", "claims")
+    @classmethod
+    def _known(cls, value: str | None) -> str | None:
+        return _priced(value)
+
+
+class JudgeEfforts(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    rubric: Effort | None = None
+    claims: Effort | None = None
+
+
+class JudgeIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = Field(default=True, description="false = deterministic metrics only.")
+    models: JudgeModels = Field(default_factory=JudgeModels)
+    samples: Literal[1, 3] = Field(default=1, description="answer_quality samples (median).")
+    efforts: JudgeEfforts = Field(default_factory=JudgeEfforts)
+
+
 class RunIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -51,7 +92,7 @@ class RunIn(BaseModel):
         default=None, description="retrieval_only: default all three."
     )
     metrics: MetricsIn = Field(default_factory=MetricsIn)
-    judge: dict[str, Any] | None = Field(default=None, description="Judge config (E4).")
+    judge: JudgeIn = Field(default_factory=JudgeIn)
     name: str | None = Field(default=None, max_length=200)
     tags: list[str] = Field(default_factory=list, max_length=20)
     max_judge_cost_usd: float | None = Field(default=None, ge=0)
@@ -80,6 +121,26 @@ class RunIn(BaseModel):
         return self
 
 
+class RejudgeIn(BaseModel):
+    """Re-score a finished full run with another judge config: no DocuMind calls."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    judge: JudgeIn = Field(default_factory=JudgeIn)
+    metrics: MetricsIn | None = Field(default=None, description="Default: the source run's.")
+    name: str | None = Field(default=None, max_length=200)
+    tags: list[str] = Field(default_factory=list, max_length=20)
+    max_judge_cost_usd: float | None = Field(default=None, ge=0)
+
+
+class ResumeIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    max_judge_cost_usd: float | None = Field(
+        default=None, ge=0, description="A new judge budget (needed after a `budget` pause)."
+    )
+
+
 class DatasetVersionRef(BaseModel):
     dataset_id: uuid.UUID
     slug: str
@@ -99,6 +160,7 @@ class RunOut(BaseModel):
     mode: str
     status: str
     status_reason: str | None
+    source_run_id: uuid.UUID | None
     config: dict[str, Any]
     config_hash: str
     total_cases: int
@@ -215,6 +277,19 @@ class ContextOut(BaseModel):
     cited: bool | None
 
 
+class ClaimOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    idx: int
+    text: str
+    sentence_idx: int | None
+    citation_ns: list[int]
+    verdict: str | None
+    supporting_ns: list[int]
+    evidence_quote: str | None
+    reasoning: str | None
+
+
 class RunCaseDetailOut(RunCaseOut):
     correlation_id: str
     conversation_id: uuid.UUID | None
@@ -230,3 +305,4 @@ class RunCaseDetailOut(RunCaseOut):
     case: CaseOut
     scores: list[MetricScoreOut]
     contexts: list[ContextOut]
+    claims: list[ClaimOut] = Field(default_factory=list)

@@ -23,6 +23,7 @@ os.environ["EVAL_DATABASE_URL"] = with_schema(
     TEST_SCHEMA,
 )
 os.environ["EVAL_WORKER_SLOTS"] = "0"
+os.environ["EVAL_ANTHROPIC_MAX_RPM"] = "100000"  # the fake judge client needs no pacing
 get_settings.cache_clear()
 assert get_settings().db_schema == TEST_SCHEMA
 
@@ -30,6 +31,17 @@ import httpx  # noqa: E402
 from sqlalchemy import text  # noqa: E402
 
 from app.core.db import engine  # noqa: E402
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """`live` tests (real DocuMind / Anthropic, real money) run only with `-m live`."""
+    expression = config.getoption("-m") or ""
+    if "live" in expression and "not live" not in expression:
+        return
+    skip = pytest.mark.skip(reason="live test: run with -m live")
+    for item in items:
+        if item.get_closest_marker("live"):
+            item.add_marker(skip)
 
 
 def _migrate() -> None:

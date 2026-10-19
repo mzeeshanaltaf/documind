@@ -33,14 +33,14 @@ Legend: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked
 A standalone app at `https://evaluation.documind.zeeshanai.cloud` (code in `evaluation/`) that evaluates DocuMind end to end.
 - **Docs:** overview, data model and metrics in [docs/plan/eval/README.md](docs/plan/eval/README.md); guide in [evaluation/CLAUDE.md](evaluation/CLAUDE.md).
 - **Session logs:** entries tagged `[eval]` in the Session log below.
-- **Current eval phase:** **E3 — Run engine & deterministic metrics** (done locally, 2026-10-19 `[eval]` log; nothing to deploy until E5). E1 is code done, not deployed (E3 added one hook to it). Next: E4.
+- **Current eval phase:** **E4 — Claude judge & generation metrics** (done locally, 2026-10-19 `[eval]` log; nothing to deploy until E5). One acceptance check is blocked by the Anthropic account's spend limit (live $0.10 budget pause; see the log). E1 is code done, not deployed. Next: E5.
 
 | # | Phase | Doc | Status |
 |---|---|---|---|
 | E1 | DocuMind eval hooks (tagging, overrides, retrieve/chunks/info endpoints, exclusions) | [phase-E1](docs/plan/eval/phase-E1-documind-eval-hooks.md) | 🟨 Code done (+ E3's per-case conversation list); Coolify source-commit setting on; deploy pending |
 | E2 | Eval API foundation, datasets & durable queue | [phase-E2](docs/plan/eval/phase-E2-eval-api-foundation-and-datasets.md) | ✅ Done (local; deployed with E5) |
 | E3 | Run engine & deterministic metrics | [phase-E3](docs/plan/eval/phase-E3-run-engine-and-deterministic-metrics.md) | ✅ Done (local; deployed with E5) |
-| E4 | Claude judge & generation metrics | [phase-E4](docs/plan/eval/phase-E4-claude-judge-and-generation-metrics.md) | ⬜ Not started |
+| E4 | Claude judge & generation metrics | [phase-E4](docs/plan/eval/phase-E4-claude-judge-and-generation-metrics.md) | ✅ Done (local; live budget-pause check waits for the Anthropic spend limit, Nov 1) |
 | E5 | Eval web, auth & first deploy | [phase-E5](docs/plan/eval/phase-E5-eval-web-auth-and-deploy.md) | ⬜ Not started |
 | E6 | Compare & trends | [phase-E6](docs/plan/eval/phase-E6-compare-and-trends.md) | ⬜ Not started |
 | E7 | Synthetic test sets & reference enrichment | [phase-E7](docs/plan/eval/phase-E7-synthetic-test-sets.md) | ⬜ Not started |
@@ -312,6 +312,30 @@ A standalone app at `https://evaluation.documind.zeeshanai.cloud` (code in `eval
 ### 2026-10-19 — Logs viewer: markdown-formatted Answer (not deployed)
 - Built: the Response tab's Answer card in `/v1/logs/ui` renders the answer as markdown (headings, paragraphs, nested/ordered lists, GFM tables with alignment, blockquotes, fences, hr, `code`, bold/italic/strike, https links, `[n]` citation markers as superscripts). It's a small inline renderer in `logs_ui.html` that builds DOM nodes (no innerHTML); the CSP (`script-src 'nonce-…'`) rules out a CDN library. Prose styles mirror `.answer-prose`; the panel's section headings are now `.panel > h3` so answer headings keep their own styles.
 - Checked the renderer against a sample answer in Node with a stub DOM; not yet viewed in a browser.
+
+### 2026-10-19 — [eval] E4: Claude judge & generation metrics (done locally)
+- **Built (`evaluation/api/`):**
+  - `app/judge/`: `registry` (prompt files = frontmatter + system prompt + `<!-- task -->` line, `_rules.md` include; sha256 over key + normalized bodies + output schema + params; `sync()` at startup and at run creation inserts numbered `prompt_versions`; judging loads the run's recorded versions **from the DB**), `render` (XML case packet, sources exactly like DocuMind's `format_source`, our closing tags defused inside data), `client` (one path for every Anthropic call: structured output, fixed effort, thinking per model, Sonnet/Opus `fallbacks: "default"`, `request_hash` reuse per run case, 429 → requeue, 5xx → job retry, account-level 4xx → run pause, `judge_calls` metering, budget pause), `pricing` + `judge-pricing.json` (skill values; Haiku long-context card; fallback models), `schemas` (reasoning before scores), 7 prompts.
+  - Metrics: `generation` (faithfulness, hallucination, citation precision/recall, supported_citation_recall, key_fact_recall, context_recall/precision, answer_quality + 5 dimensions, followup_resolution) and `behavior` (behavior_correct, false_refusal, deterministic over_clarification). New gates: faithfulness ≥ 0.9, answer_quality.correctness ≥ 0.5 (= 3/5), behavior_correct.
+  - `services/judging` (metric groups, each failing alone), handler `case_judge`, `case_results.save_judged` (passed over all scores), `services/rejudge` + `POST /v1/runs/{id}/rejudge`, `POST /runs/{id}/resume {max_judge_cost_usd}`, `/v1/prompts`, `/{key}/versions`, `/{key}/diff?from&to`, claims on the case detail, `source_run_id` on runs. Worker limits: per-model semaphore + RPM token bucket.
+  - Migration `0003_judge`: `prompt_versions.version` (+ unique per prompt), `retrieved_contexts.title/owner`.
+  - Tests: `test_judge_unit.py` (25, pure: hashing, cost math, render/injection, request shape, claims → citation math by hand, behaviour), `test_judge.py` (11, db, `tests/fake_anthropic.py`: full run, disabled judge, unknown model, retry reuse after a 5xx, refusal, budget pause/resume, usage-limit pause/resume, rejudge, registry routes, recorded versions), `test_judge_live.py` (opt-in `-m live`).
+- **Verified (local DocuMind + real Anthropic):**
+  - Full golden v1 run with every judge metric: **30/30 done, 0 judge errors**; faithfulness 0.965, citation precision 0.958 / recall 1.0, behavior_correct 0.867, answer_quality 0.85 (completeness 0.70, relevance 0.90), context_precision 0.870, hallucination 0.067; 26/30 passed (failures: honest `partial`/`abstained` answers on golden-006/016/022, two faithfulness misses, and one judge error, below).
+  - `cache_read_tokens > 0` on 28–29 of the 29 later calls per prompt (the misses were concurrent first calls). `runs.judge_cost_usd` = Σ `judge_calls.cost_usd` = **$0.62673684** exactly.
+  - **Cost per 30-case run: $0.643** (judge $0.627: Sonnet rubric $0.537 = 86 %, the four Haiku prompts $0.090; DocuMind $0.016). Latency per call: Haiku 2.6–4.9 s, Sonnet 6.4 s avg.
+  - Editing `judge.answer_quality.md` (one grounding sentence) → **v2** at restart; `/diff?from=1&to=2` shows the line. The rejudge used v2 (27 calls; the source run used v1 ×30) with **0 DocuMind `llm_usage` rows** for its run id.
+  - `na (no_reference)` on v1 for answer_quality.correctness, key_fact_recall and context_recall (30/30 each).
+  - `ruff check` + `format --check` clean; `pytest` **122 passed, 1 skipped** (the opt-in live smoke) in 20 min on the final code.
+- **Not verified live: the $0.10 budget pause.** Mid-session the Anthropic account hit its own spend limit ("You have reached your specified API usage limits. You will regain access on 2026-11-01 at 00:00 UTC") after ~$1.10 of judge spend. The rejudge's last 3 cases and the whole budget-cap run (`0dab16af…`, left in dev) got that 400 on every call, so nothing was spent and the cap couldn't trigger. The pause is covered by `test_budget_pauses_the_run`; re-run it live once the limit is raised.
+- **Deviations from plan:**
+  - `beta.messages.create` + `transform_schema` + `model_validate_json` instead of `messages.parse`: parse raises on a refusal or `max_tokens` reply before `stop_reason` can be checked.
+  - The packet gets a cache breakpoint only when another call reuses it (N > 1 samples; the key-facts answer/sources pair, run sequentially): the live run showed every packet write unread at N = 1, a pure 1.25× surcharge.
+  - **New:** account-level failures (401, 403, the usage-limit 400) raise `JudgeUnavailable` and pause the run (`status_reason = judge_unavailable`) instead of making every metric `error`. The budget-cap run above showed why: 120 errored metrics, a "completed" run with 0 passed, and 30 wasted DocuMind chats.
+  - `context_recall` reuses `judge.key_facts` (task line names `the <sources>`); `over_clarification` is deterministic; the run config `judge` also has `enabled` (E3 tests turn it off). Judge metrics run in full runs only. `supported_citation_recall` = supported claims cited with a supporting source / supported claims. A claim the verifier skipped counts as not_found. Behaviour `answer` accepts only `answered` (`partial` fails the gate).
+  - A rejudge copies `generated`/`judging` cases of a stopped run too; others become `skipped`. Its run-level DocuMind cost is 0; finalize skips usage reconciliation and cleanup. `resume` refuses a run still over budget (409 `budget_exhausted`) unless given a higher `max_judge_cost_usd`.
+- **Gotchas / learnings:** the prompt hash must include the key (two prompts with equal bodies collided on the unique `sha256`; caught by the registry test). Haiku at low effort with thinking off can contradict its own reasoning: golden-001 was labelled `clarified` while its reasoning said it "does not ask the user a question… answers substantively". That's an E9 calibration item; the behaviour prompt is unchanged so v1 stays the baseline. Importing test_runs' fixtures into test_judge needs ruff F811 ignored for that file. On Windows, `Path.write_text` turns `\r\n` into `\r\r\n`; tests that need CRLF use `newline=""`.
+- **Next:** raise the Anthropic spend limit (or wait for Nov 1), then re-run the live checks: a $0.10-capped golden run should pause with `budget`, and `uv run pytest -m live tests/test_judge_live.py`. Then E5.
 
 ### 2026-10-19 — [eval] E3: run engine & deterministic metrics (done locally)
 - **Built (`evaluation/api/`):**

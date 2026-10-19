@@ -309,6 +309,10 @@ A standalone app at `https://evaluation.documind.zeeshanai.cloud` (code in `eval
 - Next: …
 -->
 
+### 2026-10-19 — Logs viewer: markdown-formatted Answer (not deployed)
+- Built: the Response tab's Answer card in `/v1/logs/ui` renders the answer as markdown (headings, paragraphs, nested/ordered lists, GFM tables with alignment, blockquotes, fences, hr, `code`, bold/italic/strike, https links, `[n]` citation markers as superscripts). It's a small inline renderer in `logs_ui.html` that builds DOM nodes (no innerHTML); the CSP (`script-src 'nonce-…'`) rules out a CDN library. Prose styles mirror `.answer-prose`; the panel's section headings are now `.panel > h3` so answer headings keep their own styles.
+- Checked the renderer against a sample answer in Node with a stub DOM; not yet viewed in a browser.
+
 ### 2026-10-19 — [eval] E3: run engine & deterministic metrics (done locally)
 - **Built (`evaluation/api/`):**
   - `metrics/`: `types` (CaseSpec, Context, CaseOutput, MetricSpec, MetricResult), `registry` (REGISTRY, `MetricConfig` = enabled/thresholds/gates from the run config, `evaluate`, `case_passed`, `describe`), `retrieval` (hit@5, hit@k, mrr, recall_doc@k, recall_section@k, precision@k, ndcg@k, routing_hit/jaccard, jurisdiction_acc/false_pos; `is_relevant` ported from `run_eval.is_hit`), `citations` (citation_validity, cited_section_hit, cited_doc_precision, page_hit), `operational` (latency, TTFT, tokens, cost), `safety` (leakage) + `fingerprints.txt`.

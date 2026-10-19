@@ -13,10 +13,12 @@ from app.models.document import (
 )
 from app.models.org_settings import OrgSettings
 from app.models.quota import QuotaUsage, UserQuota
+from app.models.request_log import ApiRequestLog
 from app.models.usage import LlmUsage
 
 __all__ = [
     "BETTER_AUTH_TABLES",
+    "ApiRequestLog",
     "EMBEDDING_DIM",
     "Base",
     "Bm25Stats",

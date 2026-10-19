@@ -7,15 +7,20 @@ sessions, because the request-scoped session must not be held across a long stre
 A client disconnect stops the stream: sse-starlette cancels its task group (cancelling us
 mid-await) or leaves us suspended at a `yield`, which the router's background `aclose()` ends.
 Either way the partial answer is saved with `status='stopped'` in a shielded `finally`.
+
+An eval turn (`core/eval.py`) is hidden from users, skips quotas and titles, may carry
+`overrides`, and streams richer `routing`/`sources`/`usage` payloads. Normal turns are unchanged.
 """
 
 import asyncio
 import contextlib
+import dataclasses
 import json
 import logging
 import time
+import traceback
 import uuid
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterator, Iterable, Sequence
 from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any
@@ -29,15 +34,17 @@ from app.agents.answer import synthesize
 from app.agents.catalog import Catalog, get_org_catalog
 from app.agents.citations import extract_citations
 from app.agents.router import HistoryTurn, Route
+from app.core import request_log
 from app.core.db import SessionLocal, session_scope
 from app.core.errors import ApiError
+from app.core.eval import EvalContext
 from app.core.security import Actor
 from app.llm import client as llm
 from app.llm.usage import UsageCtx
 from app.models.chat import Conversation, Message
 from app.models.document import Document
-from app.rag.hybrid import RetrievalResult, Source, retrieve
-from app.schemas.chat import ChatRequest
+from app.rag.hybrid import Mode, RetrievalResult, Source, retrieve
+from app.schemas.chat import ChatOverrides, ChatRequest
 from app.services import quota
 from app.services.org_settings import EffectiveSettings, effective_settings
 
@@ -62,6 +69,19 @@ class ChatTurn:
     document_ids: list[uuid.UUID] | None
     history: list[HistoryTurn]
     settings: EffectiveSettings
+    eval: EvalContext | None = None
+    retrieval_mode: Mode = "hybrid"
+    include_source_text: bool = True
+
+    def usage_ctx(self, message_id: uuid.UUID | None = None) -> UsageCtx:
+        return UsageCtx(
+            org_id=self.org_id,
+            user_id=self.user_id,
+            conversation_id=self.conversation_id,
+            message_id=message_id,
+            eval_run_id=self.eval.run_id if self.eval else None,
+            eval_case_id=self.eval.case_id if self.eval else None,
+        )
 
 
 @dataclass
@@ -86,6 +106,38 @@ def sse(event: str, data: Any) -> dict[str, str]:
     return {"event": event, "data": json.dumps(data, default=str, ensure_ascii=False)}
 
 
+def usage_by_operation(rows: Iterable[Any]) -> list[dict[str, Any]]:
+    """One entry per metered call (`llm_usage` rows), for eval payloads."""
+    return [
+        {
+            "operation": row.operation,
+            "model": row.model,
+            "tier_requested": row.service_tier_requested,
+            "tier_actual": row.service_tier_actual,
+            "input_tokens": row.input_tokens or 0,
+            "cached_tokens": row.cached_tokens or 0,
+            "output_tokens": row.output_tokens or 0,
+            "cost_usd": float(row.cost_usd or 0),
+            "latency_ms": row.latency_ms,
+            "ttft_ms": row.ttft_ms,
+        }
+        for row in rows
+        if row is not None
+    ]
+
+
+def apply_overrides(
+    settings: EffectiveSettings, overrides: ChatOverrides | None
+) -> EffectiveSettings:
+    if overrides is None:
+        return settings
+    fields = ("top_k", "chat_model", "router_model", "chat_service_tier")
+    changes = {name: getattr(overrides, name) for name in fields}
+    return dataclasses.replace(
+        settings, **{name: value for name, value in changes.items() if value is not None}
+    )
+
+
 # --- before streaming ------------------------------------------------------------------------
 
 
@@ -101,7 +153,7 @@ async def load_history(session: AsyncSession, conversation_id: uuid.UUID) -> lis
     return [HistoryTurn(role=row.role, content=row.content) for row in reversed(rows)]
 
 
-async def _check_documents(
+async def check_documents(
     session: AsyncSession, org_id: str, document_ids: Sequence[uuid.UUID]
 ) -> None:
     found = set(
@@ -128,10 +180,20 @@ async def _check_documents(
 
 
 async def prepare_turn(
-    session: AsyncSession, org_id: str, actor: Actor, request: ChatRequest
+    session: AsyncSession,
+    org_id: str,
+    actor: Actor,
+    request: ChatRequest,
+    eval_ctx: EvalContext | None = None,
 ) -> ChatTurn:
-    """Load (or create) the conversation, check scoped documents, store the user message."""
-    await quota.enforce(session, actor)
+    """Load (or create) the conversation, check scoped documents, store the user message.
+    An eval turn skips the quota and must stay in an eval conversation (and vice versa)."""
+    if request.overrides is not None and eval_ctx is None:
+        raise ApiError(
+            403, "overrides_require_eval", "Overrides need the X-Eval-Run-Id header (admins)."
+        )
+    if eval_ctx is None:
+        await quota.enforce(session, actor)
     document_ids = request.document_ids
     history: list[HistoryTurn] = []
     if request.conversation_id:
@@ -140,6 +202,7 @@ async def prepare_turn(
             conversation is None
             or conversation.org_id != org_id
             or conversation.user_id != actor.id
+            or conversation.is_eval != (eval_ctx is not None)
         ):
             raise ApiError(404, "not_found", "Conversation not found.")
         if document_ids is None and conversation.scope == "docs" and conversation.document_ids:
@@ -154,13 +217,19 @@ async def prepare_turn(
             scope="docs" if document_ids else "all",
             document_ids=document_ids or [],
         )
+        if eval_ctx is not None:
+            conversation.is_eval = True
+            conversation.eval_run_id = eval_ctx.run_id
+            conversation.eval_case_id = eval_ctx.case_id
+            conversation.title = f"[eval] {eval_ctx.case_id or eval_ctx.run_id}"
         session.add(conversation)
         is_new = True
 
     if document_ids:
-        await _check_documents(session, org_id, document_ids)
+        await check_documents(session, org_id, document_ids)
 
-    settings = await effective_settings(session, org_id)
+    overrides = request.overrides
+    settings = apply_overrides(await effective_settings(session, org_id), overrides)
     if is_new:
         await session.flush()  # the message FK needs the conversation row
     else:
@@ -169,7 +238,8 @@ async def prepare_turn(
         id=uuid.uuid4(), conversation_id=conversation.id, role="user", content=request.message
     )
     session.add(user_message)
-    await quota.record_message(session, actor.id)
+    if eval_ctx is None:
+        await quota.record_message(session, actor.id)
     await session.commit()
 
     return ChatTurn(
@@ -183,6 +253,9 @@ async def prepare_turn(
         document_ids=document_ids,
         history=history,
         settings=settings,
+        eval=eval_ctx,
+        retrieval_mode=(overrides.retrieval_mode if overrides else None) or "hybrid",
+        include_source_text=overrides.include_source_text if overrides else True,
     )
 
 
@@ -216,6 +289,36 @@ def source_preview(source: Source) -> dict[str, Any]:
         "page_end": source.page_end,
         "jurisdiction": source.jurisdiction,
     }
+
+
+def routing_payload(turn: ChatTurn, route: Route) -> dict[str, Any]:
+    document_ids = [str(d) for d in turn.document_ids or []]
+    if turn.eval:
+        # A superset: adds needs_clarification, clarifying_question and each part's query.
+        return {**route.as_dict(), "document_ids": document_ids}
+    return {
+        "departments": route.departments,
+        "jurisdiction": route.jurisdiction,
+        "standalone_query": route.standalone_query,
+        "sub_queries": route.sub_queries,
+        "parts": [
+            {"departments": p.departments, "jurisdiction": p.jurisdiction} for p in route.parts
+        ],
+        "bypassed": route.bypassed,
+        "document_ids": document_ids,
+    }
+
+
+def sources_payload(turn: ChatTurn, sources: Sequence[Source]) -> list[dict[str, Any]]:
+    """Users get previews; an eval turn gets every source with chunk id, scores and (unless
+    `include_source_text` is off) the chunk text."""
+    if not turn.eval:
+        return [source_preview(source) for source in sources]
+    full = [source.as_dict() for source in sources]
+    if not turn.include_source_text:
+        for item in full:
+            item.pop("text")
+    return full
 
 
 async def save_assistant_message(
@@ -260,12 +363,7 @@ async def save_assistant_message(
 
 async def run_chat(turn: ChatTurn) -> AsyncIterator[dict[str, str]]:
     started = time.perf_counter()
-    ctx = UsageCtx(
-        org_id=turn.org_id,
-        user_id=turn.user_id,
-        conversation_id=turn.conversation_id,
-        message_id=turn.assistant_message_id,
-    )
+    ctx = turn.usage_ctx(turn.assistant_message_id)
     settings = turn.settings
     usage = UsageTotals()
     route: Route | None = None
@@ -279,6 +377,7 @@ async def run_chat(turn: ChatTurn) -> AsyncIterator[dict[str, str]]:
     def elapsed() -> int:
         return round((time.perf_counter() - started) * 1000)
 
+    request_log.annotate(conversation_id=turn.conversation_id, message_id=turn.assistant_message_id)
     try:
         yield sse(
             "meta",
@@ -309,21 +408,7 @@ async def run_chat(turn: ChatTurn) -> AsyncIterator[dict[str, str]]:
                 ctx=ctx,
             )
         usage.rows.append(route.usage_row)
-        yield sse(
-            "routing",
-            {
-                "departments": route.departments,
-                "jurisdiction": route.jurisdiction,
-                "standalone_query": route.standalone_query,
-                "sub_queries": route.sub_queries,
-                "parts": [
-                    {"departments": p.departments, "jurisdiction": p.jurisdiction}
-                    for p in route.parts
-                ],
-                "bypassed": route.bypassed,
-                "document_ids": [str(d) for d in turn.document_ids or []],
-            },
-        )
+        yield sse("routing", routing_payload(turn, route))
 
         if route.needs_clarification and route.clarifying_question:
             yield sse("sources", [])
@@ -339,9 +424,10 @@ async def run_chat(turn: ChatTurn) -> AsyncIterator[dict[str, str]]:
                 turn.org_id,
                 route.retrieval_parts(vectors, turn.document_ids),
                 top_k=settings.top_k,
+                mode=turn.retrieval_mode,
             )
             sources = retrieval.sources
-            yield sse("sources", [source_preview(source) for source in sources])
+            yield sse("sources", sources_payload(turn, sources))
 
             stream = synthesize(
                 turn.message,
@@ -382,23 +468,29 @@ async def run_chat(turn: ChatTurn) -> AsyncIterator[dict[str, str]]:
             timings={"total": latency_ms, "ttft": ttft_ms},
         )
         saved = True
-        yield sse(
-            "usage",
-            {
-                "input_tokens": totals.input_tokens,
-                "cached_tokens": totals.cached_tokens,
-                "output_tokens": totals.output_tokens,
-                "cost_usd": float(totals.cost_usd),
-                "latency_ms": latency_ms,
-                "ttft_ms": ttft_ms,
-            },
-        )
+        usage_payload: dict[str, Any] = {
+            "input_tokens": totals.input_tokens,
+            "cached_tokens": totals.cached_tokens,
+            "output_tokens": totals.output_tokens,
+            "cost_usd": float(totals.cost_usd),
+            "latency_ms": latency_ms,
+            "ttft_ms": ttft_ms,
+        }
+        if turn.eval:
+            usage_payload["by_operation"] = usage_by_operation(totals.rows)
+            usage_payload["retrieval"] = retrieval.summary() if retrieval else None
+        yield sse("usage", usage_payload)
         yield sse("done", {})
-        if turn.is_new:
+        if turn.is_new and not turn.eval:
             schedule_title(turn, content)
     except Exception as exc:
         status = "error"
         logger.exception("Chat turn failed (conversation %s)", turn.conversation_id)
+        # The response is already a 200 stream; the log row is the only place the cause shows.
+        request_log.annotate(
+            error_message=f"{type(exc).__name__}: {exc}"[:2000],
+            error_traceback=traceback.format_exc()[-request_log.TRACEBACK_CAP :],
+        )
         yield sse("error", {"message": _public_error(exc)})
     finally:
         if not saved:
@@ -419,7 +511,7 @@ async def run_chat(turn: ChatTurn) -> AsyncIterator[dict[str, str]]:
                     logger.exception("Could not save the %s assistant message", status)
             # A first turn that was stopped or failed still names its conversation (mostly
             # from the question), so the history doesn't fill up with untitled chats.
-            if turn.is_new:
+            if turn.is_new and not turn.eval:
                 schedule_title(turn, content)
 
 
@@ -470,9 +562,7 @@ async def generate_title(turn: ChatTurn, answer: str) -> None:
             text_format=TITLE_SCHEMA,
             tier=turn.settings.background_service_tier,
             operation="title",
-            ctx=UsageCtx(
-                org_id=turn.org_id, user_id=turn.user_id, conversation_id=turn.conversation_id
-            ),
+            ctx=turn.usage_ctx(),
         )
         title = clean_title(json.loads(response.output_text).get("title") or "")
         if not title:

@@ -5,13 +5,14 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.core import storage
+from app.core import request_log, storage
 from app.core.config import get_settings
 from app.core.db import engine
 from app.core.errors import install_exception_handlers
 from app.core.log import RequestIdMiddleware, configure_logging
 from app.ingestion import worker
-from app.routers import health, v1
+from app.routers import health, logs, v1
+from app.services import request_logs
 
 configure_logging()
 logger = logging.getLogger("app.main")
@@ -31,13 +32,15 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         for i in range(max(1, get_settings().ingest_concurrency))
     ]
     logger.info("Started %d ingestion worker(s)", len(workers))
+    tasks = [*workers, asyncio.create_task(request_logs.run_pruner(stop), name="log-pruner")]
     yield
     stop.set()
     # An in-flight job is interrupted; its lock expires and another worker reclaims it.
-    _, pending = await asyncio.wait(workers, timeout=5)
+    _, pending = await asyncio.wait(tasks, timeout=5)
     for task in pending:
         task.cancel()
     await asyncio.gather(*pending, return_exceptions=True)
+    await request_log.drain()
     await engine.dispose()
 
 
@@ -51,8 +54,11 @@ app = FastAPI(
     lifespan=lifespan,
 )
 # No CORS: the API is called server-to-server (Next.js BFF) or by API-key holders.
+# The last one added runs outermost, so the request id is set before a log row is built.
+app.add_middleware(request_log.RequestLogMiddleware)
 app.add_middleware(RequestIdMiddleware)
 install_exception_handlers(app)
 
 app.include_router(health.router)
+app.include_router(logs.ui_router)  # before v1: /v1/logs/{log_id} would claim /v1/logs/ui
 app.include_router(v1.router)

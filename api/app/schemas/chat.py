@@ -4,7 +4,31 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.rag.hybrid import Mode
+from app.schemas.settings import Tier, known_chat_model
+
 MAX_SCOPED_DOCUMENTS = 50
+OVERRIDE_TOP_K_MIN, OVERRIDE_TOP_K_MAX = 1, 30
+
+
+class ChatOverrides(BaseModel):
+    """Per-request config for A/B experiments; only with eval headers (platform admins)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    top_k: int | None = Field(default=None, ge=OVERRIDE_TOP_K_MIN, le=OVERRIDE_TOP_K_MAX)
+    retrieval_mode: Mode | None = None
+    chat_model: str | None = None
+    router_model: str | None = None
+    chat_service_tier: Tier | None = None
+    include_source_text: bool = Field(
+        default=True, description="Send each source's chunk text in the eval `sources` event."
+    )
+
+    @field_validator("chat_model", "router_model")
+    @classmethod
+    def _known_model(cls, value: str | None) -> str | None:
+        return known_chat_model(value)
 
 
 class ChatRequest(BaseModel):
@@ -16,6 +40,9 @@ class ChatRequest(BaseModel):
         default=None,
         max_length=MAX_SCOPED_DOCUMENTS,
         description="Answer only from these documents (bypasses department routing).",
+    )
+    overrides: ChatOverrides | None = Field(
+        default=None, description="Eval only (needs X-Eval-Run-Id): per-request config."
     )
 
     @field_validator("message")

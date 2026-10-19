@@ -14,7 +14,8 @@ REQUEST_ID_HEADER = "X-Request-ID"
 _VALID_REQUEST_ID = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
 QUIET_PATHS = frozenset({"/health"})  # polled by Coolify's healthcheck
 
-request_id_var: ContextVar[str] = ContextVar("request_id", default="-")
+NO_REQUEST_ID = "-"  # outside a request (ingestion worker, scripts)
+request_id_var: ContextVar[str] = ContextVar("request_id", default=NO_REQUEST_ID)
 logger = logging.getLogger("app.request")
 
 

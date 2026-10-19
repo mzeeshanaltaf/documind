@@ -6,6 +6,8 @@ from app.routers import (
     chat,
     conversations,
     documents,
+    eval,
+    logs,
     me,
     my_analytics,
     quota,
@@ -15,5 +17,16 @@ from app.routers import (
 # Every /v1 route requires the service key; routes add get_actor / require_* as needed.
 router = APIRouter(prefix="/v1", dependencies=[Depends(verify_api_key)])
 
-for module in (me, documents, chat, conversations, settings, analytics, quota, my_analytics):
+for module in (
+    me,
+    documents,
+    chat,
+    conversations,
+    settings,
+    analytics,
+    quota,
+    my_analytics,
+    logs,
+    eval,
+):
     router.include_router(module.router)

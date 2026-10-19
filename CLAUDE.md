@@ -6,7 +6,7 @@
 
 ## Start here, every session
 1. Read **`Status.md`**: it gives the current phase, decisions, open questions and the session log.
-2. Read the current phase doc in **`docs/plan/phase-<n>-*.md`**: it lists the tasks, the skills to load, and the acceptance criteria.
+2. Read the current phase doc in **`docs/plan/phase-<n>-*.md`** (eval work: `docs/plan/eval/phase-E<n>-*.md` + `evaluation/CLAUDE.md`): it lists the tasks, the skills to load, and the acceptance criteria.
 3. Load the skills that phase lists **before** writing code.
 4. Before ending the session, update `Status.md`: the phase table, a dated session-log entry, and any deviations or gotchas.
    - If you change something this file documents (commands, layout, conventions), update this file too, keeping it ≤ 150 lines.
@@ -36,9 +36,9 @@ web/                Next.js app
   src/components/{brand,auth,app,chat,pdf,documents,settings,analytics,marketing,contact}/  src/hooks/use-chat-stream.ts
   scripts/ (create-schema, migrate-auth, preview-emails)
 api/                FastAPI app
-  app/core/       config, db (URL normalizer), security (API key + actor), storage (MinIO), log, errors
+  app/core/       config, db (URL normalizer), security (API key + actor), storage (MinIO), log, errors, request_log (ASGI capture → api_request_logs), eval (`X-Eval-Run-Id` tagging)
   app/models/     SQLAlchemy models (+ read-only mirrors of Better Auth tables)
-  app/routers/    v1 (key-gated aggregator), me, documents, chat (SSE), conversations (+bookmarks), settings, analytics, my_analytics, quota, health
+  app/routers/    v1 (key-gated aggregator), me, documents, chat (SSE), conversations (+bookmarks), settings, analytics, my_analytics, quota, logs (+ `/v1/logs/ui` viewer, `app/static/`), eval (harness hooks), health
   app/ingestion/  parser (pdfplumber), header, metadata, chunker, indexer, worker
   app/rag/        tokenizer, bm25, vector, hybrid (RRF)
   app/agents/     catalog, router (orchestrator), specialists, answer, citations
@@ -46,7 +46,7 @@ api/                FastAPI app
   alembic/  scripts/seed_policies.py  eval/ (golden.jsonl, run_eval.py)  tests/
 video/              hero explainer motion graphic (src/explainer.html, build.mjs, render.mjs; output → web/public/documind-explainer.mp4)
 docs/policies/      14 seed PDFs (fictional company "Simtora Technologies")
-docs/plan/          phase-1 … phase-9 implementation docs
+docs/plan/          phase-1 … phase-10 docs; eval/ = Evaluation harness E1–E9 (code in evaluation/, guide evaluation/CLAUDE.md)
 PRODUCT.md, DESIGN.md  design context (impeccable); DESIGN.json = its sidecar
 model-pricing.json  per-model $/1M tokens for standard & flex tiers (single source)
 docker-compose.dev.yml  local MinIO · api/Dockerfile, web/Dockerfile (context = repo root), .github/workflows/deploy.yml → Coolify (see Status.md › Production)
@@ -82,7 +82,7 @@ cd api && uv run python -m eval.run_eval --org-slug simtora   # writes eval/resu
   - Responses (SSE, PDFs) are streamed through unbuffered.
 - **FastAPI authorizes everything.** `verify_api_key` runs on all `/v1` routes. `get_actor` loads the user from Better Auth's `"user"` table. `require_org_access` allows `is_admin` OR a `member` row; `require_admin` guards admin routes.
 - **Table ownership.** Better Auth owns `user, session, account, verification, organization, member, invitation`, which use camelCase quoted columns such as `"organizationId"`. Alembic owns everything else and must exclude the Better Auth tables (`include_object`).
-- **Every OpenAI call goes through `app/llm/client.py`.** It writes an `llm_usage` row covering tokens (input, cached, output, reasoning), the requested and actual tier, latency, TTFT and `cost_usd` from `model-pricing.json`, priced at the *actual* tier. The same call adds input+output tokens to the caller's monthly `quota_usage` counter (`services/quota.py`; limits in `user_quotas` or env defaults 25 msgs/100K tokens; `prepare_turn` refuses with 429 `quota_exceeded`; platform admins unlimited; the month is UTC).
+- **Every OpenAI call goes through `app/llm/client.py`.** It writes an `llm_usage` row covering tokens (input, cached, output, reasoning), the requested and actual tier, latency, TTFT and `cost_usd` from `model-pricing.json`, priced at the *actual* tier. The same call adds input+output tokens to the caller's monthly `quota_usage` counter (`services/quota.py`; limits in `user_quotas` or env defaults 25 msgs/100K tokens; `prepare_turn` refuses with 429 `quota_exceeded`; platform admins unlimited; the month is UTC). Eval traffic (`is_eval` conversations, `llm_usage.eval_run_id`) skips quotas and titles and must stay out of every list/analytics query.
 - **Service tiers.** The settings values are `standard|flex|auto`; the API values are `default|flex|auto`. Flex retries once, then falls back to default.
 - **Chunks keep the metadata needed for citations and filters.** That means `section_path`, `section_number`, `page_start/end`, `content_type`, and the denormalized `department`/`jurisdiction`/`doc_type`.
   - `embed_text` = contextual header + text; it's what gets embedded and BM25-indexed.
@@ -123,8 +123,7 @@ cd api && uv run python -m eval.run_eval --org-slug simtora   # writes eval/resu
 | Analytics | `/umami-analytics` |
 
 ## Gotchas already known
-- Postgres prints a harmless "collation version mismatch" WARNING on connect.
-- There's no `pg_search`, so don't try `CREATE EXTENSION pg_search`. BM25 is custom SQL (see phase 5).
+- Postgres prints a harmless "collation version mismatch" WARNING on connect. There's no `pg_search`, so don't try `CREATE EXTENSION pg_search`; BM25 is custom SQL (see phase 5).
 - Better Auth's table is named `"user"` (a reserved word), so it must always be quoted in SQL.
 - `pgvector` iterative scans (`SET LOCAL hnsw.iterative_scan = relaxed_order`) need the results re-sorted by distance afterwards.
 - AsyncSession isn't concurrency-safe, so parallel retrievals each need their own session.
@@ -144,6 +143,7 @@ cd api && uv run python -m eval.run_eval --org-slug simtora   # writes eval/resu
 - API tests hit the real dev DB (throwaway `test-*` Better Auth rows, removed afterwards) and local MinIO; OpenAI is monkeypatched (`llm.client.respond`/`embed`, or `get_client` for chat). From this machine a DB round-trip is ~0.45 s and a cold connect 1–3 s, so the suite takes ~5.5 minutes. Stop any local uvicorn first: its ingestion worker claims the tests' jobs.
 - **asyncpg infers parameter types from context:** in `:k1 + 1` the param becomes an integer (1.2 → 1), so cast numeric params (`CAST(:k1 AS float8)`); interval params need a `timedelta`, not `'1 day'`.
 - **SSE disconnects:** sse-starlette cancels the generator mid-await or abandons it at a `yield`, and never `aclose()`s it. `routers/chat.py` closes it in `background=`, and `run_chat` saves `status='stopped'` in a shielded `finally`.
+- **Request logs:** every `/v1` call (not `/v1/logs*`) gets an `api_request_logs` row (30 days); `llm_usage.request_id` links its LLM calls. `/v1/logs/ui` is public HTML that asks for the API key, so `logs.ui_router` is included before `v1`. FastAPI 0.142 nests included routers (`scope["route"].path` = `/me`), so the template is rebuilt from path params. Tests turn logging off (conftest) unless they opt in.
 - Python-side `uuid4` defaults only apply at flush; set ids explicitly when a child row or an SSE event needs them earlier.
 - Retrieval fusion is tuned (`rag/hybrid.py`: BM25 weight 0.6, country supplements ×0.9 when no country is asked). Multi-part questions retrieve each router `part` separately and interleave them (`source_limits`). Re-run `eval.run_eval` after changing chunking, the tokenizer or these constants.
 - **Parser heuristics** (`ingestion/parser.py`) are calibrated on the Simtora PDFs (body 12pt; headings 24/18/15pt semibold; bold body-size L3 only after a paragraph gap on a short line). `find_tables()` returns a page-sized frame "table" on most pages; it's filtered. Some source PDFs render `$…` as KaTeX garbage; that's in the PDFs, not a parser bug.

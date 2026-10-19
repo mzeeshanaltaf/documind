@@ -1,6 +1,7 @@
 """Usage and quality analytics over `llm_usage` and `messages` (UTC day/week buckets).
 
-`org_id = None` means every org (platform view). Ranges are [start, end) timestamps.
+`org_id = None` means every org (platform view). Ranges are [start, end) timestamps. Evaluation
+traffic (tagged usage rows, `is_eval` conversations) is excluded everywhere.
 """
 
 from datetime import UTC, date, datetime, time, timedelta
@@ -15,10 +16,12 @@ from app.core.errors import ApiError
 USAGE_SCOPE = """
     u.created_at >= :start AND u.created_at < :end
     AND (CAST(:org AS text) IS NULL OR u.org_id = CAST(:org AS text))
+    AND u.eval_run_id IS NULL
 """
 MESSAGE_SCOPE = """
     m.role = 'assistant' AND m.created_at >= :start AND m.created_at < :end
     AND (CAST(:org AS text) IS NULL OR c.org_id = CAST(:org AS text))
+    AND NOT c.is_eval
 """
 
 TOTALS_SQL = text(
@@ -170,9 +173,11 @@ ADMIN_ORGS_SQL = text(
     SELECT o.id, o.name, o.slug, o."createdAt" AS created_at,
            (SELECT count(*) FROM documents d WHERE d.org_id = o.id) AS documents,
            (SELECT count(*) FROM member mb WHERE mb."organizationId" = o.id) AS members,
-           (SELECT count(*) FROM conversations cv WHERE cv.org_id = o.id) AS conversations,
+           (SELECT count(*) FROM conversations cv WHERE cv.org_id = o.id AND NOT cv.is_eval)
+             AS conversations,
            (SELECT coalesce(sum(u.cost_usd), 0) FROM llm_usage u
-             WHERE u.org_id = o.id AND u.created_at >= now() - interval '30 days')
+             WHERE u.org_id = o.id AND u.created_at >= now() - interval '30 days'
+               AND u.eval_run_id IS NULL)
              AS cost_30d_usd
     FROM organization o
     ORDER BY o.name

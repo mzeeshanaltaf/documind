@@ -37,10 +37,15 @@ def decode_cursor(cursor: str) -> tuple[datetime, uuid.UUID]:
 async def list_conversations(
     session: AsyncSession, org_id: str, actor: Actor, *, limit: int, cursor: str | None
 ) -> tuple[list[Conversation], str | None]:
-    """The actor's conversations in the org, most recently active first (keyset paginated)."""
+    """The actor's conversations in the org, most recently active first (keyset paginated).
+    Eval conversations are never listed."""
     query = (
         select(Conversation)
-        .where(Conversation.org_id == org_id, Conversation.user_id == actor.id)
+        .where(
+            Conversation.org_id == org_id,
+            Conversation.user_id == actor.id,
+            Conversation.is_eval.is_(False),
+        )
         .order_by(Conversation.updated_at.desc(), Conversation.id.desc())
         .limit(limit + 1)
     )
@@ -143,7 +148,8 @@ BOOKMARKS_SQL = text(
                AND q.created_at <= m.created_at
              ORDER BY q.created_at DESC LIMIT 1) AS question
     FROM messages m JOIN conversations c ON c.id = m.conversation_id
-    WHERE c.org_id = :org AND c.user_id = :user AND m.bookmarked_at IS NOT NULL
+    WHERE c.org_id = :org AND c.user_id = :user AND NOT c.is_eval
+      AND m.bookmarked_at IS NOT NULL
     ORDER BY m.bookmarked_at DESC, m.id
     LIMIT :limit
     """

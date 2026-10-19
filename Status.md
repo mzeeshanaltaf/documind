@@ -9,7 +9,7 @@
 > - Never write secrets here; this repo is public.
 
 ## Current phase
-**Phase 9 — Umami analytics & wrap-up** (code complete, not yet deployed). The tracker and events are built and verified locally; what's left is the `/ship` push and the live checks (see *Pending user actions*). Phase 8 still waits on one browser chat through the BFF.
+**Phase 10 — API request logs & viewer** (code complete, not yet deployed; see the 2026-10-19 log). **Phase 9 — Umami analytics & wrap-up** (code complete, not yet deployed). The tracker and events are built and verified locally; what's left is the `/ship` push and the live checks (see *Pending user actions*). Phase 8 still waits on one browser chat through the BFF.
 
 > ⚠️ **Before launch: the owner must have the Privacy Policy (`/privacy`) reviewed legally.** It was written to match what the app really does (see the Phase 7 log), but it is not legal advice.
 
@@ -25,8 +25,65 @@
 | 7 | Marketing site & design polish | [phase-7](docs/plan/phase-7-marketing-site.md) | ✅ Done |
 | 8 | Deployment (Coolify + MinIO) | [phase-8](docs/plan/phase-8-deployment.md) | 🟨 In progress |
 | 9 | Umami analytics & wrap-up | [phase-9](docs/plan/phase-9-umami-analytics.md) | 🟨 Code done; deploy + live checks pending |
+| 10 | API request logs & viewer (`/v1/logs/ui`) | [phase-10](docs/plan/phase-10-api-request-logs.md) | 🟨 Code done; deploy + live check pending |
 
 Legend: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked
+
+## Evaluation harness
+A standalone app at `https://evaluation.documind.zeeshanai.cloud` (code in `evaluation/`) that evaluates DocuMind end to end.
+- **Docs:** overview, data model and metrics in [docs/plan/eval/README.md](docs/plan/eval/README.md); guide in [evaluation/CLAUDE.md](evaluation/CLAUDE.md).
+- **Session logs:** entries tagged `[eval]` in the Session log below.
+- **Current eval phase:** **E1 — DocuMind eval hooks** (code done, not deployed; see the 2026-10-19 `[eval]` log). Next: E2.
+
+| # | Phase | Doc | Status |
+|---|---|---|---|
+| E1 | DocuMind eval hooks (tagging, overrides, retrieve/chunks/info endpoints, exclusions) | [phase-E1](docs/plan/eval/phase-E1-documind-eval-hooks.md) | 🟨 Code done; Coolify source-commit setting on; deploy pending |
+| E2 | Eval API foundation, datasets & durable queue | [phase-E2](docs/plan/eval/phase-E2-eval-api-foundation-and-datasets.md) | ⬜ Not started |
+| E3 | Run engine & deterministic metrics | [phase-E3](docs/plan/eval/phase-E3-run-engine-and-deterministic-metrics.md) | ⬜ Not started |
+| E4 | Claude judge & generation metrics | [phase-E4](docs/plan/eval/phase-E4-claude-judge-and-generation-metrics.md) | ⬜ Not started |
+| E5 | Eval web, auth & first deploy | [phase-E5](docs/plan/eval/phase-E5-eval-web-auth-and-deploy.md) | ⬜ Not started |
+| E6 | Compare & trends | [phase-E6](docs/plan/eval/phase-E6-compare-and-trends.md) | ⬜ Not started |
+| E7 | Synthetic test sets & reference enrichment | [phase-E7](docs/plan/eval/phase-E7-synthetic-test-sets.md) | ⬜ Not started |
+| E8 | Adversarial & safety suite | [phase-E8](docs/plan/eval/phase-E8-adversarial-and-safety-suite.md) | ⬜ Not started |
+| E9 | Human review & judge calibration | [phase-E9](docs/plan/eval/phase-E9-human-review-and-calibration.md) | ⬜ Not started |
+
+### Decisions made (eval planning session, 2026-10-18)
+- **Stack:**
+  - `evaluation/web`: Next.js 16, DocuMind's design system, :3100.
+  - `evaluation/api`: FastAPI + a durable Postgres job queue, :8100, internal only, behind the web's BFF.
+  - Two Coolify apps, `documind-eval-web` and `documind-eval-api`.
+- **DB:** shared Postgres, schema `documind_eval` (dev `documind_eval_dev`). Env lives in the root `.env.local` (`EVAL_*`, `ANTHROPIC_API_KEY`, `DOCUMIND_API_URL`).
+- **Integration:** HTTP to DocuMind `/v1` as a platform-admin service account (`eval-bot@…`, no `account` row, so it can't sign in), plus a non-admin probe user (`eval-probe@…`, member of `simtora` only) for the authz probes.
+  - DocuMind gets small admin-only **eval hooks** (E1):
+    - `X-Eval-Run-Id` / `X-Eval-Case-Id` tagging (conversations `is_eval`, `llm_usage.eval_run_id`);
+    - eval traffic excluded from conversation lists, bookmarks, analytics, quotas and titles;
+    - per-request `overrides` (top_k, retrieval mode, models, tier);
+    - full sources in eval-mode SSE;
+    - `POST /orgs/{id}/retrieve`, `GET …/documents/{id}/chunks`, `/admin/eval/info`, per-run usage and cleanup.
+- **Judge:** Claude, cross-family to avoid self-preference bias with DocuMind's OpenAI generator.
+  - Models: Sonnet 5.5 rubric, Haiku 5.5 claim checks, Opus 5.5 synthetic generation.
+  - Prompts are versioned files (hash recorded per run), prompt caching, own metering and a budget cap per run. No temperature control, so stability comes from fixed effort, strict structured outputs and optional N=3 sampling.
+- **Auth:**
+  - Better Auth in the eval web on **DocuMind's existing auth tables**, platform admins only (checked in `session.create.before`), Google + email/password, `disableSignUp`.
+  - Its own secret and `cookiePrefix: "documind-eval"`. It never migrates the auth tables (`pnpm auth:check` is read-only).
+- **Metrics:**
+  - retrieval (hit@k, MRR, recall, nDCG, context precision/recall, routing, jurisdiction);
+  - generation (claim-level faithfulness, key-fact recall, Sonnet rubric, behaviour);
+  - citations (validity, precision, recall, section/page hit);
+  - operational (latency, TTFT, cost);
+  - safety (leakage = 0, injection resistance, OOS refusal, authz probes).
+  - CIs are bootstrap or Wilson. A/B comparison is paired on `case_key` (bootstrap, permutation, McNemar, Holm), with an A/A noise floor.
+- **Scope:** core plus synthetic test sets (with human approval), human review with judge calibration (κw, ρ), and an adversarial/safety suite. **No CI regression gate.**
+- `api/eval/run_eval.py` stays as the quick retrieval-only check; the harness must reproduce its numbers (E3).
+
+### Open questions (eval)
+- **Canary org vs self-service joining:** `/app/join` lists **every** org, so any signed-in user could join the E8 leakage org `eval-canary`. Before E8, hide eval orgs from the join page (e.g. an `organization.metadata` flag), or create the canary org only in dev.
+- **Prod targeting:** eval runs against prod DocuMind share its single uvicorn worker and OpenAI limits with real users. Should prod runs need an explicit confirmation, or be limited to the off-hours default concurrency of 2?
+- **Judge budget:** the default `max_judge_cost_usd` per run (proposed $5), and whether to also set a monthly cap.
+- **Eval conversations:** delete them in DocuMind at finalize (proposed default), or keep them for debugging?
+- **Service account visibility:** `eval-bot` and `eval-probe` will show up in DocuMind's `/admin/users`. Is that acceptable, or should they be filtered?
+- **Reviewers for E9:** only the owner, or a second reviewer too? A human-human κ ceiling needs two reviewers on the same items.
+- **Root `CLAUDE.md` length:** it sits at the 150-line limit. The eval pointer was folded into two existing lines (Start here › 2, Repo layout › `docs/plan/`); any further eval notes belong in `evaluation/CLAUDE.md`.
 
 ## Decisions made (planning session, 2026-10-06)
 - **Tenancy:** platform admin only.
@@ -223,6 +280,9 @@ Legend: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked
 - (none)
 
 ## Pending user actions
+- **Eval E1 (owner):**
+  1. ~~In Coolify, enable "Include source commit in build" on `documind-api`~~ — done 2026-10-19 via the API (`PATCH /applications/<uuid>` with `include_source_commit_in_build: true`, verified by reading it back). It applies from the next deploy (Dockerfile `SOURCE_COMMIT` build arg → `GIT_SHA` → `/health.version`). If `/health.version` still shows `dev` after that deploy, pass `SOURCE_COMMIT` as a build arg from `.github/workflows/deploy.yml`.
+  2. `/ship` (done by the push that follows this entry) (together with Phase 10). The prod migrations `0003_request_logs` + `0004_eval_hooks` run on container start; then check `https://api.documind.zeeshanai.cloud/health` shows a version.
 - **Phase 9 (owner):**
   1. `/ship` the Phase 9 changes. The push redeploys web only (the web build bakes in the Umami vars).
   2. After the deploy, open https://documind.zeeshanai.cloud with DevTools → Network: the page loads `analytics.zeeshanai.cloud/script.js`, and a `POST …/api/send` returns 200 on each navigation. Umami → DocuMind → Realtime shows the visit.
@@ -248,6 +308,71 @@ Legend: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked
 - Gotchas / learnings: …
 - Next: …
 -->
+
+### 2026-10-19 — Coolify: include source commit in build (documind-api)
+- Enabled "Include source commit in build" on `documind-api` via the Coolify API; read back `include_source_commit_in_build: true`. Takes effect on the next deploy.
+- **Gotcha:** the API field is `include_source_commit_in_build` (`is_include_source_commit_in_build_enabled` is rejected as "not allowed"). The earlier `COOLIFY_API_TOKEN_ROOT` was revoked (401) and was re-created by the owner.
+
+### 2026-10-19 — [eval] E1: DocuMind eval hooks (code done, not deployed)
+- **Built (`api/`):**
+  - migration `0004_eval_hooks`: `conversations.is_eval/eval_run_id/eval_case_id` and `llm_usage.eval_run_id/eval_case_id`, each with a partial index (`alembic check` clean);
+  - `core/eval.py` (`EvalContext`, `EvalDep`: `X-Eval-Run-Id`/`X-Eval-Case-Id`, 422 `invalid_eval_header`, 403 `eval_forbidden`);
+  - `UsageCtx` gained the eval tags plus `count_quota`, and `record_usage` skips `quota.add_tokens` for tagged rows;
+  - in `prepare_turn`/`run_chat`: no quota, no title, `[eval] <case>` title, an is_eval match on continue (else 404), `ChatOverrides` applied with `dataclasses.replace`, `mode=` passed to `retrieve()`;
+  - eval-mode `routing`/`sources`/`usage` payloads, built by `routing_payload`/`sources_payload`/`usage_by_operation`;
+  - `routers/eval.py` + `services/eval.py` with `/orgs/{id}/retrieve`, `…/documents/{doc}/chunks`, `/admin/eval/info`, `/admin/eval-runs/{run}/usage` and `DELETE …/conversations`;
+  - exclusions in `analytics.py`, `my_analytics.py` and `conversations.py`;
+  - `/health.version` (`GIT_SHA`; Dockerfile `ARG SOURCE_COMMIT=dev`), the BFF header comment, and `tests/test_eval_hooks.py` (5 tests).
+- **Verified:**
+  - `ruff` passes, and the 5 new tests pass. The full suite gave 174 passed and 1 failed: `test_document_lifecycle`, because local MinIO wasn't running (Docker Desktop was off). That failure isn't related to E1; re-run it with MinIO up;
+  - live, against a local uvicorn with real OpenAI: 3 eval chats as the admin streamed `sources` with `text`/`chunk_id`/scores and `routing` with `needs_clarification`. The conversation list, org analytics, quota and my-analytics were identical before and after. The run's usage showed 9 tagged calls (3 per case), and `DELETE …/conversations` removed 3;
+  - `run_eval` is unchanged: hybrid hit@5 1.000 and MRR 0.944, vector the same, bm25 0.967/0.812, routing 30/30;
+  - `/retrieve` (in-process, admin, 3 modes) gives the same first-hit ranks as `run_eval` for golden questions 1–5. It made one router call and one embed call per question, created no conversations, and its run usage reconciled (10 calls).
+- **Deviations from plan:**
+  - The migration is `0004` (`0003` was already Phase 10's).
+  - `UsageCtx.count_quota=False` is used by `/retrieve`, so an untagged admin call doesn't touch quota counters either.
+  - An eval chat with `include_source_text=false` still gets the full source dicts, minus `text` (instead of the user previews), because the harness needs chunk ids and scores.
+  - Prompt hashes cover the instructions **plus** their JSON schemas (router, rewrite, title).
+  - `/retrieve` always retrieves, even when the router asks for clarification (as `run_eval` does); `routing.needs_clarification` tells the harness. bm25-only requests skip the embedding.
+  - Extras:
+    - `/retrieve` also returns `config` (effective router model, tier, top_k);
+    - the chunks endpoint returns `offset`/`limit`;
+    - run usage totals add `reasoning`, `errors`, `first_at`/`last_at`;
+    - `my_analytics.BOOKMARKS_SQL` also excludes eval;
+    - a case id without a run id is rejected (422).
+  - The run-usage keys follow the plan's `by_case` names (`calls/input/cached/output/cost_usd`) for totals and `by_operation` too, while the chat SSE `by_operation` uses `input_tokens…` per call.
+- **Gotchas / learnings:**
+  - The eval conversation is still readable via `GET /v1/conversations/{id}` by its owner (eval-bot), which is useful for debugging.
+  - Request logs record eval traffic like any other request.
+  - The manual check left 10 tagged `llm_usage` rows (run `manual-e1-…`) in `documind_dev`. They're harmless and invisible to analytics.
+  - From this machine a 3-mode `/retrieve` takes 13–18 s (DB round trips).
+- **Next:** do the owner actions under *Pending user actions › Eval E1*, then E2.
+
+### 2026-10-19 — Phase 10: API request logs & viewer (code done, not deployed)
+- **Built:**
+  - `api_request_logs` table + `llm_usage.request_id` (migration `0003_request_logs`; `alembic check` clean);
+  - `core/request_log.py`, a pure-ASGI middleware inside `RequestIdMiddleware`. It tees capped bodies (64 KB; SSE 256 KB, condensed to the answer + non-delta events), summarises multipart uploads (bytes + filenames) and binary responses (type + bytes), redacts `x-api-key`/`authorization`/`cookie`/`set-cookie`, and records unhandled exceptions with a traceback. Rows are written in background tasks (`drain()` on shutdown);
+  - `run_chat` annotates `conversation_id`/`message_id`, plus the real exception and traceback when a 200 stream ends in `error`;
+  - the read API `GET /v1/logs` (filters, keyset cursor, user email, org slug, token/cost totals), `/v1/logs/routes` and `/v1/logs/{id}` (LLM calls, message routing/retrieval/sources);
+  - the viewer `GET /v1/logs/ui` (`app/static/logs_ui.html`): no external assets, a per-response CSP nonce, DESIGN.md tokens, light/dark, the key kept in localStorage, list + detail with Request/Response/Error/Retrieval/LLM-calls tabs, text-only DOM rendering;
+  - an hourly prune in the lifespan (`REQUEST_LOG_RETENTION_DAYS`, default 30), plus the privacy-page "Technical logs" text and retention bullet (effective date now 19 October 2026);
+  - `tests/test_request_logs.py` (10 tests).
+- **Deviations from plan:** FastAPI 0.142 keeps included routers nested, so `scope["route"].path` is `/me`, not `/v1/me`. The route template is rebuilt from the path + path params instead (no private API). Bodies are stored as `jsonb` in both columns (non-JSON as a JSON string). `conftest.py` turns request logging off for every test except those that opt in, so the suite leaves no rows behind.
+- **Gotchas / learnings:** the title task inherits the request id, so a first chat turn has 4 linked LLM calls (router, embed_query, answer, title). An unhandled-exception response is sent by `ServerErrorMiddleware` outside our middleware, so its body isn't captured; the row carries `internal_error` + the traceback.
+- **Next:** `/ship`; after the deploy, open `https://api.documind.zeeshanai.cloud/v1/logs/ui`, enter the prod key, send one chat and check its detail tabs. The prod migration runs on container start (`alembic upgrade head`).
+
+### 2026-10-18 — [eval] Evaluation harness planning (docs only)
+- **Built:**
+  - the plan docs `docs/plan/eval/README.md` and `phase-E1…E9-*.md`;
+  - the `evaluation/CLAUDE.md` skeleton;
+  - the Status.md › Evaluation harness section (tracker, decisions, open questions);
+  - a root `CLAUDE.md` pointer.
+
+  No code was written.
+- **Inputs:**
+  - the Flourish evaluation harness as a reference. It is actually a Next.js app, with browser-side orchestration, JSONB-blob runs, a single unvalidated judge and no run comparison. Its good ideas were kept: correlation ids, a config snapshot per run, a multi-dimension rubric, prompt history, per-case cost and latency.
+  - DocuMind's existing retrieval-only eval (hybrid hit@5 1.000, MRR 0.944).
+- **Next:** Phase E1 (DocuMind eval hooks). Resolve the canary-org/join-page question before E8.
 
 ### 2026-10-18 — Hero explainer video (not deployed)
 - Built: an 18 s seamless-loop motion graphic (a ball travels upload → indexing → pipeline → question → cited answer → PDF page, then the camera pulls out) made with the `explainer-engaging` skill (Barty-Bart/motion-graphics). Source and renderer are in `video/` (`src/explainer.html` → `node build.mjs` inlines the brand fonts; `node render.mjs documind-explainer.html out.mp4 60 4 4`). The landing hero (`components/marketing/hero-video.tsx`) plays `web/public/documind-explainer.mp4` (1280×720, silent, ~2 MB) with a poster; autoplay, muted, loop; reduced motion pauses it on the poster.

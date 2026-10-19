@@ -1,11 +1,13 @@
 from httpx import AsyncClient
 
+from app.core.config import get_settings
+
 
 async def test_health_is_public_and_checks_db(client: AsyncClient) -> None:
     response = await client.get("/health")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "db": "ok"}
+    assert response.json() == {"status": "ok", "db": "ok", "version": get_settings().git_sha}
     assert response.headers["X-Request-ID"]
 
 

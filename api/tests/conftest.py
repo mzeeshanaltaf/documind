@@ -6,15 +6,20 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 
+from app.core import request_log
 from app.core.config import get_settings
 from app.core.db import engine
 from app.main import app
 
 
 @pytest.fixture(autouse=True)
-async def _dispose_engine() -> AsyncIterator[None]:
-    # Each test runs on its own event loop; pooled asyncpg connections can't cross loops.
+async def _dispose_engine(monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[None]:
+    # Request logs stay off unless a test turns them on (tests/test_request_logs.py), so the
+    # suite doesn't leave api_request_logs rows behind.
+    monkeypatch.setattr(get_settings(), "request_log_enabled", False)
     yield
+    # Each test runs on its own event loop; pooled asyncpg connections can't cross loops.
+    await request_log.drain()
     await engine.dispose()
 
 

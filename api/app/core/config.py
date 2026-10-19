@@ -53,6 +53,13 @@ class Settings(BaseSettings):
     max_upload_mb: int = 50
     ingest_concurrency: int = 1
 
+    # `/v1` request logs (core/request_log.py), viewed at /v1/logs/ui.
+    request_log_enabled: bool = True
+    request_log_retention_days: int = 30
+
+    # The deployed commit (Dockerfile: SOURCE_COMMIT build arg → GIT_SHA), shown by /health.
+    git_sha: str = "dev"
+
     @cached_property
     def db_schema(self) -> str:
         return parse_schema(self.database_url)

@@ -8,6 +8,7 @@ from fastapi import APIRouter
 from sse_starlette import EventSourceResponse
 from starlette.background import BackgroundTask
 
+from app.core.eval import EvalDep
 from app.core.security import ActorDep, OrgDep, SessionDep
 from app.schemas.chat import ChatRequest
 from app.services import chat as service
@@ -21,11 +22,12 @@ router = APIRouter(tags=["chat"])
     responses={200: {"content": {"text/event-stream": {}}}},
 )
 async def chat(
-    org: OrgDep, actor: ActorDep, session: SessionDep, body: ChatRequest
+    org: OrgDep, actor: ActorDep, session: SessionDep, eval_ctx: EvalDep, body: ChatRequest
 ) -> EventSourceResponse:
     """Ask a question. Starts a conversation unless `conversation_id` is given; `document_ids`
-    scopes the answer to those documents."""
-    turn = await service.prepare_turn(session, org.org_id, actor, body)
+    scopes the answer to those documents. With `X-Eval-Run-Id` (admins) the turn is an eval
+    turn: hidden from users, unmetered for quotas, `overrides` allowed, richer events."""
+    turn = await service.prepare_turn(session, org.org_id, actor, body, eval_ctx)
     events = service.run_chat(turn)
     return EventSourceResponse(
         events,

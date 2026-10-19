@@ -1,7 +1,7 @@
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Index, Integer, Numeric, Text, Uuid
+from sqlalchemy import Boolean, Index, Integer, Numeric, Text, Uuid, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
@@ -25,9 +25,22 @@ class LlmUsage(Base):
     __table_args__ = (
         Index(None, "org_id", "created_at"),
         Index(None, "operation", "created_at"),
+        Index(None, "request_id"),
+        Index(
+            "ix_llm_usage_eval_run_id_created_at",
+            "eval_run_id",
+            "created_at",
+            postgresql_where=text("eval_run_id IS NOT NULL"),
+        ),
     )
 
     id: Mapped[UuidPk]
+    # The X-Request-ID of the API request that made the call (null for the ingestion worker).
+    request_id: Mapped[str | None] = mapped_column(Text)
+    # Evaluation harness tags (X-Eval-Run-Id / X-Eval-Case-Id); tagged rows skip quotas and
+    # analytics.
+    eval_run_id: Mapped[str | None] = mapped_column(Text)
+    eval_case_id: Mapped[str | None] = mapped_column(Text)
     org_id: Mapped[str | None] = mapped_column(Text)
     user_id: Mapped[str | None] = mapped_column(Text)
     conversation_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)

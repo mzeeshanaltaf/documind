@@ -10,6 +10,8 @@ import { limitChat } from "@/lib/rate-limit";
  */
 export const maxDuration = 300;
 
+// Keep this list minimal: FastAPI's admin-only eval hooks key off X-Eval-Run-Id / X-Eval-Case-Id
+// (hidden conversations, no quota, overrides), so a browser must never be able to forward them.
 const FORWARD_REQUEST_HEADERS = ["content-type", "accept"];
 const FORWARD_RESPONSE_HEADERS = ["content-type", "content-disposition", "cache-control", "retry-after", "x-request-id"];
 const CHAT_PATH = /^orgs\/[^/]+\/chat$/;

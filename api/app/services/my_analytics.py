@@ -20,12 +20,13 @@ MESSAGES_CTE = """
              CAST(m.retrieval -> 'timings_ms' ->> 'total' AS float8) AS latency_ms,
              CAST(m.retrieval -> 'timings_ms' ->> 'ttft' AS float8) AS ttft_ms
       FROM messages m JOIN conversations c ON c.id = m.conversation_id
-      WHERE c.org_id = :org AND c.user_id = :user
+      WHERE c.org_id = :org AND c.user_id = :user AND NOT c.is_eval
         AND m.created_at >= :start AND m.created_at < :end
     )
 """
 USAGE_SCOPE = """
     u.org_id = :org AND u.user_id = :user AND u.created_at >= :start AND u.created_at < :end
+    AND u.eval_run_id IS NULL
 """
 
 TOTALS_SQL = text(
@@ -54,7 +55,7 @@ CONVERSATIONS_SQL = text(
     SELECT
       count(*) FILTER (WHERE c.created_at >= :start AND c.created_at < :end) AS started,
       count(*) AS total
-    FROM conversations c WHERE c.org_id = :org AND c.user_id = :user
+    FROM conversations c WHERE c.org_id = :org AND c.user_id = :user AND NOT c.is_eval
     """
 )
 
@@ -70,7 +71,8 @@ BOOKMARKS_SQL = text(
     """
     SELECT count(*) AS bookmarks
     FROM messages m JOIN conversations c ON c.id = m.conversation_id
-    WHERE c.org_id = :org AND c.user_id = :user AND m.bookmarked_at IS NOT NULL
+    WHERE c.org_id = :org AND c.user_id = :user AND NOT c.is_eval
+      AND m.bookmarked_at IS NOT NULL
     """
 )
 

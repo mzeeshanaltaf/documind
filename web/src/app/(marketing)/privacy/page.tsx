@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 };
 
 /** Edit when the policy changes. */
-const EFFECTIVE_DATE = "8 October 2026";
+const EFFECTIVE_DATE = "19 October 2026";
 
 const SECTIONS = [
   { id: "who-we-are", title: "Who we are" },
@@ -68,7 +68,7 @@ export default function PrivacyPage() {
           Privacy Policy
         </h1>
         <p className="mt-4 text-sm text-muted-foreground">
-          Effective <time dateTime="2026-10-07">{EFFECTIVE_DATE}</time>
+          Effective <time dateTime="2026-10-19">{EFFECTIVE_DATE}</time>
         </p>
         <p className="mt-6 max-w-[65ch] text-[1.0625rem] leading-relaxed text-muted-foreground">
           DocuMind answers questions from an organization&apos;s own policy documents. This policy explains what
@@ -144,8 +144,11 @@ export default function PrivacyPage() {
           </p>
           <h3>Technical logs</h3>
           <p>
-            Our servers log requests (time, path, response status and a request ID) to keep the service running and
-            to investigate errors.
+            Our servers log each request to the application&apos;s API: the time, path, response status, duration and a
+            request ID, the account and organization IDs it was made for, and the request and response content, such
+            as your questions and the answers. Uploaded files and downloaded documents aren&apos;t copied into the logs;
+            only their names and sizes are. We use these logs to keep the service running and to investigate errors,
+            and only the operator can view them.
           </p>
 
           <H2 id="how-we-use-it" />
@@ -239,6 +242,9 @@ export default function PrivacyPage() {
             <li>
               <strong>Usage metrics:</strong> kept for cost accounting. They may remain after an account is deleted,
               linked only to an internal ID, without your name or email address.
+            </li>
+            <li>
+              <strong>Technical logs:</strong> deleted automatically after 30 days.
             </li>
             <li>
               <strong>Contact messages:</strong> as long as needed to handle your request.

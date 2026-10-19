@@ -9,6 +9,16 @@ Tier = Literal["standard", "flex", "auto"]
 TOP_K_MIN, TOP_K_MAX = 4, 15
 
 
+def known_chat_model(value: str | None) -> str | None:
+    """Field validator body: a chat/router model must be priced in `model-pricing.json`."""
+    if value is None:
+        return None
+    models = chat_models()
+    if value not in models:
+        raise ValueError(f"unknown model; use one of: {', '.join(models)}")
+    return value
+
+
 class SettingsValues(BaseModel):
     chat_model: str
     router_model: str
@@ -42,9 +52,4 @@ class SettingsUpdate(BaseModel):
     @field_validator("chat_model", "router_model")
     @classmethod
     def _known_model(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-        models = chat_models()
-        if value not in models:
-            raise ValueError(f"unknown model; use one of: {', '.join(models)}")
-        return value
+        return known_chat_model(value)

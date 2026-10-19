@@ -28,6 +28,11 @@ COPY api/ ./
 COPY model-pricing.json /app/model-pricing.json
 RUN uv sync --frozen --no-dev && chown -R app:app /app
 
+# The deployed commit for /health.version: Coolify passes SOURCE_COMMIT when "Include source
+# commit in build" is on. Declared last so a new commit doesn't invalidate the layers above.
+ARG SOURCE_COMMIT=dev
+ENV GIT_SHA=$SOURCE_COMMIT
+
 USER app
 EXPOSE 8000
 

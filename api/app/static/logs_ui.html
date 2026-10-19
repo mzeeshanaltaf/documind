@@ -1,0 +1,594 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>REST API Logs · DocuMind</title>
+<style>
+/* Tokens mirror web/src/app/globals.css (DESIGN.md). No external fonts: system stacks only. */
+:root {
+  --background: oklch(0.988 0.003 160);
+  --foreground: oklch(0.205 0.012 165);
+  --card: oklch(0.995 0.002 160);
+  --primary: oklch(0.43 0.075 168);
+  --primary-foreground: oklch(0.985 0.006 160);
+  --secondary: oklch(0.955 0.007 160);
+  --muted: oklch(0.958 0.005 160);
+  --muted-foreground: oklch(0.515 0.012 165);
+  --accent: oklch(0.948 0.016 165);
+  --accent-foreground: oklch(0.31 0.05 168);
+  --destructive: oklch(0.53 0.18 28);
+  --success: oklch(0.5 0.11 152);
+  --warning: oklch(0.555 0.12 68);
+  --info: oklch(0.52 0.09 240);
+  --border: oklch(0.905 0.006 160);
+  --input: oklch(0.875 0.008 160);
+  --ring: oklch(0.55 0.09 168);
+  --radius: 0.5rem;
+  --font-sans: "Instrument Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-serif: "Source Serif 4", ui-serif, Georgia, serif;
+  --font-mono: "Geist Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --background: oklch(0.172 0.008 165);
+    --foreground: oklch(0.94 0.006 160);
+    --card: oklch(0.205 0.009 165);
+    --primary: oklch(0.76 0.09 168);
+    --primary-foreground: oklch(0.19 0.025 168);
+    --secondary: oklch(0.255 0.01 165);
+    --muted: oklch(0.245 0.009 165);
+    --muted-foreground: oklch(0.71 0.012 160);
+    --accent: oklch(0.275 0.025 168);
+    --accent-foreground: oklch(0.93 0.02 165);
+    --destructive: oklch(0.7 0.16 25);
+    --success: oklch(0.74 0.12 152);
+    --warning: oklch(0.8 0.12 78);
+    --info: oklch(0.74 0.09 240);
+    --border: oklch(0.94 0.01 160 / 11%);
+    --input: oklch(0.94 0.01 160 / 17%);
+    --ring: oklch(0.64 0.08 168);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --background: oklch(0.172 0.008 165);
+  --foreground: oklch(0.94 0.006 160);
+  --card: oklch(0.205 0.009 165);
+  --primary: oklch(0.76 0.09 168);
+  --primary-foreground: oklch(0.19 0.025 168);
+  --secondary: oklch(0.255 0.01 165);
+  --muted: oklch(0.245 0.009 165);
+  --muted-foreground: oklch(0.71 0.012 160);
+  --accent: oklch(0.275 0.025 168);
+  --accent-foreground: oklch(0.93 0.02 165);
+  --destructive: oklch(0.7 0.16 25);
+  --success: oklch(0.74 0.12 152);
+  --warning: oklch(0.8 0.12 78);
+  --info: oklch(0.74 0.09 240);
+  --border: oklch(0.94 0.01 160 / 11%);
+  --input: oklch(0.94 0.01 160 / 17%);
+  --ring: oklch(0.64 0.08 168);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font: 400 0.875rem/1.5 var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.mono { font-family: var(--font-mono); font-size: 0.78rem; }
+.muted { color: var(--muted-foreground); }
+.wrap { max-width: 1280px; margin: 0 auto; padding: 0 16px; }
+
+header.top {
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+  position: sticky; top: 0; z-index: 5;
+}
+header.top .wrap { display: flex; align-items: center; gap: 12px; min-height: 56px; flex-wrap: wrap; padding-block: 8px; }
+.brand { display: flex; align-items: baseline; gap: 10px; margin-right: auto; min-width: 0; }
+.brand h1 { font: 600 1.15rem/1.2 var(--font-serif); margin: 0; letter-spacing: -0.01em; }
+.brand span { font-size: 0.75rem; }
+.actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 32px; padding: 0 12px;
+  border: 1px solid var(--input); border-radius: var(--radius);
+  background: var(--card); cursor: pointer; font-weight: 500; font-size: 0.8125rem;
+  white-space: nowrap;
+}
+.btn:hover { background: var(--accent); }
+.btn.primary { background: var(--primary); color: var(--primary-foreground); border-color: transparent; }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.ghost { border-color: transparent; background: transparent; }
+.btn.ghost:hover { background: var(--accent); }
+.btn:disabled { opacity: 0.55; cursor: default; }
+
+main { padding: 20px 0 48px; }
+
+.filters {
+  display: grid; gap: 8px;
+  grid-template-columns: minmax(200px, 2fr) repeat(3, minmax(110px, 1fr)) auto auto;
+  margin-bottom: 14px;
+}
+@media (max-width: 860px) { .filters { grid-template-columns: 1fr 1fr; } .filters .grow { grid-column: 1 / -1; } }
+.field {
+  height: 32px; padding: 0 10px; width: 100%; min-width: 0;
+  border: 1px solid var(--input); border-radius: var(--radius); background: var(--card);
+}
+
+.card { background: var(--card); border: 1px solid var(--border); border-radius: calc(var(--radius) * 1.4); }
+.table-scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { font-size: 0.72rem; font-weight: 500; color: var(--muted-foreground); text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+tbody tr:last-child td { border-bottom: 0; }
+tr.clickable { cursor: pointer; }
+tr.clickable:hover td { background: var(--muted); }
+td.url { max-width: 420px; overflow-wrap: anywhere; }
+td.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+th.num { text-align: right; }
+.nowrap { white-space: nowrap; }
+@media (max-width: 720px) { .hide-sm { display: none; } td.url { max-width: 220px; } }
+
+.badge {
+  display: inline-block; padding: 1px 7px; border-radius: 999px;
+  font: 500 0.7rem/1.6 var(--font-mono); border: 1px solid currentColor; white-space: nowrap;
+}
+.m-GET { color: var(--info); } .m-POST { color: var(--success); } .m-PUT, .m-PATCH { color: var(--warning); } .m-DELETE { color: var(--destructive); }
+.s-2 { color: var(--success); } .s-3 { color: var(--info); } .s-4 { color: var(--warning); } .s-5 { color: var(--destructive); }
+
+.foot { display: flex; justify-content: center; padding: 14px; }
+.empty { padding: 40px 16px; text-align: center; color: var(--muted-foreground); }
+.notice {
+  padding: 10px 12px; margin-bottom: 14px; border-radius: var(--radius);
+  border: 1px solid var(--border); background: var(--muted);
+}
+.notice.error { border-color: color-mix(in oklch, var(--destructive) 40%, transparent); color: var(--destructive); }
+
+.detail-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.detail-head h2 { font: 600 1.15rem/1.3 var(--font-serif); margin: 0; overflow-wrap: anywhere; }
+.summary { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0; }
+.summary div { padding: 10px 14px; border-bottom: 1px solid var(--border); min-width: 0; }
+.summary dt { font-size: 0.72rem; color: var(--muted-foreground); margin-bottom: 2px; }
+.summary dd { margin: 0; overflow-wrap: anywhere; }
+
+.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin: 18px 0 0; overflow-x: auto; }
+.tab {
+  border: 0; background: transparent; padding: 8px 12px; cursor: pointer;
+  border-bottom: 2px solid transparent; color: var(--muted-foreground); font-weight: 500; white-space: nowrap;
+}
+.tab[aria-selected="true"] { color: var(--foreground); border-bottom-color: var(--primary); }
+.panel { padding: 16px 0; }
+.panel h3 { font-size: 0.8125rem; font-weight: 600; margin: 18px 0 8px; }
+.panel h3:first-child { margin-top: 0; }
+pre {
+  margin: 0; padding: 12px 14px; overflow: auto; max-height: 520px;
+  background: var(--muted); border: 1px solid var(--border); border-radius: var(--radius);
+  font: 400 0.75rem/1.55 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.answer { font: 400 0.95rem/1.65 var(--font-serif); white-space: pre-wrap; padding: 14px 16px; }
+.kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; }
+.kv dt { color: var(--muted-foreground); }
+.kv dd { margin: 0; overflow-wrap: anywhere; }
+.events { display: grid; gap: 8px; }
+.event-name { font: 500 0.75rem var(--font-mono); margin-bottom: 4px; color: var(--accent-foreground); }
+
+dialog {
+  border: 1px solid var(--border); border-radius: calc(var(--radius) * 1.4);
+  background: var(--card); color: var(--foreground); padding: 20px; width: min(440px, calc(100vw - 32px));
+}
+dialog::backdrop { background: oklch(0.2 0.01 165 / 45%); }
+dialog h2 { font: 600 1.1rem/1.3 var(--font-serif); margin: 0 0 6px; }
+dialog p { margin: 0 0 14px; color: var(--muted-foreground); }
+dialog .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; flex-wrap: wrap; }
+dialog .row .left { margin-right: auto; }
+label.lbl { display: block; font-size: 0.78rem; font-weight: 500; margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <h1>REST API Logs</h1>
+      <span class="muted">DocuMind · /v1 requests</span>
+    </div>
+    <div class="actions">
+      <button class="btn ghost" id="theme-btn" type="button">Dark</button>
+      <button class="btn" id="key-btn" type="button">API key</button>
+      <button class="btn" id="refresh-btn" type="button">Refresh</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap" id="app"></main>
+
+<dialog id="key-dialog" aria-labelledby="key-title">
+  <form id="key-form" method="dialog">
+    <h2 id="key-title">API key</h2>
+    <p>Enter the service key (<span class="mono">DOCUMIND_API_KEY</span>). It stays in this browser and is sent as <span class="mono">X-API-Key</span>.</p>
+    <label class="lbl" for="key-input">Key</label>
+    <input class="field" id="key-input" type="password" autocomplete="off" spellcheck="false" required>
+    <div class="row">
+      <button class="btn ghost left" id="forget-btn" type="button">Forget key</button>
+      <button class="btn" value="cancel" formnovalidate type="submit">Cancel</button>
+      <button class="btn primary" value="save" type="submit">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<script nonce="__CSP_NONCE__">
+"use strict";
+(function () {
+  const BASE = location.pathname.replace(/\/ui\/?$/, "");
+  const KEY_STORE = "documind-logs-key";
+  const THEME_STORE = "documind-logs-theme";
+  const app = document.getElementById("app");
+  const dialog = document.getElementById("key-dialog");
+  const keyInput = document.getElementById("key-input");
+  const themeBtn = document.getElementById("theme-btn");
+
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch { /* storage blocked */ } },
+    del(k) { try { localStorage.removeItem(k); } catch { /* storage blocked */ } },
+  };
+  let apiKey = store.get(KEY_STORE) || "";
+
+  // --- DOM helper: text only, never innerHTML --------------------------------------------
+  function h(tag, attrs, ...children) {
+    const el = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs || {})) {
+      if (v === null || v === undefined || v === false) continue;
+      if (k === "class") el.className = v;
+      else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+      else el.setAttribute(k, v === true ? "" : String(v));
+    }
+    for (const c of children.flat()) {
+      if (c === null || c === undefined || c === false) continue;
+      el.append(c instanceof Node ? c : document.createTextNode(String(c)));
+    }
+    return el;
+  }
+  const dash = "—";
+  const fmt = (v) => (v === null || v === undefined || v === "" ? dash : String(v));
+  const num = (v) => (v === null || v === undefined ? dash : Number(v).toLocaleString());
+  const usd = (v) => (v ? "$" + Number(v).toFixed(Number(v) < 0.01 ? 5 : 4) : dash);
+  const when = (iso) => (iso ? new Date(iso).toLocaleString() : dash);
+  const ms = (v) => (v === null || v === undefined ? dash : Number(v).toLocaleString() + " ms");
+  const json = (v) => h("pre", {}, typeof v === "string" ? v : JSON.stringify(v, null, 2));
+  const methodBadge = (m) => h("span", { class: "badge m-" + m }, m);
+  const statusBadge = (s) => h("span", { class: "badge s-" + String(s)[0] }, s);
+
+  // --- theme --------------------------------------------------------------------------------
+  function currentTheme() {
+    const saved = document.documentElement.dataset.theme;
+    if (saved) return saved;
+    return matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+  function applyTheme(theme) {
+    if (theme) document.documentElement.dataset.theme = theme;
+    themeBtn.textContent = currentTheme() === "dark" ? "Light" : "Dark";
+  }
+  themeBtn.addEventListener("click", () => {
+    const next = currentTheme() === "dark" ? "light" : "dark";
+    store.set(THEME_STORE, next);
+    applyTheme(next);
+  });
+  applyTheme(store.get(THEME_STORE));
+
+  // --- key dialog -----------------------------------------------------------------------------
+  function openKeyDialog() {
+    keyInput.value = apiKey;
+    if (!dialog.open) dialog.showModal();
+    keyInput.focus();
+  }
+  document.getElementById("key-btn").addEventListener("click", openKeyDialog);
+  document.getElementById("forget-btn").addEventListener("click", () => {
+    apiKey = "";
+    store.del(KEY_STORE);
+    keyInput.value = "";
+    dialog.close("cancel");
+    route();
+  });
+  dialog.addEventListener("close", () => {
+    if (dialog.returnValue !== "save") return;
+    apiKey = keyInput.value.trim();
+    if (apiKey) store.set(KEY_STORE, apiKey);
+    route();
+  });
+  document.getElementById("refresh-btn").addEventListener("click", () => route());
+
+  class Unauthorized extends Error {}
+
+  async function api(path) {
+    if (!apiKey) throw new Unauthorized("No API key yet.");
+    const res = await fetch(BASE + path, { headers: { "X-API-Key": apiKey, Accept: "application/json" } });
+    if (res.status === 401) throw new Unauthorized("The API key was rejected.");
+    const body = await res.json().catch(() => null);
+    if (!res.ok) throw new Error((body && body.error && body.error.message) || "HTTP " + res.status);
+    return body;
+  }
+
+  function showError(err) {
+    app.replaceChildren();
+    if (err instanceof Unauthorized) {
+      app.append(h("div", { class: "notice" }, err.message + " Enter the service API key to view logs. ",
+        h("button", { class: "btn", type: "button", onclick: openKeyDialog }, "Enter API key")));
+      openKeyDialog();
+      return;
+    }
+    app.append(h("div", { class: "notice error" }, "Could not load: " + err.message));
+  }
+
+  // --- list view ------------------------------------------------------------------------------
+  const filters = { q: "", method: "", status: "", route: "" };
+  let routes = [];
+
+  function select(name, label, options) {
+    return h("select", { class: "field", name, "aria-label": label },
+      h("option", { value: "" }, label),
+      options.map((o) => h("option", { value: o, selected: filters[name] === o }, o)));
+  }
+
+  async function renderList() {
+    document.title = "REST API Logs · DocuMind";
+    try {
+      routes = (await api("/routes")).routes;
+    } catch (err) { return showError(err); }
+
+    const form = h("form", { class: "filters", role: "search" },
+      h("input", { class: "field grow", name: "q", type: "search", value: filters.q,
+        placeholder: "Search path, error, request or log id", "aria-label": "Search" }),
+      select("method", "Method", ["GET", "POST", "PUT", "PATCH", "DELETE"]),
+      select("status", "Status", ["2xx", "3xx", "4xx", "5xx"]),
+      select("route", "Route", routes),
+      h("button", { class: "btn primary", type: "submit" }, "Search"),
+      h("button", { class: "btn ghost", type: "button", onclick: () => {
+        Object.keys(filters).forEach((k) => (filters[k] = ""));
+        renderList();
+      } }, "Clear"));
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const data = new FormData(form);
+      Object.keys(filters).forEach((k) => (filters[k] = String(data.get(k) || "")));
+      renderList();
+    });
+
+    const tbody = h("tbody");
+    const table = h("table", {},
+      h("thead", {}, h("tr", {},
+        h("th", {}, "Method"), h("th", {}, "URL"), h("th", {}, "Status"),
+        h("th", { class: "num" }, "Time"), h("th", { class: "hide-sm" }, "User"),
+        h("th", { class: "hide-sm" }, "Org"), h("th", { class: "num hide-sm" }, "Tokens"),
+        h("th", { class: "num hide-sm" }, "Cost"), h("th", {}, "When"), h("th", {}, ""))),
+      tbody);
+    const foot = h("div", { class: "foot" });
+    const card = h("div", { class: "card" }, h("div", { class: "table-scroll" }, table), foot);
+    app.replaceChildren(form, card);
+
+    async function load(before) {
+      const params = new URLSearchParams({ limit: "50" });
+      for (const [k, v] of Object.entries(filters)) if (v) params.set(k, v);
+      if (before) params.set("before", before);
+      foot.replaceChildren(h("span", { class: "muted" }, "Loading…"));
+      let page;
+      try { page = await api("?" + params); } catch (err) { return showError(err); }
+      for (const item of page.items) tbody.append(listRow(item));
+      if (!tbody.children.length) {
+        tbody.append(h("tr", {}, h("td", { colspan: 10, class: "empty" }, "No requests match these filters.")));
+      }
+      foot.replaceChildren(page.next_cursor
+        ? h("button", { class: "btn", type: "button", onclick: () => load(page.next_cursor) }, "Load more")
+        : h("span", { class: "muted" }, tbody.querySelectorAll("tr.clickable").length + " request(s)"));
+    }
+    await load(null);
+  }
+
+  function listRow(item) {
+    const open = () => { location.hash = "#/log/" + item.id; };
+    const url = item.path + (item.query ? "?" + item.query : "");
+    return h("tr", { class: "clickable", onclick: open },
+      h("td", {}, methodBadge(item.method)),
+      h("td", { class: "url mono", title: item.route || "" }, url,
+        item.error_code ? h("div", { class: "muted" }, item.error_code) : null),
+      h("td", {}, statusBadge(item.status_code)),
+      h("td", { class: "num" }, ms(item.duration_ms)),
+      h("td", { class: "hide-sm" }, fmt(item.user_email || item.user_id)),
+      h("td", { class: "hide-sm mono" }, fmt(item.org_slug || item.org_id)),
+      h("td", { class: "num hide-sm" }, item.total_tokens ? num(item.total_tokens) : dash),
+      h("td", { class: "num hide-sm" }, usd(item.cost_usd)),
+      h("td", { class: "nowrap muted" }, when(item.created_at)),
+      h("td", {}, h("button", { class: "btn ghost", type: "button", onclick: (e) => { e.stopPropagation(); open(); } }, "View")));
+  }
+
+  // --- detail view ----------------------------------------------------------------------------
+  async function renderDetail(id) {
+    app.replaceChildren(h("p", { class: "muted" }, "Loading…"));
+    let log;
+    try { log = await api("/" + encodeURIComponent(id)); } catch (err) { return showError(err); }
+    document.title = log.method + " " + log.path + " · REST API Logs";
+
+    const calls = log.llm_calls || [];
+    const totals = log.llm_totals || {};
+    const models = [...new Set(calls.map((c) => c.model))].join(", ");
+    const tiers = [...new Set(calls.map((c) => (c.service_tier_requested || dash) + " → " + (c.service_tier_actual || dash)))].join(", ");
+    const answerCall = calls.find((c) => c.ttft_ms !== null && c.ttft_ms !== undefined);
+    const user = log.user ? [log.user.name, log.user.email, log.user.id].join(" · ") : log.user_id;
+    const org = log.org ? log.org.name + " (" + log.org.slug + ")" : log.org_id;
+    const url = log.path + (log.query ? "?" + log.query : "");
+
+    const fields = [
+      ["Method", methodBadge(log.method)],
+      ["Status", statusBadge(log.status_code)],
+      ["Response time", ms(log.duration_ms)],
+      ["Timestamp", when(log.created_at)],
+      ["URL", h("span", { class: "mono" }, url)],
+      ["Route", h("span", { class: "mono" }, fmt(log.route))],
+      ["Log ID", h("span", { class: "mono" }, log.id)],
+      ["Trace ID", h("span", { class: "mono" }, fmt(log.request_id))],
+      ["User", fmt(user)],
+      ["Organization", fmt(org)],
+      ["Conversation ID", h("span", { class: "mono" }, fmt(log.conversation_id))],
+      ["Message ID", h("span", { class: "mono" }, fmt(log.message_id))],
+      ["Document ID", h("span", { class: "mono" }, fmt(log.document_id))],
+      ["Model(s)", fmt(models)],
+      ["Service tier", fmt(tiers)],
+      ["TTFT", ms(answerCall ? answerCall.ttft_ms : null)],
+      ["Input tokens", num(totals.input_tokens)],
+      ["Cached tokens", num(totals.cached_tokens)],
+      ["Output tokens", num(totals.output_tokens)],
+      ["Reasoning tokens", num(totals.reasoning_tokens)],
+      ["Total tokens", num(totals.total_tokens)],
+      ["Cost (USD)", usd(totals.cost_usd)],
+      ["Answer status", fmt(log.message && log.message.status)],
+      ["Error", fmt(log.error_code ? log.error_code + (log.error_message ? ": " + log.error_message : "") : log.error_message)],
+    ];
+    const summary = h("dl", { class: "summary card" },
+      fields.map(([k, v]) => h("div", {}, h("dt", {}, k), h("dd", {}, v))));
+
+    const tabs = [
+      ["Request", () => requestPanel(log)],
+      ["Response", () => responsePanel(log)],
+      ["Error", () => errorPanel(log)],
+      ["Retrieval", () => retrievalPanel(log.message)],
+      ["LLM calls (" + calls.length + ")", () => callsPanel(calls)],
+    ];
+    const panel = h("div", { class: "panel", role: "tabpanel" });
+    const tabBar = h("div", { class: "tabs", role: "tablist" });
+    tabs.forEach(([label, render], i) => {
+      const btn = h("button", { class: "tab", type: "button", role: "tab", "aria-selected": "false" }, label);
+      btn.addEventListener("click", () => {
+        tabBar.querySelectorAll(".tab").forEach((t) => t.setAttribute("aria-selected", "false"));
+        btn.setAttribute("aria-selected", "true");
+        panel.replaceChildren(...[render()].flat());
+      });
+      tabBar.append(btn);
+      if (i === 0) queueMicrotask(() => btn.click());
+    });
+
+    app.replaceChildren(
+      h("div", { class: "detail-head" },
+        h("button", { class: "btn", type: "button", onclick: () => { location.hash = ""; } }, "← All requests"),
+        h("h2", {}, log.method + " " + log.path)),
+      summary, tabBar, panel);
+  }
+
+  const none = () => h("p", { class: "muted" }, dash);
+  const section = (title, value) => [h("h3", {}, title), value === null || value === undefined ? none() : json(value)];
+
+  function requestPanel(log) {
+    const query = log.query ? Object.fromEntries(new URLSearchParams(log.query)) : null;
+    return [
+      ...section("Headers", log.request_headers),
+      ...section("Query params", query),
+      h("h3", {}, "Body" + (log.request_body_size ? " (" + num(log.request_body_size) + " bytes)" : "")),
+      log.request_body === null || log.request_body === undefined ? none() : json(log.request_body),
+    ];
+  }
+
+  function responsePanel(log) {
+    const out = [...section("Headers", log.response_headers)];
+    const body = log.response_body;
+    out.push(h("h3", {}, "Body" + (log.response_body_size ? " (" + num(log.response_body_size) + " bytes" + (log.body_truncated ? ", truncated" : "") + ")" : "")));
+    if (body && typeof body === "object" && Array.isArray(body.events)) {
+      out.push(h("div", { class: "card answer" }, body.answer || dash));
+      out.push(h("h3", {}, "Events"));
+      out.push(h("div", { class: "events" }, body.events.map((ev) =>
+        h("div", {}, h("div", { class: "event-name" }, ev.event + (ev.count ? " × " + ev.count : "")),
+          ev.count ? null : json(ev.data === undefined ? null : ev.data)))));
+    } else {
+      out.push(body === null || body === undefined ? none() : json(body));
+    }
+    return out;
+  }
+
+  function errorPanel(log) {
+    if (!log.error_code && !log.error_message && !log.error_traceback) return none();
+    return [
+      h("dl", { class: "kv" }, h("dt", {}, "Code"), h("dd", { class: "mono" }, fmt(log.error_code)),
+        h("dt", {}, "Message"), h("dd", {}, fmt(log.error_message))),
+      ...section("Traceback", log.error_traceback),
+    ];
+  }
+
+  function kv(obj) {
+    return h("dl", { class: "kv" }, Object.entries(obj).map(([k, v]) => [
+      h("dt", {}, k),
+      h("dd", {}, Array.isArray(v) ? (v.length ? v.join(", ") : dash) : typeof v === "object" && v !== null ? JSON.stringify(v) : fmt(v)),
+    ]));
+  }
+
+  function simpleTable(columns, rows) {
+    return h("div", { class: "card table-scroll" }, h("table", {},
+      h("thead", {}, h("tr", {}, columns.map(([label, , cls]) => h("th", { class: cls || null }, label)))),
+      h("tbody", {}, rows.map((row) => h("tr", {}, columns.map(([, get, cls]) => h("td", { class: cls || null }, get(row))))))));
+  }
+
+  function retrievalPanel(message) {
+    if (!message) return none();
+    const out = [];
+    const r = message.routing;
+    if (r) {
+      out.push(h("h3", {}, "Routing"), kv({
+        departments: r.departments, jurisdiction: r.jurisdiction, standalone_query: r.standalone_query,
+        sub_queries: r.sub_queries, bypassed: r.bypassed, needs_clarification: r.needs_clarification,
+      }));
+    }
+    const ret = message.retrieval || {};
+    if (ret.lists && ret.lists.length) {
+      out.push(h("h3", {}, "Ranked lists (" + fmt(ret.candidates) + " candidates)"), simpleTable([
+        ["Method", (x) => x.method, "mono"], ["Part", (x) => fmt(x.part)], ["Query", (x) => fmt(x.query)],
+        ["Filter", (x) => fmt(x.filter), "mono"], ["Hits", (x) => num(x.hits), "num"], ["Fallback", (x) => (x.fallback ? "yes" : "no")],
+      ], ret.lists));
+    }
+    const sources = message.sources || [];
+    if (sources.length) {
+      const scoreKeys = [...new Set(sources.flatMap((s) => Object.keys(s.scores || {})))];
+      const score = (v) => (typeof v === "number" ? (Number.isInteger(v) ? String(v) : v.toFixed(4)) : fmt(v));
+      out.push(h("h3", {}, "Sources"), simpleTable([
+        ["n", (s) => s.n, "mono"], ["Document", (s) => fmt(s.doc_code), "mono"],
+        ["Section", (s) => [s.section_number, s.section_title].filter(Boolean).join(" ") || dash],
+        ["Pages", (s) => (s.page_start === s.page_end ? fmt(s.page_start) : s.page_start + "–" + s.page_end), "mono"],
+        ...scoreKeys.map((k) => [k, (s) => score((s.scores || {})[k]), "num mono"]),
+      ], sources));
+    }
+    if (ret.timings_ms) out.push(h("h3", {}, "Timings (ms)"), kv(ret.timings_ms));
+    if (message.citations && message.citations.length) out.push(...section("Citations", message.citations));
+    return out.length ? out : none();
+  }
+
+  function callsPanel(calls) {
+    if (!calls.length) return none();
+    return simpleTable([
+      ["Operation", (c) => c.operation, "mono"], ["Model", (c) => c.model, "mono"],
+      ["Tier", (c) => (c.service_tier_requested || dash) + " → " + (c.service_tier_actual || dash)],
+      ["Input", (c) => num(c.input_tokens), "num"], ["Cached", (c) => num(c.cached_tokens), "num"],
+      ["Output", (c) => num(c.output_tokens), "num"], ["Reasoning", (c) => num(c.reasoning_tokens), "num"],
+      ["Latency", (c) => ms(c.latency_ms), "num"], ["TTFT", (c) => ms(c.ttft_ms), "num"],
+      ["Cost", (c) => usd(c.cost_usd) + (c.pricing_estimated ? " *" : ""), "num"],
+      ["Status", (c) => c.status + (c.error ? ": " + c.error : "")],
+    ], calls);
+  }
+
+  // --- routing --------------------------------------------------------------------------------
+  function route() {
+    const match = location.hash.match(/^#\/log\/([0-9a-fA-F-]{36})$/);
+    if (match) renderDetail(match[1]);
+    else renderList();
+  }
+  addEventListener("hashchange", route);
+  route();
+})();
+</script>
+</body>
+</html>

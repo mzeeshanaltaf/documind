@@ -4,6 +4,7 @@ from typing import Any
 
 from sqlalchemy import (
     ARRAY,
+    Boolean,
     CheckConstraint,
     DateTime,
     ForeignKey,
@@ -41,6 +42,12 @@ class Conversation(Base):
     document_ids: Mapped[list[uuid.UUID]] = mapped_column(
         ARRAY(Uuid), nullable=False, default=list, server_default=EMPTY_ARRAY
     )
+    # Started by the evaluation harness (X-Eval-Run-Id): hidden from lists, analytics, quotas.
+    is_eval: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+    eval_run_id: Mapped[str | None] = mapped_column(Text)
+    eval_case_id: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[CreatedAt]
     updated_at: Mapped[UpdatedAt]
 
@@ -51,6 +58,11 @@ Index(
     Conversation.org_id,
     Conversation.user_id,
     Conversation.updated_at.desc(),
+)
+Index(
+    "ix_conversations_eval_run_id",
+    Conversation.eval_run_id,
+    postgresql_where=Conversation.eval_run_id.is_not(None),
 )
 
 

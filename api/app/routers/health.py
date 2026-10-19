@@ -4,6 +4,7 @@ import logging
 from fastapi import APIRouter
 from sqlalchemy import text
 
+from app.core.config import get_settings
 from app.core.db import engine
 from app.schemas.health import HealthOut
 
@@ -15,11 +16,13 @@ DB_CHECK_TIMEOUT_S = 5  # a cold connect from a dev machine to the VPS can take 
 
 @router.get("/health")
 async def health() -> HealthOut:
-    """Public liveness + DB probe. Always 200 so a shared-DB blip doesn't restart the container."""
+    """Public liveness + DB probe. Always 200 so a shared-DB blip doesn't restart the container.
+    `version` is the deployed commit (`GIT_SHA`, "dev" locally)."""
+    version = get_settings().git_sha
     try:
         async with asyncio.timeout(DB_CHECK_TIMEOUT_S), engine.connect() as conn:
             await conn.execute(text("select 1"))
     except Exception as exc:  # noqa: BLE001 — any failure just means "db: error"
         logger.warning("Health DB check failed: %s", type(exc).__name__)
-        return HealthOut(status="degraded", db="error")
-    return HealthOut(status="ok", db="ok")
+        return HealthOut(status="degraded", db="error", version=version)
+    return HealthOut(status="ok", db="ok", version=version)

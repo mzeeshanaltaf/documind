@@ -5,6 +5,7 @@ import uuid
 from dataclasses import dataclass
 
 from app.core.db import session_scope
+from app.core.log import NO_REQUEST_ID, request_id_var
 from app.llm.pricing import cost
 from app.models.usage import LlmUsage
 from app.services import quota
@@ -21,6 +22,11 @@ class UsageCtx:
     conversation_id: uuid.UUID | None = None
     message_id: uuid.UUID | None = None
     document_id: uuid.UUID | None = None
+    # Evaluation harness tags: a tagged call never counts towards the user's quota.
+    eval_run_id: str | None = None
+    eval_case_id: str | None = None
+    # False for admin tooling that must not touch quota counters even when untagged.
+    count_quota: bool = True
 
 
 @dataclass
@@ -55,12 +61,16 @@ async def record_usage(
         tokens.cached_tokens,
         tokens.output_tokens,
     )
+    request_id = request_id_var.get()
     row = LlmUsage(
+        request_id=None if request_id == NO_REQUEST_ID else request_id,
         org_id=ctx.org_id,
         user_id=ctx.user_id,
         conversation_id=ctx.conversation_id,
         message_id=ctx.message_id,
         document_id=ctx.document_id,
+        eval_run_id=ctx.eval_run_id,
+        eval_case_id=ctx.eval_case_id,
         operation=operation,
         model=model,
         service_tier_requested=tier_requested,
@@ -81,5 +91,6 @@ async def record_usage(
             session.add(row)
     except Exception:
         logger.exception("Failed to record llm_usage for %s/%s", operation, model)
-    await quota.add_tokens(ctx.user_id, tokens.input_tokens + tokens.output_tokens)
+    if ctx.count_quota and not ctx.eval_run_id:
+        await quota.add_tokens(ctx.user_id, tokens.input_tokens + tokens.output_tokens)
     return row

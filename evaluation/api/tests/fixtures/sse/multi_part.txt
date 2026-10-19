@@ -1,0 +1,698 @@
+event: meta
+data: {"conversation_id": "28beae79-04ab-4959-b191-2e0c8e1b7496", "user_message_id": "cef0be14-f9e7-4a5a-b1e9-f2be301b7752", "assistant_message_id": "80ba92e5-b6cc-4276-ba93-83482c5717e8"}
+
+event: routing
+data: {"departments": ["Facilities", "Finance"], "jurisdiction": null, "standalone_query": "What is the visitor policy for our offices, and how long do I have to submit an expense report?", "parts": [{"query": "What is the visitor policy for our offices?", "departments": ["Facilities"], "jurisdiction": null}, {"query": "How long do I have to submit an expense report?", "departments": ["Finance"], "jurisdiction": null}], "needs_clarification": false, "clarifying_question": null, "bypassed": false, "sub_queries": ["What is the visitor policy for our offices?", "How long do I have to submit an expense report?"], "document_ids": []}
+
+event: sources
+data: [{"n": 1, "chunk_id": "7a389ff0-9b97-4a25-91df-41457a7b8e66", "document_id": "11942de0-5c9e-40fe-a403-34ada68f9059", "doc_code": "SIM-FAC-001", "title": "Facilities and Office Administration Manual", "section_path": ["Part 2 – Physical Security and Access Control", "2.3 Visitors and Guests"], "section_number": "2.3", "section_title": "Visitors and Guests", "page_start": 20, "page_end": 22, "content_type": "prose", "text": "2.3 Visitors and Guests\n\nPurpose. To welcome visitors safely while protecting people, confidential information and secure areas.\n\nScope. Every person who is not a badge-holder: customers, candidates, partners, vendors, delivery staff, friends and family, government representatives.\n\nPolicy\n\nPre-registration\n\nHosts pre-register visitors in the Visitor Management System (VMS) or through the Facilities Portal at least 4 business hours before arrival, and 1 business day before for groups of more than 10, customers visiting secure or lab areas, or any visit outside normal hours. Required fields are in Appendix B. Hosts collect only the details needed. Simtora does not require or store date of birth, national ID numbers or copies of government IDs for ordinary visits.\n\nWalk-in visitors are asked at reception to contact the person they are visiting, who confirms the visit before entry. If the host cannot be reached, the visitor waits in reception or is asked to reschedule.\n\nCheck-in\n\nVisitors sign in at reception. Reception confirms identity by asking the visitor to state their name and organization and, for visitors unknown to the host or who will have access to Confidential information, by viewing a photo ID without copying it. Visitors who refuse to identify themselves are not admitted.\n\nThe VMS prints a visitor badge showing name, host, date and expiry. Visitors wear it visibly and return it on leaving. Visitor badges are a different color from employee badges.\n\nNon-disclosure. Visitors to work areas, labs or technical meetings, or to customer-confidential settings, accept the electronic NDA in the VMS (Legal's template) before entry. Candidates, delivery personnel and family or friends visiting reception briefly do not need an NDA and are not shown Confidential material. Hosts must not share Confidential or Restricted information with a visitor without an NDA or a written contract term that covers it (IT Policy Manual 2.1).\n\nEscorting and conduct\n\nVisitors are escorted by their host (or a designated colleague) at all times in Zones 3 and 4. Visitors are not allowed in Zone 4 unless the area owner and the CISO authorize it in advance in writing, for a specific purpose and time, with a named escort present throughout.\n\nGuest network only. Visitors use the guest Wi-Fi, which is separated from Company systems (IT Policy Manual 5.1). They may not connect devices to the Company network or plug unknown USB devices into Company equipment.\n\nScreens and whiteboards. Hosts lock screens, close confidential documents and clear whiteboards before visitors enter a room (IT Policy Manual 4.7).\n\nPhotography and recording. Visitors may not photograph or record in work areas without the host's permission (and Facilities' permission for filming).\n\nUnescorted visitors. Anyone who sees an unescorted visitor politely asks who they are visiting and accompanies them to reception or calls Facilities. Do not confront someone who appears threatening; call security.", "jurisdiction": "GLOBAL", "department": "Facilities", "owner": "Head of Facilities (reports to the Chief Financial Officer; direct access to the Chief People Officer and the CEO on health, safety and security)", "scores": {"bm25_rank": 1, "vector_rank": 1, "rrf": 0.02623, "score": 0.02623, "added_as": null, "part": 0}}, {"n": 2, "chunk_id": "df81a297-63ce-4bbd-89d9-94d155fc07fc", "document_id": "6c6e0916-0ea8-49a3-b98f-fa8e6017018a", "doc_code": "SIM-FIN-001", "title": "Finance and Accounting Manual", "section_path": ["Part 4 – Procure-to-Pay and Employee Spending", "4.7 Expense Reports and Reimbursement"], "section_number": "4.7", "section_title": "Expense Reports and Reimbursement", "page_start": 55, "page_end": 56, "content_type": "prose", "text": "4.7 Expense Reports and Reimbursement\n\nPurpose. To ensure employees are reimbursed promptly for reasonable, necessary and approved business expenses, and that reimbursements meet IRS accountable-plan rules.\n\nScope. All business expenses that an employee pays personally or with a Company card (see HR Policy Manual 1.6 and 8.1 for the employee-facing rules).\n\nPolicy\n\nSubmission and timing\n\nSubmit the expense report in the expense system within 30 days of the expense, with itemized receipts for anything over $25 and a business purpose and coding for every item.\n\nReports are approved by the manager, then reviewed by Finance. Approved reimbursements are paid within 10 business days, by direct deposit in the next payroll or separate ACH payment.\n\nAccountable plan. Simtora reimburses under an IRS accountable plan: expenses must have a business connection, be adequately substantiated, and any excess advance must be returned. Simtora's rules are stricter than the IRS safe harbors (substantiate within 60 days, return excess advances within 120 days). Amounts not substantiated or not returned within the Company's time limits become taxable wages through payroll.\n\nApproval\n\nNo self-approval. Employees do not approve their own expenses, or those of anyone more senior. An executive's expenses are approved by the CFO (the CEO's by the Board Chair or Audit Committee chair, and the CFO's by the CEO).\n\nManagers review receipts and purpose and confirm reasonableness. Finance may reject or query any item.\n\nExpense limits and the amounts that need pre-approval follow the HR Policy Manual and 4.8. Any single expense over $1,000 not covered by a specific approved budget or PO needs Department Head approval.\n\nDocumentation requirements\n\nReceipts. Itemized receipts (not just card slips) for anything over $25; lost receipts need a signed missing-receipt statement, allowed at most twice a year per employee unless the CFO approves.\n\nMeals. Record attendees' names and organization, and the business purpose. Team meals show the number of attendees. Single meals over $50 per person need itemized receipts (HR Policy Manual 8.1).\n\nGifts and hospitality to customers, partners, officials or vendors record the recipient, their organization, the purpose, the amount and the approval required by the Code of Ethics and Compliance Manual (see 4.10).\n\nMileage in a personal vehicle is reimbursed at the current IRS standard business mileage rate, with date, purpose, start and end points and miles. Commuting is not reimbursable.\n\nForeign-currency expenses are converted per 2.5.\n\nAlcohol is reimbursed only as part of a documented client entertainment meal, in moderation (HR Policy Manual 8.1).\n\nTips are reimbursable up to customary amounts (generally up to 20%).", "jurisdiction": "GLOBAL", "department": "Finance", "owner": "Chief Financial Officer (CFO)", "scores": {"bm25_rank": 2, "vector_rank": 1, "rrf": 0.026071, "score": 0.026071, "added_as": null, "part": 1}}, {"n": 3, "chunk_id": "cb377354-3864-4081-b6c9-e6ccb99f293c", "document_id": "11942de0-5c9e-40fe-a403-34ada68f9059", "doc_code": "SIM-FAC-001", "title": "Facilities and Office Administration Manual", "section_path": ["Part 2 – Physical Security and Access Control", "2.3 Visitors and Guests"], "section_number": "2.3", "section_title": "Visitors and Guests", "page_start": 22, "page_end": 23, "content_type": "prose", "text": "Visitor behavior. Visitors follow Simtora rules on safety, conduct, harassment and smoking (HR 4.2, 4.3; smoke- and vape-free within 25 feet of entrances) and may be asked to leave if they do not.\n\nSpecial groups\n\nCandidates. HR's recruiter is the host. Candidates are met at reception, escorted and not left alone in work areas.\n\nContractors and delivery personnel. Regular vendors on premises follow 7.4 and Appendix I. Delivery drivers are met at reception or the loading area and go no further without an escort.\n\nChildren and family. Employees may bring family for brief social visits to reception or the pantry on the host's responsibility, with prior notice to Facilities. Children stay with the host and out of Zone 4, labs and any area with a physical hazard. Family events are organized by HR with Facilities.\n\nCustomers and partners. Customer visits are pre-registered, covered by the appropriate NDA, escorted and hosted in guest rooms.\n\nGovernment or law-enforcement visitors. Follow 2.8.\n\nAccessibility. Reception asks in advance whether any visitor needs accessible arrangements (for example, step-free access, a sign-language interpreter, quiet space, a service animal), and Facilities provides them.\n\nRecords\n\nThe VMS records name, organization, host, date and time, and NDA status. Visitor logs are kept for 12 months (longer only under a legal hold or customer contract) and then deleted. Access is limited to Facilities, IT Security and Legal. Logs are used for safety (for example, evacuation accounting), security and investigation, not marketing. Evacuation accounting. Reception (or the Site Lead) can produce a real-time list of visitors on site for wardens in an emergency (6.2).\n\nResponsibilities\n\nHosts: pre-register, meet the visitor, escort them, ensure the NDA is signed, and see them out.\n\nReception and Office Administrators: check in, badge and log visitors; contact hosts; keep the visitor system working.\n\nLegal: maintains the electronic NDA and visitor terms.\n\nSafety and Security Lead: audits visitor practices quarterly.", "jurisdiction": "GLOBAL", "department": "Facilities", "owner": "Head of Facilities (reports to the Chief Financial Officer; direct access to the Chief People Officer and the CEO on health, safety and security)", "scores": {"bm25_rank": 4, "vector_rank": 2, "rrf": 0.025504, "score": 0.025504, "added_as": null, "part": 0}}, {"n": 4, "chunk_id": "294f5509-ba46-4dbd-a608-d8814fd2698b", "document_id": "6c6e0916-0ea8-49a3-b98f-fa8e6017018a", "doc_code": "SIM-FIN-001", "title": "Finance and Accounting Manual", "section_path": ["Part 5 – Payroll and People Costs", "5.7 Contractors and Information Reporting"], "section_number": "5.7", "section_title": "Contractors and Information Reporting", "page_start": 71, "page_end": 72, "content_type": "prose", "text": "5.7 Contractors and Information Reporting\n\nPurpose. To ensure contractors are paid properly, classified correctly and reported to the IRS.\n\nPolicy\n\nClassification. HR and Legal determine whether a worker is an employee or an independent contractor using the federal and state tests (including the ABC test in states that apply it) before work starts. Misclassification creates tax, wage and benefits liabilities. Finance will not pay an individual as a contractor without HR's classification sign-off.\n\nAgreement and onboarding. Contractors sign an agreement approved by Legal and complete vendor onboarding (4.2, including IRS Form W-9, or Form W-8 for foreign individuals). Individuals are paid through AP on submitted invoices approved by the budget owner, not through payroll or expense reimbursement.\n\nBackup withholding. Where a payee does not provide a valid TIN, or the IRS notifies Simtora to do so, AP withholds 24% backup withholding and reports it.\n\nInformation reporting. AP prepares Forms 1099-NEC and 1099-MISC by January 31 (payments at or above the IRS filing threshold in effect for the calendar year; for payments made in 2026 the threshold for nonemployee compensation is $2,000; Tax confirms the threshold each year), and Form 1042-S for foreign payees where applicable. Payments by card or third-party network are reported by the processor and excluded from Simtora's 1099s.\n\nContractor access and tools are governed by the IT Policy Manual; the contractor must not be given access, equipment or benefits that would blur classification without HR and Legal review.\n\nStaffing agencies are paid on approved invoices under a master agreement with insurance, background check and conflict-of-interest terms per the Procurement Policy Manual (6.4).\n\nContractor time limits and conversion. Long-term, full-time contractors are reviewed by HR every 6 months for conversion or reclassification.", "jurisdiction": "GLOBAL", "department": "Finance", "owner": "Chief Financial Officer (CFO)", "scores": {"bm25_rank": 1, "vector_rank": 7, "rrf": 0.024761, "score": 0.024761, "added_as": null, "part": 1}}, {"n": 5, "chunk_id": "6775de44-3aab-4245-a449-f814dfd2ad53", "document_id": "11942de0-5c9e-40fe-a403-34ada68f9059", "doc_code": "SIM-FAC-001", "title": "Facilities and Office Administration Manual", "section_path": ["Appendices", "Appendix B – Visitor Pre-Registration Fields and Visitor Rules Summary"], "section_number": "B", "section_title": "Visitor Pre-Registration Fields and Visitor Rules Summary", "page_start": 84, "page_end": 84, "content_type": "list", "text": "Appendix B – Visitor Pre-Registration Fields and Visitor Rules Summary\n\nFields (keep to what is needed):\n\n1. Visitor full name\n2. Visitor email (and phone, optional)\n3. Visitor organization\n4. Purpose of visit and agenda (if relevant)\n5. Host name and department\n6. Expected arrival date and time\n7. Expected duration\n8. NDA required? (Yes / No; the electronic NDA is presented at check-in)\n9. Access needs (step-free access, interpreter, quiet space, service animal, parking) and any dietary needs for meals (optional)\n\n10. Secure or lab access required? (Yes / No; needs area owner and CISO approval, 2.3, 2.4)\n\nNot collected: date of birth, national ID numbers, home address, copies of IDs.\n\nVisitor rules (shown at check-in): wear your badge; stay with your host; use guest Wi-Fi only; no photography without permission; no smoking or vaping within 25 feet of entrances; follow staff directions in an emergency; return your badge on leaving.", "jurisdiction": "GLOBAL", "department": "Facilities", "owner": "Head of Facilities (reports to the Chief Financial Officer; direct access to the Chief People Officer and the CEO on health, safety and security)", "scores": {"bm25_rank": 5, "vector_rank": 3, "rrf": 0.025104, "score": 0.025104, "added_as": null, "part": 0}}, {"n": 6, "chunk_id": "3bcfd34b-7faa-45fa-baed-52ba28c11612", "document_id": "6c6e0916-0ea8-49a3-b98f-fa8e6017018a", "doc_code": "SIM-FIN-001", "title": "Finance and Accounting Manual", "section_path": ["Part 4 – Procure-to-Pay and Employee Spending", "4.7 Expense Reports and Reimbursement"], "section_number": "4.7", "section_title": "Expense Reports and Reimbursement", "page_start": 56, "page_end": 57, "content_type": "prose", "text": "Home-office allowance, connectivity stipend and other HR-approved payments are paid through payroll or the expense system as HR directs; they are taxable where the law requires (HR Policy Manual 7.4).\n\nNot reimbursable (unless the CFO approves in advance in writing): personal expenses and family or companion travel; fines, penalties and parking or traffic violations; personal entertainment; in-flight or in-room extras, minibar, spa or movies; luggage insurance; loyalty-program fees; personal grooming; child or pet care; donations or political contributions (see Code of Ethics and Compliance Manual); cash advances or loans to others; gifts of cash or gift cards; excessive tips; late fees resulting from the employee's delay; and any spending prohibited by the Code.\n\nState law. Where state law requires reimbursement of necessary business expenses (for example, California), Simtora reimburses them if they were reasonable and necessary, regardless of approval status.\n\nAudit and consequences\n\nFinance reviews every report against policy rules and reports, samples reports for full review, and follows up on patterns (repeated late submission, weekend or holiday expenses, round numbers, split receipts).\n\nFalse, inflated or duplicated claims, and altered receipts are serious misconduct (see HR Policy Manual 2.3) and are reported to the CFO and, where fraud is suspected, to the Compliance Officer.\n\nOverpayments are corrected by repayment or an authorized offset, in line with state law.\n\nResponsibilities\n\nEmployees: honest, timely, documented claims.\n\nManagers: careful review; not approving without seeing receipts.\n\nFinance: policy check, payment within 10 business days, audit.", "jurisdiction": "GLOBAL", "department": "Finance", "owner": "Chief Financial Officer (CFO)", "scores": {"bm25_rank": 12, "vector_rank": 2, "rrf": 0.024462, "score": 0.024462, "added_as": null, "part": 1}}, {"n": 7, "chunk_id": "e14a83f5-1c31-4b1b-95d9-83d9856e7cb1", "document_id": "11942de0-5c9e-40fe-a403-34ada68f9059", "doc_code": "SIM-FAC-001", "title": "Facilities and Office Administration Manual", "section_path": ["Part 2 – Physical Security and Access Control", "2.1 Security Principles and Zones", "Policy"], "section_number": "2.1", "section_title": "Security Principles and Zones", "page_start": 17, "page_end": 17, "content_type": "table", "text": "Policy\n\n| Zone | Description | Who may enter |\n| --- | --- | --- |\n| Zone 1 – Public | Building lobby, shared corridors, landlord areas | Anyone the building admits |\n| Zone 2 – Reception and Guest | Simtora reception, visitor waiting area, guest meeting rooms | Employees, registered visitors |\n| Zone 3 – Work areas | Open floors, team rooms, pantries, standard meeting rooms | Badge-holders; visitors only when escorted |\n| Zone 4 – Secure areas | Network rooms and closets, on-premises lab or test equipment, spare-device storage, HR and Finance file rooms, records rooms | Named, authorized people only (2.4) |", "jurisdiction": "GLOBAL", "department": "Facilities", "owner": "Head of Facilities (reports to the Chief Financial Officer; direct access to the Chief People Officer and the CEO on health, safety and security)", "scores": {"bm25_rank": 2, "vector_rank": 5, "rrf": 0.025062, "score": 0.025062, "added_as": null, "part": 0}}, {"n": 8, "chunk_id": "01f05451-f8e4-4a01-831e-292e026027f2", "document_id": "6c6e0916-0ea8-49a3-b98f-fa8e6017018a", "doc_code": "SIM-FIN-001", "title": "Finance and Accounting Manual", "section_path": ["Part 4 – Procure-to-Pay and Employee Spending", "4.6 Corporate Cards and Virtual Cards"], "section_number": "4.6", "section_title": "Corporate Cards and Virtual Cards", "page_start": 53, "page_end": 55, "content_type": "prose", "text": "Higher temporary limits (for example, for a conference or event) may be approved by Finance for a specified period.\n\nUse\n\nCards may be used for business travel (per 4.8), meals and hospitality within limits and with the required details (4.7), software and subscriptions approved under IT and 1.2, and small purchases under $5,000 that follow purchasing rules. Cards are not used for personal purchases, cash advances (blocked), payments that require a PO, payments to individuals as compensation, gifts to government officials, or split purchases to avoid limits.\n\nBlocked merchant categories: gambling, adult entertainment, cash and ATM, jewelry, and other categories that Finance and Compliance list, unless the Controller approves a specific business need.\n\nPersonal charges by mistake must be reported to Finance and repaid within 30 days (HR Policy Manual 1.6). If not repaid, Finance may recover the amount by payroll deduction only where the law permits and with the employee's written authorization, or otherwise seek repayment; card use may be suspended and corrective action may follow for repeated or deliberate misuse.\n\nVirtual cards are issued by Finance for individual vendors or subscriptions with locked merchant, amount and validity period, so that IT and Finance can monitor SaaS spend and stop unwanted renewals. Each subscription virtual card has a named owner.\n\nSubstantiation and review\n\nThe cardholder submits every transaction in the expense system with a receipt (for amounts over $25 ), business purpose and coding within 30 days (HR Policy Manual 1.6); Finance expects most transactions within 5 business days.\n\nEscalation: items not substantiated at 30 days trigger a reminder to the cardholder and manager; at 45 days the card is suspended until resolved; at 60 days the amount is treated as a personal charge and recovered as above.\n\nManagers review and approve their team's card transactions within 5 business days of submission, and no one approves their own card statement (their manager or the CFO does).\n\nFinance audit: AP reviews 100% of transactions automatically for policy flags, samples at least 10% of reports monthly, and reviews every report with a transaction over $1,000. Findings are reported monthly to the Controller and quarterly to the CFO.\n\nLost, stolen or compromised cards are reported immediately to the card issuer (number on the card) and to ap@simtora.example; Finance cancels and reissues the card. Suspected fraud is reported the same day (see 1.5).\n\nTermination and transfers. The card is cancelled at or before the last day of employment; outstanding transactions are settled before final pay as far as law permits, and card returns are part of offboarding (HR Policy Manual 9.4).", "jurisdiction": "GLOBAL", "department": "Finance", "owner": "Chief Financial Officer (CFO)", "scores": {"bm25_rank": 14, "vector_rank": 6, "rrf": 0.02326, "score": 0.02326, "added_as": null, "part": 1}}]
+
+: ping - 2026-10-19 05:22:18.583341+00:00
+
+event: delta
+data: {"text": "**"}
+
+event: delta
+data: {"text": "Visitor"}
+
+event: delta
+data: {"text": " policy"}
+
+event: delta
+data: {"text": ":**"}
+
+event: delta
+data: {"text": " Hosts"}
+
+event: delta
+data: {"text": " must"}
+
+event: delta
+data: {"text": " pre"}
+
+event: delta
+data: {"text": "-register"}
+
+event: delta
+data: {"text": " visitors"}
+
+event: delta
+data: {"text": " at"}
+
+event: delta
+data: {"text": " least"}
+
+event: delta
+data: {"text": " "}
+
+event: delta
+data: {"text": "4"}
+
+event: delta
+data: {"text": " business"}
+
+event: delta
+data: {"text": " hours"}
+
+event: delta
+data: {"text": " before"}
+
+event: delta
+data: {"text": " arrival"}
+
+event: delta
+data: {"text": ","}
+
+event: delta
+data: {"text": " or"}
+
+event: delta
+data: {"text": " "}
+
+event: delta
+data: {"text": "1"}
+
+event: delta
+data: {"text": " business"}
+
+event: delta
+data: {"text": " day"}
+
+event: delta
+data: {"text": " ahead"}
+
+event: delta
+data: {"text": " for"}
+
+event: delta
+data: {"text": " groups"}
+
+event: delta
+data: {"text": " over"}
+
+event: delta
+data: {"text": " "}
+
+event: delta
+data: {"text": "10"}
+
+event: delta
+data: {"text": ","}
+
+event: delta
+data: {"text": " customers"}
+
+event: delta
+data: {"text": " visiting"}
+
+event: delta
+data: {"text": " secure"}
+
+event: delta
+data: {"text": " or"}
+
+event: delta
+data: {"text": " lab"}
+
+event: delta
+data: {"text": " areas"}
+
+event: delta
+data: {"text": ","}
+
+event: delta
+data: {"text": " and"}
+
+event: delta
+data: {"text": " visits"}
+
+event: delta
+data: {"text": " outside"}
+
+event: delta
+data: {"text": " normal"}
+
+event: delta
+data: {"text": " hours"}
+
+event: delta
+data: {"text": "."}
+
+event: delta
+data: {"text": " ["}
+
+event: delta
+data: {"text": "1"}
+
+event: delta
+data: {"text": "]\n\n"}
+
+event: delta
+data: {"text": "-"}
+
+event: delta
+data: {"text": " Visitors"}
+
+event: delta
+data: {"text": " check"}
+
+event: delta
+data: {"text": " in"}
+
+event: delta
+data: {"text": " at"}
+
+event: delta
+data: {"text": " reception"}
+
+event: delta
+data: {"text": ","}
+
+event: delta
+data: {"text": " identify"}
+
+event: delta
+data: {"text": " themselves"}
+
+event: delta
+data: {"text": ","}
+
+event: delta
+data: {"text": " wear"}
+
+event: delta
+data: {"text": " and"}
+
+event: delta
+data: {"text": " return"}
+
+event: delta
+data: {"text": " a"}
+
+event: delta
+data: {"text": " visitor"}
+
+event: delta
+data: {"text": " badge"}
+
+event: delta
+data: {"text": ","}
+
+event: delta
+data: {"text": " and"}
+
+event: delta
+data: {"text": " use"}
+
+event: delta
+data: {"text": " guest"}
+
+event: delta
+data: {"text": " Wi"}
+
+event: delta
+data: {"text": "-Fi"}
+
+event: delta
+data: {"text": ";"}
+
+event: delta
+data: {"text": " visitors"}
+
+event: delta
+data: {"text": " to"}
+
+event: delta
+data: {"text": " work"}
+
+event: delta
+data: {"text": " areas"}
+
+event: delta
+data: {"text": ","}
+
+event: delta
+data: {"text": " labs"}
+
+event: delta
+data: {"text": ","}
+
+event: delta
+data: {"text": " technical"}
+
+event: delta
+data: {"text": " meetings"}
+
+event: delta
+data: {"text": ","}
+
+event: delta
+data: {"text": " or"}
+
+event: delta
+data: {"text": " customer"}
+
+event: delta
+data: {"text": "-conf"}
+
+event: delta
+data: {"text": "idential"}
+
+event: delta
+data: {"text": " settings"}
+
+event: delta
+data: {"text": " must"}
+
+event: delta
+data: {"text": " accept"}
+
+event: delta
+data: {"text": " the"}
+
+event: delta
+data: {"text": " electronic"}
+
+event: delta
+data: {"text": " NDA"}
+
+event: delta
+data: {"text": " before"}
+
+event: delta
+data: {"text": " entry"}
+
+event: delta
+data: {"text": "."}
+
+event: delta
+data: {"text": " ["}
+
+event: delta
+data: {"text": "1"}
+
+event: delta
+data: {"text": "]\n"}
+
+event: delta
+data: {"text": "-"}
+
+event: delta
+data: {"text": " Visitors"}
+
+event: delta
+data: {"text": " must"}
+
+event: delta
+data: {"text": " be"}
+
+event: delta
+data: {"text": " escorted"}
+
+event: delta
+data: {"text": " in"}
+
+event: delta
+data: {"text": " Zone"}
+
+event: delta
+data: {"text": " "}
+
+event: delta
+data: {"text": "3"}
+
+event: delta
+data: {"text": ";"}
+
+event: delta
+data: {"text": " Zone"}
+
+event: delta
+data: {"text": " "}
+
+event: delta
+data: {"text": "4"}
+
+event: delta
+data: {"text": " access"}
+
+event: delta
+data: {"text": " requires"}
+
+event: delta
+data: {"text": " advance"}
+
+event: delta
+data: {"text": " written"}
+
+event: delta
+data: {"text": " authorization"}
+
+event: delta
+data: {"text": " from"}
+
+event: delta
+data: {"text": " the"}
+
+event: delta
+data: {"text": " area"}
+
+event: delta
+data: {"text": " owner"}
+
+event: delta
+data: {"text": " and"}
+
+event: delta
+data: {"text": " C"}
+
+event: delta
+data: {"text": "ISO"}
+
+event: delta
+data: {"text": " for"}
+
+event: delta
+data: {"text": " a"}
+
+event: delta
+data: {"text": " specific"}
+
+event: delta
+data: {"text": " purpose"}
+
+event: delta
+data: {"text": " and"}
+
+event: delta
+data: {"text": " time"}
+
+event: delta
+data: {"text": ","}
+
+event: delta
+data: {"text": " with"}
+
+event: delta
+data: {"text": " a"}
+
+event: delta
+data: {"text": " named"}
+
+event: delta
+data: {"text": " escort"}
+
+event: delta
+data: {"text": " throughout"}
+
+event: delta
+data: {"text": "."}
+
+event: delta
+data: {"text": " ["}
+
+event: delta
+data: {"text": "1"}
+
+event: delta
+data: {"text": "]["}
+
+event: delta
+data: {"text": "7"}
+
+event: delta
+data: {"text": "]\n"}
+
+event: delta
+data: {"text": "-"}
+
+event: delta
+data: {"text": " Hosts"}
+
+event: delta
+data: {"text": " meet"}
+
+event: delta
+data: {"text": " visitors"}
+
+event: delta
+data: {"text": ","}
+
+event: delta
+data: {"text": " escort"}
+
+event: delta
+data: {"text": " them"}
+
+event: delta
+data: {"text": ","}
+
+event: delta
+data: {"text": " ensure"}
+
+event: delta
+data: {"text": " any"}
+
+event: delta
+data: {"text": " required"}
+
+event: delta
+data: {"text": " NDA"}
+
+event: delta
+data: {"text": " is"}
+
+event: delta
+data: {"text": " signed"}
+
+event: delta
+data: {"text": ","}
+
+event: delta
+data: {"text": " and"}
+
+event: delta
+data: {"text": " see"}
+
+event: delta
+data: {"text": " them"}
+
+event: delta
+data: {"text": " out"}
+
+event: delta
+data: {"text": ";"}
+
+event: delta
+data: {"text": " reception"}
+
+event: delta
+data: {"text": " checks"}
+
+event: delta
+data: {"text": " visitors"}
+
+event: delta
+data: {"text": " in"}
+
+event: delta
+data: {"text": " and"}
+
+event: delta
+data: {"text": " contacts"}
+
+event: delta
+data: {"text": " hosts"}
+
+event: delta
+data: {"text": "."}
+
+event: delta
+data: {"text": " ["}
+
+event: delta
+data: {"text": "3"}
+
+event: delta
+data: {"text": "]\n"}
+
+event: delta
+data: {"text": "-"}
+
+event: delta
+data: {"text": " The"}
+
+event: delta
+data: {"text": " policy"}
+
+event: delta
+data: {"text": " is"}
+
+event: delta
+data: {"text": " global"}
+
+event: delta
+data: {"text": ";"}
+
+event: delta
+data: {"text": " the"}
+
+event: delta
+data: {"text": " sources"}
+
+event: delta
+data: {"text": " provide"}
+
+event: delta
+data: {"text": " no"}
+
+event: delta
+data: {"text": " office"}
+
+event: delta
+data: {"text": "-specific"}
+
+event: delta
+data: {"text": " variations"}
+
+event: delta
+data: {"text": "."}
+
+event: delta
+data: {"text": " ["}
+
+event: delta
+data: {"text": "1"}
+
+event: delta
+data: {"text": "]\n\n"}
+
+event: delta
+data: {"text": "**"}
+
+event: delta
+data: {"text": "Expense"}
+
+event: delta
+data: {"text": " report"}
+
+event: delta
+data: {"text": " deadline"}
+
+event: delta
+data: {"text": ":**"}
+
+event: delta
+data: {"text": " Submit"}
+
+event: delta
+data: {"text": " your"}
+
+event: delta
+data: {"text": " expense"}
+
+event: delta
+data: {"text": " report"}
+
+event: delta
+data: {"text": " within"}
+
+event: delta
+data: {"text": " "}
+
+event: delta
+data: {"text": "30"}
+
+event: delta
+data: {"text": " days"}
+
+event: delta
+data: {"text": " of"}
+
+event: delta
+data: {"text": " the"}
+
+event: delta
+data: {"text": " expense"}
+
+event: delta
+data: {"text": ","}
+
+event: delta
+data: {"text": " with"}
+
+event: delta
+data: {"text": " item"}
+
+event: delta
+data: {"text": "ized"}
+
+event: delta
+data: {"text": " receipts"}
+
+event: delta
+data: {"text": " for"}
+
+event: delta
+data: {"text": " expenses"}
+
+event: delta
+data: {"text": " over"}
+
+event: delta
+data: {"text": " $"}
+
+event: delta
+data: {"text": "25"}
+
+event: delta
+data: {"text": ","}
+
+event: delta
+data: {"text": " plus"}
+
+event: delta
+data: {"text": " a"}
+
+event: delta
+data: {"text": " business"}
+
+event: delta
+data: {"text": " purpose"}
+
+event: delta
+data: {"text": " and"}
+
+event: delta
+data: {"text": " coding"}
+
+event: delta
+data: {"text": " for"}
+
+event: delta
+data: {"text": " every"}
+
+event: delta
+data: {"text": " item"}
+
+event: delta
+data: {"text": "."}
+
+event: delta
+data: {"text": " ["}
+
+event: delta
+data: {"text": "2"}
+
+event: delta
+data: {"text": "]"}
+
+event: citations
+data: [{"n": 1, "document_id": "11942de0-5c9e-40fe-a403-34ada68f9059", "chunk_id": "7a389ff0-9b97-4a25-91df-41457a7b8e66", "doc_code": "SIM-FAC-001", "title": "Facilities and Office Administration Manual", "section_number": "2.3", "section_title": "Visitors and Guests", "section_path": ["Part 2 – Physical Security and Access Control", "2.3 Visitors and Guests"], "page_start": 20, "page_end": 22, "snippet": "2.3 Visitors and Guests Purpose. To welcome visitors safely while protecting people, confidential information and secure areas. Scope. Every person who is not a badge-holder: customers, candidates, partners, vendors, delivery staff, friends and family, government…", "highlight_text": "2.3 Visitors and Guests\n\nPurpose. To welcome visitors safely while protecting people, confidential information and secure areas.\n\nScope. Every person who is not a badge-holder: customers, candidates, partners, vendors, delivery staff, friends and family, government representatives.\n\nPolicy\n\nPre-registration\n\nHosts pre-register visitors in the Visitor Management System (VMS) or through the Facilities Portal at least 4 business hours before arrival, and 1 business day before for groups of more than 10, customers visiting secure or lab areas, or any visit outside normal hours. Required fields are in Appendix B. Hosts collect only the details needed. Simtora does not require or store date of birth, national ID numbers or copies of government IDs for ordinary visits.\n\nWalk-in visitors are asked at reception to contact the person they are visiting, who confirms the visit before entry. If the host cannot be reached, the visitor waits in reception or is asked to reschedule.\n\nCheck-in\n\nVisitors sign in at reception. Reception confirms identity by asking the visitor to state their name and organization and, for visitors unknown to the host or who will have access to Confidential information, by viewing a photo ID without copying it. Visitors who refuse to identify themselves are not admitted.\n\nThe VMS prints a visitor badge showing name, host, date and expiry. Visitors wear it visibly and return it on leaving. Visitor badges are a different color from employee badges.\n\nNon-disclosure. Visitors to work areas, labs or technical meetings, or to customer-confidential settings, accept the electronic NDA in the VMS (Legal's template) before entry. Candidates, delivery personnel and family or friends visiting reception briefly do not need an NDA and are not shown Confidential material. Hosts must not share Confidential or Restricted information with a visitor without an NDA or a written contract term that covers it (IT Policy Manual 2.1).\n\nEscorting and conduct\n\nVisitors are escorted by their host (or a designated colleague) at all times in Zones 3 and 4. Visitors are not allowed in Zone 4 unless the area owner and the CISO authorize it in advance in writing, for a specific purpose and time, with a named escort present throughout.\n\nGuest network only. Visitors use the guest Wi-Fi, which is separated from Company systems (IT Policy Manual 5.1). They may not connect devices to the Company network or plug unknown USB devices into Company equipment.\n\nScreens and whiteboards. Hosts lock screens, close confidential documents and clear whiteboards before visitors enter a room (IT Policy Manual 4.7).\n\nPhotography and recording. Visitors may not photograph or record in work areas without the host's permission (and Facilities' permission for filming).\n\nUnescorted visitors. Anyone who sees an unescorted visitor politely asks who they are visiting and accompanies them to reception or calls Facilities. Do not confront someone who appears threatening; call security."}, {"n": 7, "document_id": "11942de0-5c9e-40fe-a403-34ada68f9059", "chunk_id": "e14a83f5-1c31-4b1b-95d9-83d9856e7cb1", "doc_code": "SIM-FAC-001", "title": "Facilities and Office Administration Manual", "section_number": "2.1", "section_title": "Security Principles and Zones", "section_path": ["Part 2 – Physical Security and Access Control", "2.1 Security Principles and Zones", "Policy"], "page_start": 17, "page_end": 17, "snippet": "Policy | Zone | Description | Who may enter | | --- | --- | --- | | Zone 1 – Public | Building lobby, shared corridors, landlord areas | Anyone the building admits | | Zone 2 – Reception and Guest | Simtora reception, visitor waiting area, guest meeting rooms | Employees,…", "highlight_text": "Policy\n\n| Zone | Description | Who may enter |\n| --- | --- | --- |\n| Zone 1 – Public | Building lobby, shared corridors, landlord areas | Anyone the building admits |\n| Zone 2 – Reception and Guest | Simtora reception, visitor waiting area, guest meeting rooms | Employees, registered visitors |\n| Zone 3 – Work areas | Open floors, team rooms, pantries, standard meeting rooms | Badge-holders; visitors only when escorted |\n| Zone 4 – Secure areas | Network rooms and closets, on-premises lab or test equipment, spare-device storage, HR and Finance file rooms, records rooms | Named, authorized people only (2.4) |"}, {"n": 3, "document_id": "11942de0-5c9e-40fe-a403-34ada68f9059", "chunk_id": "cb377354-3864-4081-b6c9-e6ccb99f293c", "doc_code": "SIM-FAC-001", "title": "Facilities and Office Administration Manual", "section_number": "2.3", "section_title": "Visitors and Guests", "section_path": ["Part 2 – Physical Security and Access Control", "2.3 Visitors and Guests"], "page_start": 22, "page_end": 23, "snippet": "Visitor behavior. Visitors follow Simtora rules on safety, conduct, harassment and smoking (HR 4.2, 4.3; smoke- and vape-free within 25 feet of entrances) and may be asked to leave if they do not. Special groups Candidates. HR's recruiter is the host. Candidates are met at…", "highlight_text": "Visitor behavior. Visitors follow Simtora rules on safety, conduct, harassment and smoking (HR 4.2, 4.3; smoke- and vape-free within 25 feet of entrances) and may be asked to leave if they do not.\n\nSpecial groups\n\nCandidates. HR's recruiter is the host. Candidates are met at reception, escorted and not left alone in work areas.\n\nContractors and delivery personnel. Regular vendors on premises follow 7.4 and Appendix I. Delivery drivers are met at reception or the loading area and go no further without an escort.\n\nChildren and family. Employees may bring family for brief social visits to reception or the pantry on the host's responsibility, with prior notice to Facilities. Children stay with the host and out of Zone 4, labs and any area with a physical hazard. Family events are organized by HR with Facilities.\n\nCustomers and partners. Customer visits are pre-registered, covered by the appropriate NDA, escorted and hosted in guest rooms.\n\nGovernment or law-enforcement visitors. Follow 2.8.\n\nAccessibility. Reception asks in advance whether any visitor needs accessible arrangements (for example, step-free access, a sign-language interpreter, quiet space, a service animal), and Facilities provides them.\n\nRecords\n\nThe VMS records name, organization, host, date and time, and NDA status. Visitor logs are kept for 12 months (longer only under a legal hold or customer contract) and then deleted. Access is limited to Facilities, IT Security and Legal. Logs are used for safety (for example, evacuation accounting), security and investigation, not marketing. Evacuation accounting. Reception (or the Site Lead) can produce a real-time list of visitors on site for wardens in an emergency (6.2).\n\nResponsibilities\n\nHosts: pre-register, meet the visitor, escort them, ensure the NDA is signed, and see them out.\n\nReception and Office Administrators: check in, badge and log visitors; contact hosts; keep the visitor system working.\n\nLegal: maintains the electronic NDA and visitor terms.\n\nSafety and Security Lead: audits visitor practices quarterly."}, {"n": 2, "document_id": "6c6e0916-0ea8-49a3-b98f-fa8e6017018a", "chunk_id": "df81a297-63ce-4bbd-89d9-94d155fc07fc", "doc_code": "SIM-FIN-001", "title": "Finance and Accounting Manual", "section_number": "4.7", "section_title": "Expense Reports and Reimbursement", "section_path": ["Part 4 – Procure-to-Pay and Employee Spending", "4.7 Expense Reports and Reimbursement"], "page_start": 55, "page_end": 56, "snippet": "4.7 Expense Reports and Reimbursement Purpose. To ensure employees are reimbursed promptly for reasonable, necessary and approved business expenses, and that reimbursements meet IRS accountable-plan rules. Scope. All business expenses that an employee pays personally or with a…", "highlight_text": "4.7 Expense Reports and Reimbursement\n\nPurpose. To ensure employees are reimbursed promptly for reasonable, necessary and approved business expenses, and that reimbursements meet IRS accountable-plan rules.\n\nScope. All business expenses that an employee pays personally or with a Company card (see HR Policy Manual 1.6 and 8.1 for the employee-facing rules).\n\nPolicy\n\nSubmission and timing\n\nSubmit the expense report in the expense system within 30 days of the expense, with itemized receipts for anything over $25 and a business purpose and coding for every item.\n\nReports are approved by the manager, then reviewed by Finance. Approved reimbursements are paid within 10 business days, by direct deposit in the next payroll or separate ACH payment.\n\nAccountable plan. Simtora reimburses under an IRS accountable plan: expenses must have a business connection, be adequately substantiated, and any excess advance must be returned. Simtora's rules are stricter than the IRS safe harbors (substantiate within 60 days, return excess advances within 120 days). Amounts not substantiated or not returned within the Company's time limits become taxable wages through payroll.\n\nApproval\n\nNo self-approval. Employees do not approve their own expenses, or those of anyone more senior. An executive's expenses are approved by the CFO (the CEO's by the Board Chair or Audit Committee chair, and the CFO's by the CEO).\n\nManagers review receipts and purpose and confirm reasonableness. Finance may reject or query any item.\n\nExpense limits and the amounts that need pre-approval follow the HR Policy Manual and 4.8. Any single expense over $1,000 not covered by a specific approved budget or PO needs Department Head approval.\n\nDocumentation requirements\n\nReceipts. Itemized receipts (not just card slips) for anything over $25; lost receipts need a signed missing-receipt statement, allowed at most twice a year per employee unless the CFO approves.\n\nMeals. Record attendees' names and organization, and the business purpose. Team meals show the number of attendees. Single meals over $50 per person need itemized receipts (HR Policy Manual 8.1).\n\nGifts and hospitality to customers, partners, officials or vendors record the recipient, their organization, the purpose, the amount and the approval required by the Code of Ethics and Compliance Manual (see 4.10).\n\nMileage in a personal vehicle is reimbursed at the current IRS standard business mileage rate, with date, purpose, start and end points and miles. Commuting is not reimbursable.\n\nForeign-currency expenses are converted per 2.5.\n\nAlcohol is reimbursed only as part of a documented client entertainment meal, in moderation (HR Policy Manual 8.1).\n\nTips are reimbursable up to customary amounts (generally up to 20%)."}]
+
+event: usage
+data: {"input_tokens": 6874, "cached_tokens": 2965, "output_tokens": 842, "cost_usd": 0.00083995, "latency_ms": 19078, "ttft_ms": 15903, "by_operation": [{"operation": "router", "model": "gpt-6-luna", "tier_requested": "default", "tier_actual": "default", "input_tokens": 2995, "cached_tokens": 2965, "output_tokens": 143, "cost_usd": 0.00010415, "latency_ms": 2432, "ttft_ms": null}, {"operation": "embed_query", "model": "text-embedding-3-small", "tier_requested": null, "tier_actual": null, "input_tokens": 20, "cached_tokens": 0, "output_tokens": 0, "cost_usd": 4e-07, "latency_ms": 438, "ttft_ms": null}, {"operation": "answer", "model": "gpt-6-luna", "tier_requested": "default", "tier_actual": "default", "input_tokens": 3859, "cached_tokens": 0, "output_tokens": 699, "cost_usd": 0.0007354, "latency_ms": 9143, "ttft_ms": 6794}], "retrieval": {"lists": [{"method": "bm25", "query": "What is the visitor policy for our offices?", "filter": "Facilities", "hits": 30, "fallback": false, "part": 0}, {"method": "vector", "query": "What is the visitor policy for our offices?", "filter": "Facilities", "hits": 30, "fallback": false, "part": 0}, {"method": "bm25", "query": "How long do I have to submit an expense report?", "filter": "Finance", "hits": 30, "fallback": false, "part": 1}, {"method": "vector", "query": "How long do I have to submit an expense report?", "filter": "Finance", "hits": 30, "fallback": false, "part": 1}], "candidates": 92, "sources": [{"n": 1, "chunk_id": "7a389ff0-9b97-4a25-91df-41457a7b8e66", "doc_code": "SIM-FAC-001", "bm25_rank": 1, "vector_rank": 1, "rrf": 0.02623, "score": 0.02623, "added_as": null, "part": 0}, {"n": 2, "chunk_id": "df81a297-63ce-4bbd-89d9-94d155fc07fc", "doc_code": "SIM-FIN-001", "bm25_rank": 2, "vector_rank": 1, "rrf": 0.026071, "score": 0.026071, "added_as": null, "part": 1}, {"n": 3, "chunk_id": "cb377354-3864-4081-b6c9-e6ccb99f293c", "doc_code": "SIM-FAC-001", "bm25_rank": 4, "vector_rank": 2, "rrf": 0.025504, "score": 0.025504, "added_as": null, "part": 0}, {"n": 4, "chunk_id": "294f5509-ba46-4dbd-a608-d8814fd2698b", "doc_code": "SIM-FIN-001", "bm25_rank": 1, "vector_rank": 7, "rrf": 0.024761, "score": 0.024761, "added_as": null, "part": 1}, {"n": 5, "chunk_id": "6775de44-3aab-4245-a449-f814dfd2ad53", "doc_code": "SIM-FAC-001", "bm25_rank": 5, "vector_rank": 3, "rrf": 0.025104, "score": 0.025104, "added_as": null, "part": 0}, {"n": 6, "chunk_id": "3bcfd34b-7faa-45fa-baed-52ba28c11612", "doc_code": "SIM-FIN-001", "bm25_rank": 12, "vector_rank": 2, "rrf": 0.024462, "score": 0.024462, "added_as": null, "part": 1}, {"n": 7, "chunk_id": "e14a83f5-1c31-4b1b-95d9-83d9856e7cb1", "doc_code": "SIM-FAC-001", "bm25_rank": 2, "vector_rank": 5, "rrf": 0.025062, "score": 0.025062, "added_as": null, "part": 0}, {"n": 8, "chunk_id": "01f05451-f8e4-4a01-831e-292e026027f2", "doc_code": "SIM-FIN-001", "bm25_rank": 14, "vector_rank": 6, "rrf": 0.02326, "score": 0.02326, "added_as": null, "part": 1}], "timings_ms": {"search": 2752, "fuse_select": 1798}}}
+
+event: done
+data: {}
+

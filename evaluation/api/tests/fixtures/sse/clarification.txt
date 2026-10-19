@@ -1,0 +1,21 @@
+event: meta
+data: {"conversation_id": "9b6e0bae-e4f7-4c02-b3f9-473aa5bb05cb", "user_message_id": "d3eeccfb-e7bb-4a9d-969b-5c2eb62d1640", "assistant_message_id": "16315952-ced0-438d-83ac-dda690dc4310"}
+
+event: routing
+data: {"departments": ["HR"], "jurisdiction": null, "standalone_query": "What is my statutory entitlement to paid annual leave under local law?", "parts": [], "needs_clarification": true, "clarifying_question": "Which country do you work in: Australia, Germany, France, Pakistan, the UK, or the US?", "bypassed": false, "sub_queries": [], "document_ids": []}
+
+event: sources
+data: []
+
+event: delta
+data: {"text": "Which country do you work in: Australia, Germany, France, Pakistan, the UK, or the US?"}
+
+event: citations
+data: []
+
+event: usage
+data: {"input_tokens": 2987, "cached_tokens": 2984, "output_tokens": 323, "cost_usd": 0.00019164, "latency_ms": 5444, "ttft_ms": 5444, "by_operation": [{"operation": "router", "model": "gpt-6-luna", "tier_requested": "default", "tier_actual": "default", "input_tokens": 2987, "cached_tokens": 2984, "output_tokens": 323, "cost_usd": 0.00019164, "latency_ms": 4587, "ttft_ms": null}], "retrieval": null}
+
+event: done
+data: {}
+

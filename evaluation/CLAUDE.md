@@ -4,7 +4,7 @@
 - **Web:** `https://evaluation.documind.zeeshanai.cloud`, admin-only.
 - **API:** internal only.
 
-> Status: **skeleton** (planning done 2026-10-18; E1 hooks built in DocuMind's `api/` 2026-10-19; no harness code yet). Fill in the sections marked _TBD_ as the phases land. Keep this file ≤ 120 lines.
+> Status: **E2 done** (2026-10-19): `evaluation/api` foundation, datasets, durable queue. No run engine (E3) or web (E5) yet. Fill in the sections marked _TBD_ as the phases land. Keep this file ≤ 120 lines.
 
 ## Start here, every session
 1. Read the root `CLAUDE.md` (DocuMind conventions apply here too), then `Status.md` › **Evaluation harness**.
@@ -24,19 +24,27 @@
 | Judge | Anthropic: `claude-sonnet-5-5` (rubric), `claude-haiku-5-5` (claims, behaviour, relevance), `claude-opus-5-5` (synthetic generation) |
 
 ## Repo layout
-_TBD as the phases land._ The target layout is in `docs/plan/eval/README.md` › Folder layout.
+Target layout: `docs/plan/eval/README.md` › Folder layout. Built so far (`evaluation/api/`):
+```
+app/core/       config (EVAL_* settings, parse_schema/with_schema), db, security (verify_api_key, get_admin), log, errors
+app/models/     enums (Literal values = CHECKs), dataset, prompt (+config_presets), run (runs…run_aggregates), job
+app/documind/   client (DocuMindClient, get_documind), events (typed SSE + parse_event), models
+app/worker/     queue (claim/heartbeat/succeed/fail/requeue/release/enqueue), loop (slots), limits, errors, handlers/{noop}
+app/services/   datasets (versions, publish, content_hash, cases), importer (JSONL mapping, golden)
+app/routers/    v1 (get_admin on all), datasets, documind (passthrough), jobs (noop + status), health
+alembic/versions/0001_core.py   scripts/{bootstrap_service_users,import_golden}.py   tests/ (fixtures/sse/*.txt)
+```
 
 ## Commands
-_TBD (Phase E2 / E5)._ Expected:
 ```bash
 cd evaluation/api && uv run uvicorn app.main:app --reload --port 8100
-cd evaluation/api && uv run alembic upgrade head
-cd evaluation/api && uv run pytest -m "not live" && uv run ruff check .
-cd evaluation/api && uv run python -m scripts.bootstrap_service_users --org-slug simtora
-cd evaluation/api && uv run python -m scripts.import_golden
-cd evaluation/web && pnpm dev | pnpm typecheck | pnpm lint | pnpm build | pnpm auth:check
+cd evaluation/api && uv run alembic upgrade head          # `alembic check` = models vs DB drift
+cd evaluation/api && uv run pytest && uv run ruff check .  # -m "not db" skips the Postgres tests
+cd evaluation/api && uv run python -m scripts.bootstrap_service_users --org-slug simtora [--dry-run]
+cd evaluation/api && uv run python -m scripts.import_golden   # needs DocuMind up; re-run = no-op
+cd evaluation/web && pnpm dev | pnpm typecheck | pnpm lint | pnpm build | pnpm auth:check   # E5
 ```
-DocuMind itself must be running locally (`api` on :8000) for live runs.
+DocuMind itself must be running locally (`api` on :8000) for live runs, the golden import and `/health.documind`.
 
 ## Environment
 - **Keys:** they live in the root `.env.local`. Use the `EVAL_*` keys plus `ANTHROPIC_API_KEY` and `DOCUMIND_API_URL`; the full table is in `docs/plan/eval/README.md` › Environment. `.env.example` lists every key, without values.
@@ -72,4 +80,8 @@ All admin-only; code in `api/app/core/eval.py`, `routers/eval.py`, `services/eva
 - **Cookies on localhost.** DocuMind (:3000) and Eval (:3100) share localhost cookies, so the eval app uses `cookiePrefix: "documind-eval"`. Never enable `crossSubDomainCookies`.
 - **Chat isn't idempotent.** A retried case first recovers its existing DocuMind conversation, or deletes it and starts over.
 - **Prod DocuMind serves real users** on one uvicorn worker. Keep `EVAL_DOCUMIND_CONCURRENCY` low and run big suites off-hours.
-- **asyncpg pitfalls.** Cast numeric params (`CAST(:x AS float8)`), pass `timedelta` for intervals, and give each concurrent task its own session.
+- **asyncpg pitfalls.** Cast numeric params (`CAST(:x AS float8)`), and pass intervals as `timedelta` **and** `CAST(:d AS interval)`: in `now() - $1` asyncpg infers a timestamp. Give each concurrent task its own session.
+- **Async ORM:** `Base` sets `eager_defaults=True` so server defaults and `onupdate` values come back with RETURNING; an expired attribute can't lazy-load in async. A column named `text` shadows `sqlalchemy.text` in a class body (`run.py` imports it as `sql_text`).
+- **Queue semantics:** every write after `claim` is guarded by `locked_by`, so a slot whose job was reclaimed can't record an outcome. A job whose lock expired more than `max_attempts` times is failed on the next claim. Graceful shutdown releases jobs at once; a hard kill waits for the 5-minute reclaim.
+- **Tests:** `tests/conftest.py` sets `EVAL_DATABASE_URL` to schema `documind_eval_test` before any app import, migrates it once (alembic in a thread) and drops it at the end. Admin checks use the real `eval-bot` / `eval-probe` users in `EVAL_AUTH_SCHEMA`. From this machine the db tests take ~3 min.
+- **Datasets:** `content_hash` sorts cases by `case_key` and normalizes them through `CaseFields`, so positions, key order and explicit defaults don't change it. Imports replace a version's cases (never merge); re-importing the latest published content is a no-op.

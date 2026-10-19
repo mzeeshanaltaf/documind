@@ -1,0 +1,11 @@
+event: meta
+data: {"conversation_id": "5a0d7c1e-2f43-4f7e-9b8a-0c6e1d2f3a4b", "user_message_id": "6b1e8d2f-3a54-4a8f-8c9b-1d7f2e3a4b5c", "assistant_message_id": "7c2f9e3a-4b65-4b9a-9dac-2e8a3f4b5c6d"}
+
+event: routing
+data: {"departments": ["HR"], "jurisdiction": null, "standalone_query": "How long does a performance improvement plan last?", "parts": [], "needs_clarification": false, "clarifying_question": null, "bypassed": false, "sub_queries": [], "document_ids": []}
+
+: ping - 2026-10-19 10:31:02.123456+00:00
+
+event: error
+data: {"message": "Something went wrong while answering. Please try again."}
+

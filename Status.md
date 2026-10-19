@@ -33,12 +33,12 @@ Legend: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked
 A standalone app at `https://evaluation.documind.zeeshanai.cloud` (code in `evaluation/`) that evaluates DocuMind end to end.
 - **Docs:** overview, data model and metrics in [docs/plan/eval/README.md](docs/plan/eval/README.md); guide in [evaluation/CLAUDE.md](evaluation/CLAUDE.md).
 - **Session logs:** entries tagged `[eval]` in the Session log below.
-- **Current eval phase:** **E1 — DocuMind eval hooks** (code done, not deployed; see the 2026-10-19 `[eval]` log). Next: E2.
+- **Current eval phase:** **E2 — Eval API foundation, datasets & durable queue** (done locally, 2026-10-19 `[eval]` log; nothing to deploy until E5). E1 is code done, not deployed. Next: E3.
 
 | # | Phase | Doc | Status |
 |---|---|---|---|
 | E1 | DocuMind eval hooks (tagging, overrides, retrieve/chunks/info endpoints, exclusions) | [phase-E1](docs/plan/eval/phase-E1-documind-eval-hooks.md) | 🟨 Code done; Coolify source-commit setting on; deploy pending |
-| E2 | Eval API foundation, datasets & durable queue | [phase-E2](docs/plan/eval/phase-E2-eval-api-foundation-and-datasets.md) | ⬜ Not started |
+| E2 | Eval API foundation, datasets & durable queue | [phase-E2](docs/plan/eval/phase-E2-eval-api-foundation-and-datasets.md) | ✅ Done (local; deployed with E5) |
 | E3 | Run engine & deterministic metrics | [phase-E3](docs/plan/eval/phase-E3-run-engine-and-deterministic-metrics.md) | ⬜ Not started |
 | E4 | Claude judge & generation metrics | [phase-E4](docs/plan/eval/phase-E4-claude-judge-and-generation-metrics.md) | ⬜ Not started |
 | E5 | Eval web, auth & first deploy | [phase-E5](docs/plan/eval/phase-E5-eval-web-auth-and-deploy.md) | ⬜ Not started |
@@ -280,6 +280,7 @@ A standalone app at `https://evaluation.documind.zeeshanai.cloud` (code in `eval
 - (none)
 
 ## Pending user actions
+- **Eval E2 (owner, at E5 deploy time):** run `scripts.bootstrap_service_users` against prod (`EVAL_AUTH_SCHEMA=documind`) and put the printed ids into Coolify's `EVAL_SERVICE_USER_ID` / `EVAL_PROBE_USER_ID`; then `scripts.import_golden` against prod DocuMind. The dev ids are in the root `.env.local` only.
 - **Eval E1 (owner):**
   1. ~~In Coolify, enable "Include source commit in build" on `documind-api`~~ — done 2026-10-19 via the API (`PATCH /applications/<uuid>` with `include_source_commit_in_build: true`, verified by reading it back). It applies from the next deploy (Dockerfile `SOURCE_COMMIT` build arg → `GIT_SHA` → `/health.version`). If `/health.version` still shows `dev` after that deploy, pass `SOURCE_COMMIT` as a build arg from `.github/workflows/deploy.yml`.
   2. `/ship` (done by the push that follows this entry) (together with Phase 10). The prod migrations `0003_request_logs` + `0004_eval_hooks` run on container start; then check `https://api.documind.zeeshanai.cloud/health` shows a version.
@@ -308,6 +309,28 @@ A standalone app at `https://evaluation.documind.zeeshanai.cloud` (code in `eval
 - Gotchas / learnings: …
 - Next: …
 -->
+
+### 2026-10-19 — [eval] E2: eval API foundation, datasets & durable queue (done locally)
+- **Built (`evaluation/api/`, uv, Python 3.12):**
+  - `core/`: config (`EVAL_*` settings, ported `parse_schema`, `with_schema`), db (ported normalizer, `documind-eval-api`, pool 5+2), security (`verify_api_key` constant-time; `get_admin` reads `"<EVAL_AUTH_SCHEMA>"."user"`: unknown → 401, non-admin/banned → 403), log + errors copied from DocuMind.
+  - Migration `0001_core`: all 14 tables of the data model except synthetic/review, enum CHECKs via `op.f()`, unique `(dataset_version_id, case_key)` and `(run_id, case_id)`, partial unique `jobs(run_id) WHERE run_finalize AND queued/running`, index `jobs(status, available_at, priority)`. Enum values live in `models/enums.py`.
+  - `documind/`: `DocuMindClient` (tags + `X-Request-ID` on every call; GETs and the idempotent cleanup DELETE retry 2× on 5xx/connection errors, POSTs never), typed SSE events + `parse_event`, models.
+  - `worker/`: `queue.py` (the planned claim SQL, heartbeat, succeed/fail/requeue/release, `enqueue`), `loop.py` (slots, 1 s ± jitter idle poll, release on cancel), `limits.py` (`DocuMindLimiter`), handler `noop`.
+  - Datasets: services + routes as planned (draft copy, publish with `content_hash`, 409 `version_published`, JSONL import with mapping/defaults/`?preview`, export), DocuMind passthrough, `/health` (`{status, db, version, documind{reachable, version}}`, always 200).
+  - Scripts `bootstrap_service_users` (idempotent, `--dry-run`) and `import_golden`; 39 tests (unit, respx, db).
+- **Verified:** `alembic upgrade head` created only `documind_eval_dev` (14 tables); `documind_dev` stays at `0004_eval_hooks`; `alembic check` clean. The bootstrap created both users (a re-run printed "unchanged"), neither has an `account` row, and DocuMind `/v1/me` as the bot lists `simtora` (the probe sees only `simtora`, as member). The golden import gave `golden` v1 published, 30 cases (17 single_hop, 3 multi_hop, 10 jurisdiction), all with departments; a re-run is a no-op. Restart drill: a 30 s `noop` job, uvicorn hard-killed (`taskkill /F`) mid-sleep and restarted; the new process reclaimed it when the 5-min lock expired (attempt 2) and it succeeded. `/health` shows `documind.version` (`dev` locally). `ruff check` clean; `pytest` 39 passed (3 min).
+- **Deviations from plan:**
+  - Extra dependency `python-multipart` (the import upload).
+  - Extra routes: `POST /v1/jobs/noop` + `GET /v1/jobs/{id}` (the restart drill; E5 settings can use them).
+  - `POST /v1/datasets` also creates an empty draft v1. A second draft gets 409 `draft_exists` with its id. An import becomes a new version holding exactly the file's cases (replace, not merge); an unchanged re-import returns the published version with `unchanged: true`.
+  - `content_hash` is order-independent (cases sorted by `case_key`, positions excluded).
+  - The `X-User-Id` checks (401 unknown, 403 non-admin) run on every `/v1` route via the aggregator.
+  - `metric_scores.mode` / `run_aggregates.mode` are NOT NULL, with `chat` for full-run scores; added columns `runs.status_reason`, `runs.documind_cost_reported_usd`, `run_cases.case_key`, `jobs.max_attempts/finished_at`.
+  - The job-kind CHECK already lists the E7–E9 kinds (`synthetic_generate`, `authz_probe`, `calibration_compute`).
+  - SSE fixtures: answer, clarification and multi_part were recorded from local DocuMind as eval-tagged chats (conversations deleted afterwards); `error.txt` is hand-written in the same format.
+  - The `EVAL_*` keys were added to `.env.local` by a scratch script that printed only key names (it needed `DATABASE_URL`'s credentials and generated `EVAL_API_KEY`/`EVAL_BETTER_AUTH_SECRET`); `.env.example` lists them.
+- **Gotchas / learnings:** asyncpg infers `now() - $1` as a timestamp, so interval params need `CAST(:d AS interval)` *and* a `timedelta`. Async ORM needs `eager_defaults=True` (else `updated_at` lazy-loads after an UPDATE). A model column named `text` shadows `sqlalchemy.text` inside the class body. The router asks for clarification only when the answer differs by country and none is hinted ("What is my statutory entitlement to paid annual leave under local law?" triggers it). `eval-bot`/`eval-probe` now show in DocuMind's dev `/admin/users` (open question still stands).
+- **Next:** E3 (run engine & deterministic metrics).
 
 ### 2026-10-19 — Coolify: include source commit in build (documind-api)
 - Enabled "Include source commit in build" on `documind-api` via the Coolify API; read back `include_source_commit_in_build: true`. Takes effect on the next deploy.

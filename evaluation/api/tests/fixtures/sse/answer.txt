@@ -1,0 +1,398 @@
+event: meta
+data: {"conversation_id": "8c2bc23a-3a4d-4ca1-9512-425133e11f41", "user_message_id": "44294e07-9bad-4b61-8b40-62c564b9e5f6", "assistant_message_id": "8885bf95-064b-4cf3-80f2-83c45027a501"}
+
+event: routing
+data: {"departments": ["HR"], "jurisdiction": null, "standalone_query": "How long does a performance improvement plan last?", "parts": [], "needs_clarification": false, "clarifying_question": null, "bypassed": false, "sub_queries": [], "document_ids": []}
+
+event: sources
+data: [{"n": 1, "chunk_id": "94d620d2-9771-4ab1-948f-c6981c8ebf19", "document_id": "17da76be-83a4-443b-9b85-c23c1dbb166b", "doc_code": "SIM-HR-001", "title": "Human Resources Policy Manual", "section_path": ["Part 2 – Managing Performance", "2.4 Performance Improvement Plans (Capability Procedure)"], "section_number": "2.4", "section_title": "Performance Improvement Plans (Capability Procedure)", "page_start": 29, "page_end": 30, "content_type": "prose", "text": "2.4 Performance Improvement Plans (Capability Procedure)\n\nPurpose. To provide a fair and objective process for addressing performance that doesn't meet expected standards, and to give the employee a real chance to improve, through clear expectations and support.\n\nPolicy\n\nPerformance concerns should be raised early in one-on-ones. Where they persist, the manager, with HR, may put the employee on a Performance Improvement Plan (PIP). The PIP is a written plan that includes:\n\n1. The specific areas of concern, with examples and evidence.\n2. The standard required, with measurable goals.\n3. The support the Company will provide (coaching, training, tools, reduced distractions).\n\n4. The review dates (typically every 2 weeks) and overall duration (usually 30–60 days ).\n5. The possible outcomes, including that failure to improve may result in termination.\n\nThe employee can respond in writing and raise any factors that affect performance, such as health, workload or accommodation needs. HR considers whether accommodation or leave rights are relevant before proceeding.\n\nOutcomes are: (a) successful completion: the PIP ends and normal management resumes; (b) extension for a short period where good progress has been made; (c) further action, which may include demotion, transfer or termination.\n\nWhere the PIP arises from misconduct rather than capability, the corrective-action procedure (2.3) applies.\n\nA PIP is not a prerequisite to termination. Simtora may end at-will employment without one (for example, in a role elimination or serious performance failure).", "jurisdiction": "US", "department": "HR", "owner": "Chief People Officer (Head of HR)", "scores": {"bm25_rank": 5, "vector_rank": 1, "rrf": 0.025624, "score": 0.025624, "added_as": null, "part": 0}}, {"n": 2, "chunk_id": "7fafae86-532a-421d-bad9-58e7301a814a", "document_id": "b67835e7-dedf-41c8-82a7-c8d1390fc548", "doc_code": "SIM-HR-104", "title": "Australia HR Manual (Sydney)", "section_path": ["Part 9 – Performance, Discipline and Separation", "9.1 Performance Management"], "section_number": "9.1", "section_title": "Performance Management", "page_start": 26, "page_end": 27, "content_type": "prose", "text": "9.1 Performance Management\n\nSIM-HR-001 2.1 applies. Performance concerns are raised early, in writing where serious, with clear expectations, support and a reasonable time to improve. A performance improvement plan lasts 60 to 90 days. An employee may bring a support person to formal performance meetings.", "jurisdiction": "AU", "department": "HR", "owner": "Chief People Officer (Head of HR)", "scores": {"bm25_rank": 1, "vector_rank": 2, "rrf": 0.025965, "score": 0.023369, "added_as": null, "part": 0}}, {"n": 3, "chunk_id": "222cf502-84d9-46ea-90e8-8e579b94bc8c", "document_id": "338502cf-0b94-43cb-ab74-e23975ed2c1d", "doc_code": "SIM-HR-101", "title": "Pakistan HR Manual (Lahore)", "section_path": ["Part 9 – Performance, Discipline and Separation", "9.1 Performance Management"], "section_number": "9.1", "section_title": "Performance Management", "page_start": 25, "page_end": 26, "content_type": "prose", "text": "9.1 Performance Management\n\nSIM-HR-001 2.1 applies: objectives, regular one-to-ones, mid-year and annual review, calibration. Performance concerns are discussed early. A performance improvement plan\n\n(PIP) lasts 60 to 90 days with clear goals, support and weekly reviews. Employees may bring a colleague to formal review meetings.", "jurisdiction": "PK", "department": "HR", "owner": "Chief People Officer (Head of HR)", "scores": {"bm25_rank": 2, "vector_rank": 3, "rrf": 0.02555, "score": 0.022995, "added_as": null, "part": 0}}, {"n": 4, "chunk_id": "949a58c3-c7c5-414b-8d9f-5bbe4c99250d", "document_id": "17da76be-83a4-443b-9b85-c23c1dbb166b", "doc_code": "SIM-HR-001", "title": "Human Resources Policy Manual", "section_path": ["Part 2 – Managing Performance", "2.3 Corrective Action (Disciplinary Procedure)", "Steps (typical)"], "section_number": "2.3", "section_title": "Corrective Action (Disciplinary Procedure)", "page_start": 27, "page_end": 27, "content_type": "table", "text": "Steps (typical)\n\n| Step | When used | What happens |\n| --- | --- | --- |\n| 1. Coaching / counseling | Minor issues, first occurrence | Informal, documented conversation: what is expected, timeline to improve, when it will be reviewed, and that failure to improve may lead to formal action. |\n| 2. Verbal warning | Minor misconduct or continuing performance issue | Manager states the concern and required improvement; a short file note is kept. |\n| 3. Written warning | Verbal warning not heeded; repeat or more serious issue | Written notice signed by the manager and HR, with the facts, required improvement, timeline and consequences. The employee may add comments. |\n| 4. Final written warning | Serious issue just short of termination, or continued failure after a written warning | As above; warns that further issues may result in termination. |\n| 5. Termination | Gross misconduct, or continued issues after the steps above | Decided by the Department Head with HR (and Legal where appropriate). See 9.2. |", "jurisdiction": "US", "department": "HR", "owner": "Chief People Officer (Head of HR)", "scores": {"bm25_rank": 10, "vector_rank": 11, "rrf": 0.022656, "score": 0.022656, "added_as": null, "part": 0}}, {"n": 5, "chunk_id": "86e2dcac-7061-4dd4-be91-e0c510128444", "document_id": "17da76be-83a4-443b-9b85-c23c1dbb166b", "doc_code": "SIM-HR-001", "title": "Human Resources Policy Manual", "section_path": ["Part 2 – Managing Performance", "2.1 Performance Management"], "section_number": "2.1", "section_title": "Performance Management", "page_start": 23, "page_end": 23, "content_type": "prose", "text": "2.1 Performance Management\n\nPurpose. To help every employee reach their potential, and align individual goals with company goals, through clear expectations, frequent feedback and fair evaluation.\n\nCore principles\n\nPerformance management is continuous, with formal checkpoints.\n\nAppraisal is a two-way conversation about the employee's achievements, needs and development and the Company's needs.\n\nEvaluation is fair, evidence-based and consistent, in line with the Equal Employment Opportunity policy.\n\nResults feed into development plans, pay and promotion decisions, and succession planning.", "jurisdiction": "US", "department": "HR", "owner": "Chief People Officer (Head of HR)", "scores": {"bm25_rank": 20, "vector_rank": 6, "rrf": 0.022652, "score": 0.022652, "added_as": null, "part": 0}}, {"n": 6, "chunk_id": "191d7b22-d4ea-4fed-a225-a9f6c14f51ea", "document_id": "184f1f2a-8974-4692-8f78-210ec49a8615", "doc_code": "SIM-HR-102", "title": "Germany HR Manual (Berlin)", "section_path": ["Part 9 – Performance, Discipline and Separation", "9.1 Performance Management"], "section_number": "9.1", "section_title": "Performance Management", "page_start": 26, "page_end": 26, "content_type": "prose", "text": "9.1 Performance Management\n\nSIM-HR-001 2.1 applies: objectives, one-to-ones, mid-year and annual review, and calibration. A works council (if elected) co-determines general assessment principles. A performance improvement plan lasts 60 to 90 days with a goal, support, and regular reviews. Employees may bring a colleague (or the works council member) to formal meetings.", "jurisdiction": "DE", "department": "HR", "owner": "Chief People Officer (Head of HR)", "scores": {"bm25_rank": 3, "vector_rank": 4, "rrf": 0.025149, "score": 0.022634, "added_as": null, "part": 0}}, {"n": 7, "chunk_id": "393e5aa6-fbbe-4b92-8cf9-8e04ea9925f0", "document_id": "17da76be-83a4-443b-9b85-c23c1dbb166b", "doc_code": "SIM-HR-001", "title": "Human Resources Policy Manual", "section_path": ["Part 1 – Employing Staff", "1.4 Introductory (Probation) Period"], "section_number": "1.4", "section_title": "Introductory (Probation) Period", "page_start": 11, "page_end": 13, "content_type": "prose", "text": "1.4 Introductory (Probation) Period\n\nPurpose. To give both the employee and Simtora a structured period to assess fit: the employee learns the role and culture; the manager learns the employee's strengths and needs.\n\nScope. All new regular employees. Directors and above, and employees rehired within 12 months into the same role, may be exempted in writing by HR.\n\nPolicy\n\nThe introductory period is 90 calendar days from the start date.\n\nThe introductory period does not guarantee employment for any length of time and does not change at-will status. Simtora may end employment at any time, before or after the period ends. Completing the period does not create a contract.\n\nEmployees on introductory status accrue PTO and sick leave from day one, but may use accrued PTO only after 30 days of employment unless the manager approves earlier (sick and safe leave may be used as permitted by law, from the date state law allows). Medical and other benefits begin per plan terms.\n\nEmployees on introductory status are covered by every policy in this manual, including anti-discrimination, anti-harassment and anti-retaliation rules.\n\nReview process\n\n1. Days 1–14: manager sets written objectives and explains expectations.\n2. Day 30 and 60: check-in conversations are documented.\n3. Day 75: the manager completes the Probation Review Form (Appendix C) and discusses it with the employee; the employee may add comments. The Department Head countersigns and HR reviews.\n4. Day 90: HR confirms one of three outcomes: Confirmed – introductory period successfully completed. Extended – once, for up to 30 days, where specific and documented improvement is needed. The extension letter states the goals and the review date. An extension may also be used to cover a long absence during the period. Not confirmed – employment ends. This decision is made before the period expires, is reviewed by HR, and is communicated in person where possible.\n\nWhat we look at\n\nKnowledge, skills and deliverables for the role.\n\nQuality and reliability of work, including engineering practices where relevant. Collaboration with teammates and partners; communication.\n\nAdaptability and learning speed.\n\nAdherence to Simtora values, security practices and policies.\n\nHR checks that the employee received the resources, supervision and clear expectations needed to succeed before any \"not confirmed\" decision.", "jurisdiction": "US", "department": "HR", "owner": "Chief People Officer (Head of HR)", "scores": {"bm25_rank": 16, "vector_rank": 10, "rrf": 0.02218, "score": 0.02218, "added_as": null, "part": 0}}, {"n": 8, "chunk_id": "9fa079b8-da3d-4be5-8167-8a7852ade4ef", "document_id": "5f44eaa6-39d6-4042-8553-cde86bc5bb52", "doc_code": "SIM-HR-103", "title": "France HR Manual (Paris)", "section_path": ["Part 9 – Performance, Discipline and Separation", "9.1 Performance and Career Interviews"], "section_number": "9.1", "section_title": "Performance and Career Interviews", "page_start": 29, "page_end": 29, "content_type": "prose", "text": "9.1 Performance and Career Interviews\n\nSIM-HR-001 2.1 applies: objectives, one-to-ones, mid-year and annual review, calibration. The CSE is consulted on assessment methods and employees are told in advance how they will be assessed.\n\nA professional interview ( entretien professionnel ), separate from the performance review, is held every 2 years and covers career, training and qualifications. Every 6 years a full review checks that the employee has had at least one training action, progression in qualifications or pay, or certification.\n\nA performance improvement plan lasts 60 to 90 days, with support and weekly reviews. Poor performance, if it persists, can be a ground for dismissal for real and serious cause only if shown objectively.", "jurisdiction": "FR", "department": "HR", "owner": "Chief People Officer (Head of HR)", "scores": {"bm25_rank": 4, "vector_rank": 7, "rrf": 0.0243, "score": 0.02187, "added_as": null, "part": 0}}]
+
+: ping - 2026-10-19 05:21:37.285581+00:00
+
+event: delta
+data: {"text": "A"}
+
+event: delta
+data: {"text": " P"}
+
+event: delta
+data: {"text": "IP"}
+
+event: delta
+data: {"text": " usually"}
+
+event: delta
+data: {"text": " lasts"}
+
+event: delta
+data: {"text": " **"}
+
+event: delta
+data: {"text": "30"}
+
+event: delta
+data: {"text": "–"}
+
+event: delta
+data: {"text": "60"}
+
+event: delta
+data: {"text": " days"}
+
+event: delta
+data: {"text": " under"}
+
+event: delta
+data: {"text": " the"}
+
+event: delta
+data: {"text": " U"}
+
+event: delta
+data: {"text": ".S"}
+
+event: delta
+data: {"text": "."}
+
+event: delta
+data: {"text": " base"}
+
+event: delta
+data: {"text": " manual"}
+
+event: delta
+data: {"text": "**,"}
+
+event: delta
+data: {"text": " while"}
+
+event: delta
+data: {"text": " the"}
+
+event: delta
+data: {"text": " listed"}
+
+event: delta
+data: {"text": " country"}
+
+event: delta
+data: {"text": " manuals"}
+
+event: delta
+data: {"text": " set"}
+
+event: delta
+data: {"text": " a"}
+
+event: delta
+data: {"text": " **"}
+
+event: delta
+data: {"text": "60"}
+
+event: delta
+data: {"text": "–"}
+
+event: delta
+data: {"text": "90"}
+
+event: delta
+data: {"text": "-day"}
+
+event: delta
+data: {"text": "**"}
+
+event: delta
+data: {"text": " duration"}
+
+event: delta
+data: {"text": " for"}
+
+event: delta
+data: {"text": " their"}
+
+event: delta
+data: {"text": " employees"}
+
+event: delta
+data: {"text": "."}
+
+event: delta
+data: {"text": " ["}
+
+event: delta
+data: {"text": "1"}
+
+event: delta
+data: {"text": "]["}
+
+event: delta
+data: {"text": "2"}
+
+event: delta
+data: {"text": "]["}
+
+event: delta
+data: {"text": "3"}
+
+event: delta
+data: {"text": "]["}
+
+event: delta
+data: {"text": "6"}
+
+event: delta
+data: {"text": "]["}
+
+event: delta
+data: {"text": "8"}
+
+event: delta
+data: {"text": "]\n\n"}
+
+event: delta
+data: {"text": "|"}
+
+event: delta
+data: {"text": " Employees"}
+
+event: delta
+data: {"text": " covered"}
+
+event: delta
+data: {"text": " by"}
+
+event: delta
+data: {"text": " |"}
+
+event: delta
+data: {"text": " P"}
+
+event: delta
+data: {"text": "IP"}
+
+event: delta
+data: {"text": " duration"}
+
+event: delta
+data: {"text": " |\n"}
+
+event: delta
+data: {"text": "|"}
+
+event: delta
+data: {"text": "---"}
+
+event: delta
+data: {"text": "|"}
+
+event: delta
+data: {"text": "---"}
+
+event: delta
+data: {"text": "|\n"}
+
+event: delta
+data: {"text": "|"}
+
+event: delta
+data: {"text": " U"}
+
+event: delta
+data: {"text": ".S"}
+
+event: delta
+data: {"text": "."}
+
+event: delta
+data: {"text": " base"}
+
+event: delta
+data: {"text": " manual"}
+
+event: delta
+data: {"text": " |"}
+
+event: delta
+data: {"text": " Usually"}
+
+event: delta
+data: {"text": " "}
+
+event: delta
+data: {"text": "30"}
+
+event: delta
+data: {"text": "–"}
+
+event: delta
+data: {"text": "60"}
+
+event: delta
+data: {"text": " days"}
+
+event: delta
+data: {"text": " ["}
+
+event: delta
+data: {"text": "1"}
+
+event: delta
+data: {"text": "]"}
+
+event: delta
+data: {"text": " |\n"}
+
+event: delta
+data: {"text": "|"}
+
+event: delta
+data: {"text": " Australia"}
+
+event: delta
+data: {"text": " |"}
+
+event: delta
+data: {"text": " "}
+
+event: delta
+data: {"text": "60"}
+
+event: delta
+data: {"text": "–"}
+
+event: delta
+data: {"text": "90"}
+
+event: delta
+data: {"text": " days"}
+
+event: delta
+data: {"text": " ["}
+
+event: delta
+data: {"text": "2"}
+
+event: delta
+data: {"text": "]"}
+
+event: delta
+data: {"text": " |\n"}
+
+event: delta
+data: {"text": "|"}
+
+event: delta
+data: {"text": " Pakistan"}
+
+event: delta
+data: {"text": " |"}
+
+event: delta
+data: {"text": " "}
+
+event: delta
+data: {"text": "60"}
+
+event: delta
+data: {"text": "–"}
+
+event: delta
+data: {"text": "90"}
+
+event: delta
+data: {"text": " days"}
+
+event: delta
+data: {"text": " ["}
+
+event: delta
+data: {"text": "3"}
+
+event: delta
+data: {"text": "]"}
+
+event: delta
+data: {"text": " |\n"}
+
+event: delta
+data: {"text": "|"}
+
+event: delta
+data: {"text": " Germany"}
+
+event: delta
+data: {"text": " |"}
+
+event: delta
+data: {"text": " "}
+
+event: delta
+data: {"text": "60"}
+
+event: delta
+data: {"text": "–"}
+
+event: delta
+data: {"text": "90"}
+
+event: delta
+data: {"text": " days"}
+
+event: delta
+data: {"text": " ["}
+
+event: delta
+data: {"text": "6"}
+
+event: delta
+data: {"text": "]"}
+
+event: delta
+data: {"text": " |\n"}
+
+event: delta
+data: {"text": "|"}
+
+event: delta
+data: {"text": " France"}
+
+event: delta
+data: {"text": " |"}
+
+event: delta
+data: {"text": " "}
+
+event: delta
+data: {"text": "60"}
+
+event: delta
+data: {"text": "–"}
+
+event: delta
+data: {"text": "90"}
+
+event: delta
+data: {"text": " days"}
+
+event: delta
+data: {"text": " ["}
+
+event: delta
+data: {"text": "8"}
+
+event: delta
+data: {"text": "]"}
+
+event: delta
+data: {"text": " |"}
+
+event: citations
+data: [{"n": 1, "document_id": "17da76be-83a4-443b-9b85-c23c1dbb166b", "chunk_id": "94d620d2-9771-4ab1-948f-c6981c8ebf19", "doc_code": "SIM-HR-001", "title": "Human Resources Policy Manual", "section_number": "2.4", "section_title": "Performance Improvement Plans (Capability Procedure)", "section_path": ["Part 2 – Managing Performance", "2.4 Performance Improvement Plans (Capability Procedure)"], "page_start": 29, "page_end": 30, "snippet": "2.4 Performance Improvement Plans (Capability Procedure) Purpose. To provide a fair and objective process for addressing performance that doesn't meet expected standards, and to give the employee a real chance to improve, through clear expectations and support. Policy…", "highlight_text": "2.4 Performance Improvement Plans (Capability Procedure)\n\nPurpose. To provide a fair and objective process for addressing performance that doesn't meet expected standards, and to give the employee a real chance to improve, through clear expectations and support.\n\nPolicy\n\nPerformance concerns should be raised early in one-on-ones. Where they persist, the manager, with HR, may put the employee on a Performance Improvement Plan (PIP). The PIP is a written plan that includes:\n\n1. The specific areas of concern, with examples and evidence.\n2. The standard required, with measurable goals.\n3. The support the Company will provide (coaching, training, tools, reduced distractions).\n\n4. The review dates (typically every 2 weeks) and overall duration (usually 30–60 days ).\n5. The possible outcomes, including that failure to improve may result in termination.\n\nThe employee can respond in writing and raise any factors that affect performance, such as health, workload or accommodation needs. HR considers whether accommodation or leave rights are relevant before proceeding.\n\nOutcomes are: (a) successful completion: the PIP ends and normal management resumes; (b) extension for a short period where good progress has been made; (c) further action, which may include demotion, transfer or termination.\n\nWhere the PIP arises from misconduct rather than capability, the corrective-action procedure (2.3) applies.\n\nA PIP is not a prerequisite to termination. Simtora may end at-will employment without one (for example, in a role elimination or serious performance failure)."}, {"n": 2, "document_id": "b67835e7-dedf-41c8-82a7-c8d1390fc548", "chunk_id": "7fafae86-532a-421d-bad9-58e7301a814a", "doc_code": "SIM-HR-104", "title": "Australia HR Manual (Sydney)", "section_number": "9.1", "section_title": "Performance Management", "section_path": ["Part 9 – Performance, Discipline and Separation", "9.1 Performance Management"], "page_start": 26, "page_end": 27, "snippet": "9.1 Performance Management SIM-HR-001 2.1 applies. Performance concerns are raised early, in writing where serious, with clear expectations, support and a reasonable time to improve. A performance improvement plan lasts 60 to 90 days. An employee may bring a support person to…", "highlight_text": "9.1 Performance Management\n\nSIM-HR-001 2.1 applies. Performance concerns are raised early, in writing where serious, with clear expectations, support and a reasonable time to improve. A performance improvement plan lasts 60 to 90 days. An employee may bring a support person to formal performance meetings."}, {"n": 3, "document_id": "338502cf-0b94-43cb-ab74-e23975ed2c1d", "chunk_id": "222cf502-84d9-46ea-90e8-8e579b94bc8c", "doc_code": "SIM-HR-101", "title": "Pakistan HR Manual (Lahore)", "section_number": "9.1", "section_title": "Performance Management", "section_path": ["Part 9 – Performance, Discipline and Separation", "9.1 Performance Management"], "page_start": 25, "page_end": 26, "snippet": "9.1 Performance Management SIM-HR-001 2.1 applies: objectives, regular one-to-ones, mid-year and annual review, calibration. Performance concerns are discussed early. A performance improvement plan (PIP) lasts 60 to 90 days with clear goals, support and weekly reviews. Employees…", "highlight_text": "9.1 Performance Management\n\nSIM-HR-001 2.1 applies: objectives, regular one-to-ones, mid-year and annual review, calibration. Performance concerns are discussed early. A performance improvement plan\n\n(PIP) lasts 60 to 90 days with clear goals, support and weekly reviews. Employees may bring a colleague to formal review meetings."}, {"n": 6, "document_id": "184f1f2a-8974-4692-8f78-210ec49a8615", "chunk_id": "191d7b22-d4ea-4fed-a225-a9f6c14f51ea", "doc_code": "SIM-HR-102", "title": "Germany HR Manual (Berlin)", "section_number": "9.1", "section_title": "Performance Management", "section_path": ["Part 9 – Performance, Discipline and Separation", "9.1 Performance Management"], "page_start": 26, "page_end": 26, "snippet": "9.1 Performance Management SIM-HR-001 2.1 applies: objectives, one-to-ones, mid-year and annual review, and calibration. A works council (if elected) co-determines general assessment principles. A performance improvement plan lasts 60 to 90 days with a goal, support, and regular…", "highlight_text": "9.1 Performance Management\n\nSIM-HR-001 2.1 applies: objectives, one-to-ones, mid-year and annual review, and calibration. A works council (if elected) co-determines general assessment principles. A performance improvement plan lasts 60 to 90 days with a goal, support, and regular reviews. Employees may bring a colleague (or the works council member) to formal meetings."}, {"n": 8, "document_id": "5f44eaa6-39d6-4042-8553-cde86bc5bb52", "chunk_id": "9fa079b8-da3d-4be5-8167-8a7852ade4ef", "doc_code": "SIM-HR-103", "title": "France HR Manual (Paris)", "section_number": "9.1", "section_title": "Performance and Career Interviews", "section_path": ["Part 9 – Performance, Discipline and Separation", "9.1 Performance and Career Interviews"], "page_start": 29, "page_end": 29, "snippet": "9.1 Performance and Career Interviews SIM-HR-001 2.1 applies: objectives, one-to-ones, mid-year and annual review, calibration. The CSE is consulted on assessment methods and employees are told in advance how they will be assessed. A professional interview ( entretien…", "highlight_text": "9.1 Performance and Career Interviews\n\nSIM-HR-001 2.1 applies: objectives, one-to-ones, mid-year and annual review, calibration. The CSE is consulted on assessment methods and employees are told in advance how they will be assessed.\n\nA professional interview ( entretien professionnel ), separate from the performance review, is held every 2 years and covers career, training and qualifications. Every 6 years a full review checks that the employee has had at least one training action, progression in qualifications or pay, or certification.\n\nA performance improvement plan lasts 60 to 90 days, with support and weekly reviews. Poor performance, if it persists, can be a ground for dismissal for real and serious cause only if shown objectively."}]
+
+event: usage
+data: {"input_tokens": 5159, "cached_tokens": 0, "output_tokens": 412, "cost_usd": 0.00072118, "latency_ms": 18281, "ttft_ms": 16144, "by_operation": [{"operation": "router", "model": "gpt-6-luna", "tier_requested": "default", "tier_actual": "default", "input_tokens": 2983, "cached_tokens": 0, "output_tokens": 98, "cost_usd": 0.0003473, "latency_ms": 4090, "ttft_ms": null}, {"operation": "embed_query", "model": "text-embedding-3-small", "tier_requested": null, "tier_actual": null, "input_tokens": 9, "cached_tokens": 0, "output_tokens": 0, "cost_usd": 1.8e-07, "latency_ms": 1724, "ttft_ms": null}, {"operation": "answer", "model": "gpt-6-luna", "tier_requested": "default", "tier_actual": "default", "input_tokens": 2167, "cached_tokens": 0, "output_tokens": 314, "cost_usd": 0.0003737, "latency_ms": 4705, "ttft_ms": 3373}], "retrieval": {"lists": [{"method": "bm25", "query": "How long does a performance improvement plan last?", "filter": "HR", "hits": 30, "fallback": false, "part": 0}, {"method": "vector", "query": "How long does a performance improvement plan last?", "filter": "HR", "hits": 30, "fallback": false, "part": 0}], "candidates": 49, "sources": [{"n": 1, "chunk_id": "94d620d2-9771-4ab1-948f-c6981c8ebf19", "doc_code": "SIM-HR-001", "bm25_rank": 5, "vector_rank": 1, "rrf": 0.025624, "score": 0.025624, "added_as": null, "part": 0}, {"n": 2, "chunk_id": "7fafae86-532a-421d-bad9-58e7301a814a", "doc_code": "SIM-HR-104", "bm25_rank": 1, "vector_rank": 2, "rrf": 0.025965, "score": 0.023369, "added_as": null, "part": 0}, {"n": 3, "chunk_id": "222cf502-84d9-46ea-90e8-8e579b94bc8c", "doc_code": "SIM-HR-101", "bm25_rank": 2, "vector_rank": 3, "rrf": 0.02555, "score": 0.022995, "added_as": null, "part": 0}, {"n": 4, "chunk_id": "949a58c3-c7c5-414b-8d9f-5bbe4c99250d", "doc_code": "SIM-HR-001", "bm25_rank": 10, "vector_rank": 11, "rrf": 0.022656, "score": 0.022656, "added_as": null, "part": 0}, {"n": 5, "chunk_id": "86e2dcac-7061-4dd4-be91-e0c510128444", "doc_code": "SIM-HR-001", "bm25_rank": 20, "vector_rank": 6, "rrf": 0.022652, "score": 0.022652, "added_as": null, "part": 0}, {"n": 6, "chunk_id": "191d7b22-d4ea-4fed-a225-a9f6c14f51ea", "doc_code": "SIM-HR-102", "bm25_rank": 3, "vector_rank": 4, "rrf": 0.025149, "score": 0.022634, "added_as": null, "part": 0}, {"n": 7, "chunk_id": "393e5aa6-fbbe-4b92-8cf9-8e04ea9925f0", "doc_code": "SIM-HR-001", "bm25_rank": 16, "vector_rank": 10, "rrf": 0.02218, "score": 0.02218, "added_as": null, "part": 0}, {"n": 8, "chunk_id": "9fa079b8-da3d-4be5-8167-8a7852ade4ef", "doc_code": "SIM-HR-103", "bm25_rank": 4, "vector_rank": 7, "rrf": 0.0243, "score": 0.02187, "added_as": null, "part": 0}], "timings_ms": {"search": 2052, "fuse_select": 1572}}}
+
+event: done
+data: {}
+

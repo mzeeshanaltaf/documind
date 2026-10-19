@@ -33,15 +33,15 @@ Legend: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked
 A standalone app at `https://evaluation.documind.zeeshanai.cloud` (code in `evaluation/`) that evaluates DocuMind end to end.
 - **Docs:** overview, data model and metrics in [docs/plan/eval/README.md](docs/plan/eval/README.md); guide in [evaluation/CLAUDE.md](evaluation/CLAUDE.md).
 - **Session logs:** entries tagged `[eval]` in the Session log below.
-- **Current eval phase:** **E4 — Claude judge & generation metrics** (done locally, 2026-10-19 `[eval]` log; nothing to deploy until E5). The Anthropic spend limit was raised on 2026-10-19 and the API answers again, but the live $0.10 budget-pause check hasn't been re-run yet. The rubric judge is now Haiku 5.5. E1 is code done, not deployed. Next: E5.
+- **Current eval phase:** **E5 — Eval web, auth & first deploy** (deployed 2026-10-19, `55ad70c`; see the `[eval]` E5 log). `https://evaluation.documind.zeeshanai.cloud` is live with a Let's Encrypt cert; the eval API is internal only. Left for the owner: the two Google OAuth redirect URIs and a browser sign-in on prod (Pending user actions). The live $0.10 budget-pause check from E4 still hasn't been re-run. Next: E6.
 
 | # | Phase | Doc | Status |
 |---|---|---|---|
-| E1 | DocuMind eval hooks (tagging, overrides, retrieve/chunks/info endpoints, exclusions) | [phase-E1](docs/plan/eval/phase-E1-documind-eval-hooks.md) | 🟨 Code done (+ E3's per-case conversation list); Coolify source-commit setting on; deploy pending |
-| E2 | Eval API foundation, datasets & durable queue | [phase-E2](docs/plan/eval/phase-E2-eval-api-foundation-and-datasets.md) | ✅ Done (local; deployed with E5) |
-| E3 | Run engine & deterministic metrics | [phase-E3](docs/plan/eval/phase-E3-run-engine-and-deterministic-metrics.md) | ✅ Done (local; deployed with E5) |
-| E4 | Claude judge & generation metrics | [phase-E4](docs/plan/eval/phase-E4-claude-judge-and-generation-metrics.md) | ✅ Done (local; spend limit raised, live budget-pause check still to re-run) |
-| E5 | Eval web, auth & first deploy | [phase-E5](docs/plan/eval/phase-E5-eval-web-auth-and-deploy.md) | ⬜ Not started |
+| E1 | DocuMind eval hooks (tagging, overrides, retrieve/chunks/info endpoints, exclusions) | [phase-E1](docs/plan/eval/phase-E1-documind-eval-hooks.md) | ✅ Done; deployed (prod `/health` shows the commit; the prod eval API reads `/admin/eval/info`, 2026-10-19) |
+| E2 | Eval API foundation, datasets & durable queue | [phase-E2](docs/plan/eval/phase-E2-eval-api-foundation-and-datasets.md) | ✅ Done; deployed with E5 |
+| E3 | Run engine & deterministic metrics | [phase-E3](docs/plan/eval/phase-E3-run-engine-and-deterministic-metrics.md) | ✅ Done; deployed with E5 |
+| E4 | Claude judge & generation metrics | [phase-E4](docs/plan/eval/phase-E4-claude-judge-and-generation-metrics.md) | ✅ Done; deployed with E5 (live budget-pause check still to re-run) |
+| E5 | Eval web, auth & first deploy | [phase-E5](docs/plan/eval/phase-E5-eval-web-auth-and-deploy.md) | 🟨 Deployed; owner: Google redirect URIs + prod browser sign-in |
 | E6 | Compare & trends | [phase-E6](docs/plan/eval/phase-E6-compare-and-trends.md) | ⬜ Not started |
 | E7 | Synthetic test sets & reference enrichment | [phase-E7](docs/plan/eval/phase-E7-synthetic-test-sets.md) | ⬜ Not started |
 | E8 | Adversarial & safety suite | [phase-E8](docs/plan/eval/phase-E8-adversarial-and-safety-suite.md) | ⬜ Not started |
@@ -266,21 +266,27 @@ A standalone app at `https://evaluation.documind.zeeshanai.cloud` (code in `eval
 | MinIO | Coolify service **`documind-minio`** `fa669uo1gjnscdpbapxmb5qn`, image `pgsty/minio`, internal only: `http://minio-fa669uo1gjnscdpbapxmb5qn:9000` on the `coolify` network, no domain, no host ports. Bucket `documind-docs` (private) |
 | Coolify | `https://coolify.zeeshanai.cloud` (4.3.23), project **DocuMind** `vh71w2o5wsavqnhfsu6pucdc`, server `j1234smx72kcb6aeovlaa9f7`, env `production` |
 | DB | Shared Postgres via the docker0 gateway `10.0.0.1:5432`, `?schema=documind` (`sslmode=require` kept) |
-| DNS | A `documind` + `api.documind` → 76.13.7.106, TTL 300 (Hostinger) |
-| Deploy | `.github/workflows/deploy.yml` (paths-filter → lint/typecheck → Coolify deploy API); Coolify "Auto Deploy" is **off** on both apps |
+| Eval web | `https://evaluation.documind.zeeshanai.cloud` → Coolify app **`documind-eval-web`** `7ltejy3ne1khxjsah5ywywib` (Dockerfile `/evaluation/web/Dockerfile`, port 3000, health `/robots.txt`, `health_check_host=127.0.0.1`) |
+| Eval API | Internal only, **no domain, no host ports** → Coolify app **`documind-eval-api`** `5435bt2dyjlqfyhifpujfeyu` (Dockerfile `/evaluation/api/Dockerfile`, port 8100, health `/health`, network alias **`documind-eval-api`**, source commit in build on). Schema `documind_eval`; service users `eval-bot` / `eval-probe` in `documind`; golden v1 imported |
+| DNS | A `documind` + `api.documind` + `evaluation.documind` → 76.13.7.106, TTL 300 (Hostinger) |
+| Deploy | `.github/workflows/deploy.yml` (paths-filter → lint/typecheck (+ eval API ruff and `pytest -m "not db and not live"`) → Coolify deploy API); Coolify "Auto Deploy" is **off** on all four apps |
 
 - **Prod secrets** live in Coolify and in the owner's git-/docker-ignored `.env.production.local` (MinIO root + app creds, prod `DOCUMIND_API_KEY`, prod `BETTER_AUTH_SECRET`, prod `DATABASE_URL`). The prod API key and auth secret are new, not the dev ones.
 - **MinIO app credentials** are a dedicated user `documind-app` with policy `documind-app-rw` (List on the bucket; Get/Put/Delete on `documind-docs/*`), not the root user.
 - **`API_BASE_URL=http://documind-api:8000`** (internal hop). Coolify container names carry a per-deploy suffix, so the api has `custom_network_aliases=documind-api` for a stable name. Both apps must be on the `coolify` network (Coolify's default for apps).
 - **Coolify health checks:** api `GET /health`, web `GET /robots.txt` with **`health_check_host=127.0.0.1`** (the default `localhost` resolves to `::1` on Alpine, where Next listens IPv4-only, so every check was refused and the deploy rolled back).
 - **Env flags (Coolify 4.3):** build-time = `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_UMAMI_*`, `RESEND_FROM_EMAIL` only (the web Dockerfile declares exactly these as `ARG`s); everything else runtime-only.
+- **Eval env:** eval-web build-time = `NEXT_PUBLIC_APP_URL` (DocuMind's URL) only; runtime `DATABASE_URL` (prod, schema `documind`), `EVAL_AUTH_SCHEMA=documind`, `EVAL_BETTER_AUTH_SECRET`, `EVAL_BETTER_AUTH_URL`/`EVAL_PUBLIC_URL`, `EVAL_API_URL=http://documind-eval-api:8100`, `EVAL_API_KEY`, `GOOGLE_*` (the prod client). eval-api runtime: `EVAL_DATABASE_URL` (schema `documind_eval`), `EVAL_AUTH_SCHEMA`, `EVAL_API_KEY`, `DOCUMIND_API_URL=http://documind-api:8000`, `DOCUMIND_API_KEY` (prod), `ANTHROPIC_API_KEY`, `EVAL_SERVICE_USER_ID`/`EVAL_PROBE_USER_ID`, concurrency defaults. The new prod `EVAL_API_KEY`/`EVAL_BETTER_AUTH_SECRET` and the prod ids/app uuids are also in `.env.production.local`.
 
 ## Open decisions
 - (none)
 
 ## Pending user actions
-- **Eval E2 (owner, at E5 deploy time):** run `scripts.bootstrap_service_users` against prod (`EVAL_AUTH_SCHEMA=documind`) and put the printed ids into Coolify's `EVAL_SERVICE_USER_ID` / `EVAL_PROBE_USER_ID`; then `scripts.import_golden` against prod DocuMind. The dev ids are in the root `.env.local` only.
-- **Eval E1 (owner):**
+- **Eval E5 (owner):**
+  1. Google Cloud Console → the OAuth client DocuMind uses → add the redirect URIs `https://evaluation.documind.zeeshanai.cloud/api/auth/callback/google` and `http://localhost:3100/api/auth/callback/google`. Until then "Continue with Google" on Evaluation fails with `redirect_uri_mismatch` (email/password sign-in works).
+  2. In a browser, sign in at https://evaluation.documind.zeeshanai.cloud with your DocuMind admin account (Google after step 1, and email), then start a small run (e.g. golden v1, retrieval only, < $0.05) and watch it go live. That is the only E5 hop not verified by me (it needs your credentials).
+- ~~**Eval E2 (owner, at E5 deploy time):** bootstrap the prod service users and import the golden set~~ — done 2026-10-19 inside the `documind-eval-api` container (`eval-bot` admin, `eval-probe` member of `simtora`; ids set in Coolify; golden v1, 30 cases, same `content_hash` as dev).
+- **Eval E1 (owner):** (both done: prod `/health` shows the commit, and the eval API reads prod `/admin/eval/info`)
   1. ~~In Coolify, enable "Include source commit in build" on `documind-api`~~ — done 2026-10-19 via the API (`PATCH /applications/<uuid>` with `include_source_commit_in_build: true`, verified by reading it back). It applies from the next deploy (Dockerfile `SOURCE_COMMIT` build arg → `GIT_SHA` → `/health.version`). If `/health.version` still shows `dev` after that deploy, pass `SOURCE_COMMIT` as a build arg from `.github/workflows/deploy.yml`.
   2. `/ship` (done by the push that follows this entry) (together with Phase 10). The prod migrations `0003_request_logs` + `0004_eval_hooks` run on container start; then check `https://api.documind.zeeshanai.cloud/health` shows a version.
 - **Phase 9 (owner):**
@@ -308,6 +314,28 @@ A standalone app at `https://evaluation.documind.zeeshanai.cloud` (code in `eval
 - Gotchas / learnings: …
 - Next: …
 -->
+
+### 2026-10-19 — [eval] E5: eval web, auth & first deploy (deployed; owner checks pending)
+- **Built (`evaluation/web/`, Next 16.4 / Better Auth 1.7.7, same lockfile versions as `web/`):**
+  - Auth on DocuMind's tables: own secret, `cookiePrefix: "documind-eval"`, `disableSignUp` (email + Google), `user`/`session.additionalFields` mirroring the admin + organization plugins, `session.create.before` → 403 `NOT_PLATFORM_ADMIN` (inline on email; `/sign-in?error=…` from Google), `disabledPaths` for every account-changing endpoint, `requireAdmin()` in every layout/page/action, `proxy.ts` cookie-presence redirects. `pnpm auth:check` (read-only `getMigrations`, exit 1 on drift; a negative test with an extra field was caught).
+  - BFF `/api/backend/*` (session + admin, key + user id, streamed, SSE `no-transform`), `eval-api.ts` (`apiJson`, `action()` → inline errors), `api-types.ts`.
+  - Pages: dashboard (latest 5 runs, sparklines for the pinned dataset via cookie or the latest run's, month spend, DocuMind version/reachability), datasets (list, detail + versions, version case sheet with a side-sheet editor for drafts, publish, export, JSONL import with key mapping + server preview), runs (filters, new-run form with metric/gate/threshold picker, judge models/samples/efforts, budget, cleanup, README cost estimate), run detail (header + controls: pause, resume incl. budget raise, stop, rejudge, export CSV/JSON, delete; metric strip with CI bars; all-metrics table; slices heatmap; sortable/filterable case table) with `useRunEvents` (EventSource from the last seen cursor, closes itself on a terminal status, refetches aggregates; SWR polling fallback), case drill-down (setup, routing vs expected, answer markdown with citation chips whose hover shows the passage with judged evidence marked, claims, contexts with ranks/labels/judge/cited + expandable text, judge reasoning + issues, all scores, judge calls with cache tokens and cost, DocuMind usage by operation), settings (connectivity, service users, pricing + prompt hashes) and judge prompts (versions, body, schema, diffs).
+- **Eval API additions:** `GET /v1/system`, `GET /v1/trends` (E6's response shape, without change markers yet), `judge_calls` on the case detail; `tests/test_system.py` (3). Dockerfile (python:3.12-slim + uv, uid 10001, repo layout under `/srv`, `alembic upgrade head` then uvicorn :8100, curl health, `SOURCE_COMMIT` → `GIT_SHA`).
+- **Deploy:** Coolify apps `documind-eval-api` (`5435bt2d…`, no domain, alias) and `documind-eval-web` (`7ltejy3n…`), Auto Deploy off, env via the API; DNS A `evaluation.documind`; `deploy.yml` gains `eval_api`/`eval_web` filters, checks (ruff + `pytest -m "not db and not live"` with dummy keys; pnpm lint + typecheck) and deploy jobs. Pushed `55ad70c`: all 9 jobs green. The first eval-api build died on a transient `git ls-remote` (exit 128) and succeeded on a manual redeploy. Prod migrations `0001`–`0003` ran into the new `documind_eval` schema; bootstrap + golden import done in the container.
+- **Verified:**
+  - Local: non-admin email sign-in refused with the inline message (curl + Playwright through the form); `?error=NOT_PLATFORM_ADMIN` / `signup_disabled` render inline; admin sign-in on :3000 and :3100 with one cookie jar keeps both sessions (`better-auth.session_token` + `documind-eval.session_token`), and a DocuMind token replayed under the eval cookie name is rejected; BFF 401 without a session; `auth:check` clean.
+  - UI flow with Playwright: imported a 3-case JSONL (mapped `jurisdiction` → `expected_jurisdiction`), published, started a judged full run from `/runs/new` (budget $0.25): live progress 0/3 → 3/3 → finalizing → completed with the Live indicator, then the drill-down showed routing, answer, 19 claims, 8 contexts, judge reasoning, 6 judge calls and usage. Cost $0.017 (dataset `e5-smoke`, run "E5 UI smoke", left in dev).
+  - Screenshots at 1440 and 390 px (no horizontal overflow) and in dark mode; no console errors. Both Docker images built and ran locally (API: migrations, prompt sync, health with the build-arg version, golden path; web: health, sign-in gate, pages, disabled endpoints 404).
+  - `pnpm typecheck`, `pnpm lint`, `pnpm build` pass; eval API `ruff` clean, `pytest` 122 passed + 1 skipped (live) in 19 min, `test_system.py` 3 passed.
+  - Prod: Let's Encrypt cert for `evaluation.documind.zeeshanai.cloud` (valid to 2027-01-17); `/` → 307 `/sign-in`; BFF 401; `:8100` unreachable from outside, no host ports; the eval API reaches DocuMind (`9f6fda9`) and Anthropic, both service users check out, golden v1 has 30 cases.
+- **Deviations from plan:**
+  - The BFF also forwards `Last-Event-ID` (EventSource resume; the eval API validates it), beyond `content-type`/`accept`.
+  - `NEXT_PUBLIC_APP_URL` in the eval web means DocuMind's URL (same key and meaning as in `web/`); the eval app's own origin is server-side `EVAL_PUBLIC_URL`.
+  - Added `/v1/system` + a minimal `/v1/trends` (dashboard needs) and `judge_calls` on the case detail (drill-down needs). The dashboard's "pinned dataset" is a per-browser cookie set from the dataset page.
+  - Live metric cards show running means without CIs (aggregates exist only after finalize). Status merged into the Result column of the case table, so four metric columns fit at 1440 px.
+  - No recharts: the sparklines and heatmap are hand-built SVG/HTML (sequential `--chart-1`, cubic fill so 0.85 vs 1.0 differ; every cell prints its value).
+- **Gotchas / learnings:** Better Auth redirects a hook's `APIError` body `code` to `errorCallbackURL?error=<code>` on the OAuth callback (so `errorCallbackURL` must not carry its own `error`). `AlertDialogAction` (base-nova) doesn't close the dialog: control `open`. React compiler lint rejects a mutated render-time variable. The case drill-down takes ~8 s in local dev (every query is a VPS round trip). A Coolify build can fail on a transient `git ls-remote` exit 128: redeploy.
+- **Next:** owner: Google redirect URIs + a prod browser sign-in and small run. Then E6 (compare & trends: extend `/v1/trends` with change markers).
 
 ### 2026-10-19 — [eval] Rubric judge moved to Haiku 5.5 (done locally)
 - **Why:** the Sonnet 5.5 rubric was 86 % of judge spend ($0.537 of $0.627 per 30 cases), and runs hit the Anthropic spend limit.

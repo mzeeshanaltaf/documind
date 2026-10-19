@@ -291,6 +291,27 @@ class ClaimOut(BaseModel):
     reasoning: str | None
 
 
+class JudgeCallOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    purpose: str
+    model: str
+    model_actual: str | None
+    effort: str | None
+    sample_idx: int
+    input_tokens: int
+    cache_write_tokens: int
+    cache_read_tokens: int
+    output_tokens: int
+    cost_usd: float
+    latency_ms: int | None
+    stop_reason: str | None
+    status: str
+    error: str | None
+    created_at: datetime
+
+
 class RunCaseDetailOut(RunCaseOut):
     correlation_id: str
     conversation_id: uuid.UUID | None
@@ -307,3 +328,4 @@ class RunCaseDetailOut(RunCaseOut):
     scores: list[MetricScoreOut]
     contexts: list[ContextOut]
     claims: list[ClaimOut] = Field(default_factory=list)
+    judge_calls: list[JudgeCallOut] = Field(default_factory=list)

@@ -12,5 +12,9 @@ docs
 graphify-out
 api/tests
 api/eval/results
+evaluation/**/.venv
+evaluation/**/node_modules
+evaluation/**/.next
+evaluation/api/tests
 minio-data
 *.log

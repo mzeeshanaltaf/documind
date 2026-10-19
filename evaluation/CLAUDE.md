@@ -4,7 +4,7 @@
 - **Web:** `https://evaluation.documind.zeeshanai.cloud`, admin-only.
 - **API:** internal only.
 
-> Status: **E4 done** (2026-10-19): `evaluation/api` foundation, datasets, durable queue, run engine, deterministic metrics, Claude judge + generation metrics, rejudge. No web (E5) yet. Fill in the sections marked _TBD_ as the phases land. Keep this file ≤ 120 lines.
+> Status: **E5 code done** (2026-10-19): API (E2–E4) plus `evaluation/web` (auth, BFF, datasets, runs, live run, drill-down, settings) and both Dockerfiles; the first Coolify deploy is pending (Status.md › Pending user actions). Keep this file ≤ 120 lines.
 
 ## Start here, every session
 1. Read the root `CLAUDE.md` (DocuMind conventions apply here too), then `Status.md` › **Evaluation harness**.
@@ -24,7 +24,16 @@
 | Judge | Anthropic: `claude-haiku-5-5` (rubric, claims, behaviour, relevance; Sonnet 5.5 is a per-run `judge.models.rubric` option), `claude-opus-5-5` (synthetic generation) |
 
 ## Repo layout
-Target layout: `docs/plan/eval/README.md` › Folder layout. Built so far (`evaluation/api/`):
+Target layout: `docs/plan/eval/README.md` › Folder layout. `evaluation/web/` (E5):
+```
+src/app/(auth)/sign-in   src/app/(app)/{page (dashboard),datasets,runs,settings}/  robots.ts (= health)
+src/app/api/auth/[...all]  src/app/api/backend/[...path] (BFF)   src/proxy.ts (cookie-presence redirects)
+src/lib/  auth (Better Auth on DocuMind's tables), admin (role/ban rules), auth-guards (requireAdmin),
+          db (pool, EVAL_AUTH_SCHEMA), eval-api (apiFetch/apiJson/action), api-types, metrics, format, cost
+src/components/  ui/ (copied), brand/, app/ (shell), auth/, datasets/, runs/, case/, charts/
+src/hooks/use-run-events.ts (EventSource via BFF → SWR poll fallback)   scripts/auth-check.ts
+```
+`evaluation/api/`:
 ```
 app/core/       config (EVAL_* settings, parse_schema/with_schema), db, security (verify_api_key, get_admin), log, errors
 app/models/     enums (Literal values = CHECKs), dataset, prompt (+config_presets), run (runs…run_aggregates), job
@@ -41,7 +50,7 @@ app/services/   datasets, importer, runs (create/snapshot/read/delete), run_stat
                 resume/stop, budget pause, sweep), case_results (persist + score, save_judged),
                 judging (judge metric groups), rejudge, prompts, aggregates, exports
 app/routers/    v1 (get_admin on all), datasets, documind (passthrough), jobs, prompts, runs (+rejudge,
-                events, export), health
+                events, export), system (/system, /trends: E5 web), health
 alembic/versions/0001_core, 0002_usd_precision, 0003_judge   scripts/{bootstrap_service_users,import_golden}.py
 tests/          (fake_anthropic.py = the canned judge client; test_judge_live.py is opt-in, -m live)
 ```
@@ -54,17 +63,20 @@ cd evaluation/api && uv run pytest && uv run ruff check .  # -m "not db" skips t
 cd evaluation/api && uv run pytest -m live tests/test_judge_live.py  # real DocuMind + Anthropic (~1¢)
 cd evaluation/api && uv run python -m scripts.bootstrap_service_users --org-slug simtora [--dry-run]
 cd evaluation/api && uv run python -m scripts.import_golden   # needs DocuMind up; re-run = no-op
-cd evaluation/web && pnpm dev | pnpm typecheck | pnpm lint | pnpm build | pnpm auth:check   # E5
+cd evaluation/web && pnpm dev | pnpm typecheck | pnpm lint | pnpm build   # dev on :3100
+cd evaluation/web && pnpm auth:check   # read-only: exits 1 if DocuMind's auth tables don't match
+docker build -f evaluation/{api,web}/Dockerfile .   # repo-root context (web: --build-arg NEXT_PUBLIC_APP_URL)
 ```
-DocuMind itself must be running locally (`api` on :8000) for live runs, the golden import and `/health.documind`.
+DocuMind itself must be running locally (`api` on :8000) for live runs, the golden import and `/health.documind`. The web needs the eval API on :8100.
 
 ## Environment
 - **Keys:** they live in the root `.env.local`. Use the `EVAL_*` keys plus `ANTHROPIC_API_KEY` and `DOCUMIND_API_URL`; the full table is in `docs/plan/eval/README.md` › Environment. `.env.example` lists every key, without values.
-- **Shared with DocuMind:** `DOCUMIND_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`.
+- **Shared with DocuMind:** `DOCUMIND_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `DATABASE_URL` (the web's auth pool; search_path = `EVAL_AUTH_SCHEMA`) and `NEXT_PUBLIC_APP_URL`, which here too means **DocuMind's** URL ("Forgot password", "Open DocuMind"; build-time). The web's own origin is `EVAL_PUBLIC_URL`.
 - **`EVAL_API_KEY`** and **`DOCUMIND_API_KEY`** are server-only. They never get a `NEXT_PUBLIC_` prefix.
 
 ## Architecture rules
-- **Browser → eval web only.** The BFF (`/api/backend/*`) checks the session plus admin, then calls the eval API with `X-API-Key` + `X-User-Id`, and streams SSE unbuffered.
+- **Browser → eval web only.** The BFF (`/api/backend/*`) checks the session plus admin (403), then calls the eval API with `X-API-Key` + `X-User-Id`, and streams SSE unbuffered. It forwards `content-type`, `accept` and `Last-Event-ID` (EventSource resume) only. Reads in the browser go through it (SWR, SSE, imports, exports); mutations are Server Actions (`app/(app)/*/actions.ts`, each `requireAdmin()` + `apiJson`, then `refresh()`).
+- **Sign-in gate:** `databaseHooks.session.create.before` throws `APIError("FORBIDDEN", {code: "NOT_PLATFORM_ADMIN"})` for non-admins (email: inline error; Google: `/sign-in?error=NOT_PLATFORM_ADMIN`). `disabledPaths` leaves only sign-in, callback, get-session and sign-out: this app can't change DocuMind accounts. `requireAdmin()` re-checks role/ban on every request.
 - **The eval API authorizes everything.** The admin check runs against `{EVAL_AUTH_SCHEMA}."user"` (quoted, schema-qualified).
 - **The eval web touches only the Better Auth tables.** All eval data goes through the eval API.
 - **The eval web never migrates the auth tables.** `pnpm auth:check` is read-only. DocuMind owns those tables.
@@ -85,7 +97,7 @@ All admin-only; code in `api/app/core/eval.py`, `routers/eval.py`, `services/eva
 
 ## Conventions
 - Same as the root `CLAUDE.md` › Conventions. Python: async, Pydantic v2, thin routers / logic in services, ruff at 100. TS: Server Components, Server Actions re-check auth, zod, `server-only`.
-- **Design:** follow the root `PRODUCT.md` + `DESIGN.md`. The tokens in `evaluation/web/src/app/globals.css` and `components/ui` are **copies** of `web/` (sync date _TBD_).
+- **Design:** follow the root `PRODUCT.md` + `DESIGN.md`. The tokens in `evaluation/web/src/app/globals.css`, `components/ui`, `button-link`, `option-select`, the logo mark and `remark-citations` are **copies** of `web/` (synced 2026-10-19; checkbox/switch/tabs added via the shadcn CLI). Copy changes over by hand. Scores, case keys and doc codes are mono; highlighter yellow only marks evidence quotes and cited spans; charts use `--chart-1` (sequential, one hue).
 - **Files:** write them with the Write/Edit tools, never shell heredocs.
 - **Git:** commit and push only when the user asks (`/ship`).
 
@@ -103,4 +115,6 @@ All admin-only; code in `api/app/core/eval.py`, `routers/eval.py`, `services/eva
 - **Async ORM:** `Base` sets `eager_defaults=True` so server defaults and `onupdate` values come back with RETURNING; an expired attribute can't lazy-load in async. A column named `text` shadows `sqlalchemy.text` in a class body (`run.py` imports it as `sql_text`).
 - **Queue semantics:** every write after `claim` is guarded by `locked_by`, so a slot whose job was reclaimed can't record an outcome. A job whose lock expired more than `max_attempts` times is failed on the next claim. Graceful shutdown releases jobs at once; a hard kill waits for the 5-minute reclaim.
 - **Tests:** `tests/conftest.py` sets `EVAL_DATABASE_URL` to schema `documind_eval_test` before any app import, migrates it once (alembic in a thread) and drops it at the end. Admin checks use the real `eval-bot` / `eval-probe` users in `EVAL_AUTH_SCHEMA`. From this machine the db tests take ~3 min.
+- **Web (E5):** the live run closes its EventSource itself on a terminal `run` event (the server ends the stream and EventSource would reconnect forever), then refetches once for the aggregates (computed only at finalize, so live metric cards are plain running means). React compiler lint rejects reassigning a render-time variable (e.g. a running group header): precompute (`groupMetrics`). `answer_quality.details.analysis` is a per-dimension object; show `summary`. From this machine a drill-down takes ~8 s in dev (each eval API query is a ~0.45 s VPS round trip).
+- **Containers:** the API image keeps the repo layout under `/srv` (`config.py` finds the repo root 4 levels up, and `/srv/api/eval/golden.jsonl` for `import_golden`); the web image is DocuMind's standalone pattern (`mkdir -p public`, health `/robots.txt`).
 - **Datasets:** `content_hash` sorts cases by `case_key` and normalizes them through `CaseFields`, so positions, key order and explicit defaults don't change it. Imports replace a version's cases (never merge); re-importing the latest published content is a no-op.

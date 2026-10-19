@@ -19,7 +19,16 @@ from app.core.errors import ApiError
 from app.core.security import AdminDep, SessionDep
 from app.documind.client import get_documind
 from app.metrics.registry import describe
-from app.models import Case, Claim, MetricScore, RetrievedContext, Run, RunAggregate, RunCase
+from app.models import (
+    Case,
+    Claim,
+    JudgeCall,
+    MetricScore,
+    RetrievedContext,
+    Run,
+    RunAggregate,
+    RunCase,
+)
 from app.models.enums import RunCaseStatus, RunStatus
 from app.schemas.datasets import CaseOut
 from app.schemas.runs import (
@@ -27,6 +36,7 @@ from app.schemas.runs import (
     ClaimOut,
     ContextOut,
     DatasetVersionRef,
+    JudgeCallOut,
     MetricScoreOut,
     RejudgeIn,
     ResumeIn,
@@ -216,6 +226,13 @@ async def get_run_case(
             select(Claim).where(Claim.run_case_id == run_case_id).order_by(Claim.idx)
         )
     ).all()
+    judge_calls = (
+        await session.scalars(
+            select(JudgeCall)
+            .where(JudgeCall.run_case_id == run_case_id)
+            .order_by(JudgeCall.created_at)
+        )
+    ).all()
     values: dict[str, dict[str, float | None]] = {}
     for score in scores:
         values.setdefault(score.mode, {})[score.metric] = score.value
@@ -237,6 +254,7 @@ async def get_run_case(
         scores=[MetricScoreOut.model_validate(s) for s in scores],
         contexts=[ContextOut.model_validate(c) for c in contexts],
         claims=[ClaimOut.model_validate(c) for c in claims],
+        judge_calls=[JudgeCallOut.model_validate(c) for c in judge_calls],
     )
 
 

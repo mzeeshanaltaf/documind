@@ -1,8 +1,10 @@
 name: Deploy
 
 # Push to main → check and deploy only what changed:
-#   api/** or model-pricing.json → documind-api;  web/** → documind-web.
-# Manual runs (Actions tab → Run workflow) deploy both.
+#   api/** or model-pricing.json → documind-api;  web/** → documind-web;
+#   evaluation/api/** (+ api/eval/golden.jsonl, baked into its image) → documind-eval-api;
+#   evaluation/web/** → documind-eval-web.  .dockerignore → all four.
+# Manual runs (Actions tab → Run workflow) deploy all four.
 # Repo secrets: COOLIFY_BASE_URL, COOLIFY_API_TOKEN (deploy-scoped Coolify token).
 
 on:
@@ -18,6 +20,8 @@ env:
   # Coolify application uuids (not secret: useless without the token).
   API_APP_UUID: anaat3diukcx2lizx4srhe8r
   WEB_APP_UUID: 7hf4gmnbhx1rmeepsrotndlt
+  EVAL_API_APP_UUID: 5435bt2dyjlqfyhifpujfeyu
+  EVAL_WEB_APP_UUID: 7ltejy3ne1khxjsah5ywywib
 
 jobs:
   changes:
@@ -25,6 +29,8 @@ jobs:
     outputs:
       api: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.api == 'true' }}
       web: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.web == 'true' }}
+      eval_api: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.eval_api == 'true' }}
+      eval_web: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.eval_web == 'true' }}
     steps:
       - uses: actions/checkout@v5
       - uses: dorny/paths-filter@v3
@@ -37,6 +43,13 @@ jobs:
               - '.dockerignore'
             web:
               - 'web/**'
+              - '.dockerignore'
+            eval_api:
+              - 'evaluation/api/**'
+              - 'api/eval/golden.jsonl'
+              - '.dockerignore'
+            eval_web:
+              - 'evaluation/web/**'
               - '.dockerignore'
 
   check-api:
@@ -73,6 +86,45 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
 
+  check-eval-api:
+    needs: changes
+    if: needs.changes.outputs.eval_api == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: evaluation/api
+    # Settings needs these to import; the selected tests never connect (db/live are deselected).
+    env:
+      EVAL_DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci?schema=documind_eval_ci
+      EVAL_API_KEY: ci
+      DOCUMIND_API_KEY: ci
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+      - run: uv run --frozen --only-dev ruff check .
+      - run: uv run --frozen pytest -m "not db and not live" -q
+
+  check-eval-web:
+    needs: changes
+    if: needs.changes.outputs.eval_web == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: evaluation/web
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: evaluation/web/package.json
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: evaluation/web/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+
   deploy-api:
     needs: check-api
     runs-on: ubuntu-latest
@@ -94,3 +146,25 @@ jobs:
           COOLIFY_BASE_URL: ${{ secrets.COOLIFY_BASE_URL }}
           COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
         run: bash .github/scripts/coolify-deploy.sh "$WEB_APP_UUID"
+
+  deploy-eval-api:
+    needs: check-eval-api
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Queue documind-eval-api deploy
+        env:
+          COOLIFY_BASE_URL: ${{ secrets.COOLIFY_BASE_URL }}
+          COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
+        run: bash .github/scripts/coolify-deploy.sh "$EVAL_API_APP_UUID"
+
+  deploy-eval-web:
+    needs: check-eval-web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Queue documind-eval-web deploy
+        env:
+          COOLIFY_BASE_URL: ${{ secrets.COOLIFY_BASE_URL }}
+          COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
+        run: bash .github/scripts/coolify-deploy.sh "$EVAL_WEB_APP_UUID"

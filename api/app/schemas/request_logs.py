@@ -31,6 +31,9 @@ class LogItemOut(BaseModel):
 class LogListOut(BaseModel):
     items: list[LogItemOut]
     next_cursor: str | None = Field(description="Pass as `before` for the next (older) page.")
+    total: int | None = Field(
+        None, description="Rows matching the filters; only on a first page (no cursor)."
+    )
 
 
 class LogRoutesOut(BaseModel):

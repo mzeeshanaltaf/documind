@@ -213,6 +213,19 @@ async def test_logs_api_needs_key_and_filters(
     assert len(rest["items"]) == 2 and rest["next_cursor"] is None
     ids = {item["id"] for item in page["items"] + rest["items"]}
     assert len(ids) == 4
+    assert page["total"] == 4 and rest["total"] is None
+
+    # `after` a row = the rows just newer than it, still newest first.
+    oldest = rest["items"][-1]
+    cursor = f"{oldest['created_at']}_{oldest['id']}"
+    newer = (
+        await client.get("/v1/logs", headers=key, params={**mine, "limit": 2, "after": cursor})
+    ).json()
+    assert [item["id"] for item in newer["items"]] == [
+        item["id"] for item in (page["items"] + rest["items"])[1:3]
+    ]
+    both = {**mine, "before": cursor, "after": cursor}
+    assert (await client.get("/v1/logs", headers=key, params=both)).status_code == 422
 
     errors = (await client.get("/v1/logs", headers=key, params={**mine, "status": "4xx"})).json()
     assert [item["status_code"] for item in errors["items"]] == [404]

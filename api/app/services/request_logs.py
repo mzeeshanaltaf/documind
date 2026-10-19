@@ -96,8 +96,46 @@ async def list_logs(
     since: datetime | None = None,
     until: datetime | None = None,
     before: str | None = None,
+    after: str | None = None,
     limit: int = 50,
 ) -> LogListOut:
+    """Newest first. `before` pages to older rows; `after` returns the `limit` rows just newer
+    than the cursor (still newest first, no `next_cursor`). `total` is counted only on a first
+    page (no cursor), so cursor calls such as the viewer's neighbour lookups stay cheap."""
+    if before and after:
+        raise ApiError(422, "invalid_cursor", "Pass `before` or `after`, not both.")
+    conditions: list[ColumnElement[bool]] = []
+    if q:
+        conditions.append(search_filter(q.strip()))
+    if method:
+        conditions.append(ApiRequestLog.method == method.upper())
+    if status:
+        conditions.append(status_filter(status.strip().lower()))
+    if route:
+        conditions.append(ApiRequestLog.route == route)
+    if user_id:
+        conditions.append(ApiRequestLog.user_id == user_id)
+    if org_id:
+        conditions.append(ApiRequestLog.org_id == org_id)
+    if since:
+        conditions.append(ApiRequestLog.created_at >= since)
+    if until:
+        conditions.append(ApiRequestLog.created_at < until)
+
+    total = None
+    if not before and not after:
+        total = await session.scalar(
+            select(func.count()).select_from(ApiRequestLog).where(*conditions)
+        )
+
+    key = tuple_(ApiRequestLog.created_at, ApiRequestLog.id)
+    order = (ApiRequestLog.created_at.desc(), ApiRequestLog.id.desc())
+    if before:
+        conditions.append(key < decode_cursor(before))
+    if after:
+        conditions.append(key > decode_cursor(after))
+        order = (ApiRequestLog.created_at.asc(), ApiRequestLog.id.asc())
+
     usage = _usage_totals().lateral("usage")
     query = (
         select(
@@ -110,34 +148,13 @@ async def list_logs(
         .outerjoin(user_table, user_table.c.id == ApiRequestLog.user_id)
         .outerjoin(organization_table, organization_table.c.id == ApiRequestLog.org_id)
         .outerjoin(usage, true())
+        .where(*conditions)
+        .order_by(*order)
+        .limit(limit + 1)
     )
-    if q:
-        query = query.where(search_filter(q.strip()))
-    if method:
-        query = query.where(ApiRequestLog.method == method.upper())
-    if status:
-        query = query.where(status_filter(status.strip().lower()))
-    if route:
-        query = query.where(ApiRequestLog.route == route)
-    if user_id:
-        query = query.where(ApiRequestLog.user_id == user_id)
-    if org_id:
-        query = query.where(ApiRequestLog.org_id == org_id)
-    if since:
-        query = query.where(ApiRequestLog.created_at >= since)
-    if until:
-        query = query.where(ApiRequestLog.created_at < until)
-    if before:
-        stamp, log_id = decode_cursor(before)
-        query = query.where(tuple_(ApiRequestLog.created_at, ApiRequestLog.id) < (stamp, log_id))
-
-    rows = (
-        await session.execute(
-            query.order_by(ApiRequestLog.created_at.desc(), ApiRequestLog.id.desc()).limit(
-                limit + 1
-            )
-        )
-    ).all()
+    rows = (await session.execute(query)).all()
+    if after:
+        rows = rows[:limit][::-1]
     items = [
         LogItemOut.model_validate(row.ApiRequestLog).model_copy(
             update={
@@ -152,7 +169,7 @@ async def list_logs(
     next_cursor = (
         encode_cursor(items[-1].created_at, items[-1].id) if len(rows) > limit and items else None
     )
-    return LogListOut(items=items, next_cursor=next_cursor)
+    return LogListOut(items=items, next_cursor=next_cursor, total=total)
 
 
 async def list_routes(session: AsyncSession) -> list[str]:

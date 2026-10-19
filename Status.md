@@ -310,6 +310,11 @@ A standalone app at `https://evaluation.documind.zeeshanai.cloud` (code in `eval
 - Next: …
 -->
 
+### 2026-10-19 — Logs viewer: paging, row numbers, log-to-log navigation (not deployed)
+- Built: `GET /v1/logs` takes `limit` up to 500, an `after` cursor (the rows just newer, still newest first; not combinable with `before`) and returns `total` on a first page only. `/v1/logs/ui` has a `#` column (1 = newest, across pages), 50/100/200/500 rows per page (remembered in localStorage), Prev/Next pages (a client-side cursor stack), Prev/Next log buttons plus ←/→ keys in the detail view (neighbours fetched under the list's filters, the open tab is kept), and the Response tab shows the full stored body as JSON (chat SSE: an Answer card + the condensed `{answer, events}` body).
+- Gotcha fixed: the page's `h()` helper flattened children one level only, so `kv()` (Routing, Timings) printed `[object HTMLElement]`; it now uses `flat(Infinity)`.
+- Next: try it in a browser (no local API was running this session); deploy.
+
 ### 2026-10-19 — [eval] E2: eval API foundation, datasets & durable queue (done locally)
 - **Built (`evaluation/api/`, uv, Python 3.12):**
   - `core/`: config (`EVAL_*` settings, ported `parse_schema`, `with_schema`), db (ported normalizer, `documind-eval-api`, pool 5+2), security (`verify_api_key` constant-time; `get_admin` reads `"<EVAL_AUTH_SCHEMA>"."user"`: unknown → 401, non-admin/banned → 403), log + errors copied from DocuMind.

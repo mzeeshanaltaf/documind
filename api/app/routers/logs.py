@@ -41,7 +41,10 @@ async def list_logs(
     since: Annotated[datetime | None, Query(alias="from")] = None,
     until: Annotated[datetime | None, Query(alias="to")] = None,
     before: Annotated[str | None, Query(max_length=100, description="`next_cursor`.")] = None,
-    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    after: Annotated[
+        str | None, Query(max_length=100, description="A row's cursor: the rows just newer.")
+    ] = None,
+    limit: Annotated[int, Query(ge=1, le=500)] = 50,
 ) -> LogListOut:
     """Logged `/v1` requests, newest first, with their user, org and LLM token/cost totals."""
     return await service.list_logs(
@@ -55,6 +58,7 @@ async def list_logs(
         since=since,
         until=until,
         before=before,
+        after=after,
         limit=limit,
     )
 

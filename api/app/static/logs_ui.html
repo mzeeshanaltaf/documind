@@ -147,7 +147,13 @@ th.num { text-align: right; }
 .m-GET { color: var(--info); } .m-POST { color: var(--success); } .m-PUT, .m-PATCH { color: var(--warning); } .m-DELETE { color: var(--destructive); }
 .s-2 { color: var(--success); } .s-3 { color: var(--info); } .s-4 { color: var(--warning); } .s-5 { color: var(--destructive); }
 
-.foot { display: flex; justify-content: center; padding: 14px; }
+.foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border-top: 1px solid var(--border); }
+.foot .pager { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.foot select.field { width: auto; }
+td.no, th.no { color: var(--muted-foreground); text-align: right; font-variant-numeric: tabular-nums; width: 1%; white-space: nowrap; }
+.detail-head .nav { display: flex; gap: 6px; margin-left: auto; align-items: center; }
+.detail-head .no { font: 500 0.8125rem var(--font-mono); color: var(--muted-foreground); }
+kbd { font: 500 0.7rem var(--font-mono); padding: 0 5px; border: 1px solid var(--input); border-radius: 4px; background: var(--muted); }
 .empty { padding: 40px 16px; text-align: center; color: var(--muted-foreground); }
 .notice {
   padding: 10px 12px; margin-bottom: 14px; border-radius: var(--radius);
@@ -180,8 +186,6 @@ pre {
 .kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; }
 .kv dt { color: var(--muted-foreground); }
 .kv dd { margin: 0; overflow-wrap: anywhere; }
-.events { display: grid; gap: 8px; }
-.event-name { font: 500 0.75rem var(--font-mono); margin-bottom: 4px; color: var(--accent-foreground); }
 
 dialog {
   border: 1px solid var(--border); border-radius: calc(var(--radius) * 1.4);
@@ -253,7 +257,7 @@ label.lbl { display: block; font-size: 0.78rem; font-weight: 500; margin-bottom:
       else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
       else el.setAttribute(k, v === true ? "" : String(v));
     }
-    for (const c of children.flat()) {
+    for (const c of children.flat(Infinity)) {
       if (c === null || c === undefined || c === false) continue;
       el.append(c instanceof Node ? c : document.createTextNode(String(c)));
     }
@@ -333,6 +337,22 @@ label.lbl { display: block; font-size: 0.78rem; font-weight: 500; margin-bottom:
   // --- list view ------------------------------------------------------------------------------
   const filters = { q: "", method: "", status: "", route: "" };
   let routes = [];
+  const PAGE_SIZES = [50, 100, 200, 500];
+  const SIZE_STORE = "documind-logs-page-size";
+  const savedSize = Number(store.get(SIZE_STORE));
+  // cursors[i] = the `before` cursor of page i (page 0 has none); total comes with page 0.
+  const pager = { size: PAGE_SIZES.includes(savedSize) ? savedSize : 50, cursors: [null], index: 0, total: null };
+  const numbers = new Map(); // log id → its row number in the filtered list (1 = newest)
+  let seq = 0; // bumped per render, so a slow response can't paint over a newer view
+  let detailNav = null; // { prev, next } while a detail view is showing
+  let activeTab = 0; // kept while stepping between logs
+
+  function resetPager() { pager.cursors = [null]; pager.index = 0; pager.total = null; }
+  function filterParams(extra) {
+    const params = new URLSearchParams(extra);
+    for (const [k, v] of Object.entries(filters)) if (v) params.set(k, v);
+    return params;
+  }
 
   function select(name, label, options) {
     return h("select", { class: "field", name, "aria-label": label },
@@ -341,10 +361,13 @@ label.lbl { display: block; font-size: 0.78rem; font-weight: 500; margin-bottom:
   }
 
   async function renderList() {
+    const mine = ++seq;
+    detailNav = null;
     document.title = "REST API Logs · DocuMind";
     try {
       routes = (await api("/routes")).routes;
     } catch (err) { return showError(err); }
+    if (mine !== seq) return;
 
     const form = h("form", { class: "filters", role: "search" },
       h("input", { class: "field grow", name: "q", type: "search", value: filters.q,
@@ -355,18 +378,21 @@ label.lbl { display: block; font-size: 0.78rem; font-weight: 500; margin-bottom:
       h("button", { class: "btn primary", type: "submit" }, "Search"),
       h("button", { class: "btn ghost", type: "button", onclick: () => {
         Object.keys(filters).forEach((k) => (filters[k] = ""));
+        resetPager();
         renderList();
       } }, "Clear"));
     form.addEventListener("submit", (e) => {
       e.preventDefault();
       const data = new FormData(form);
       Object.keys(filters).forEach((k) => (filters[k] = String(data.get(k) || "")));
+      resetPager();
       renderList();
     });
 
     const tbody = h("tbody");
     const table = h("table", {},
       h("thead", {}, h("tr", {},
+        h("th", { class: "no" }, "#"),
         h("th", {}, "Method"), h("th", {}, "URL"), h("th", {}, "Status"),
         h("th", { class: "num" }, "Time"), h("th", { class: "hide-sm" }, "User"),
         h("th", { class: "hide-sm" }, "Org"), h("th", { class: "num hide-sm" }, "Tokens"),
@@ -376,28 +402,56 @@ label.lbl { display: block; font-size: 0.78rem; font-weight: 500; margin-bottom:
     const card = h("div", { class: "card" }, h("div", { class: "table-scroll" }, table), foot);
     app.replaceChildren(form, card);
 
-    async function load(before) {
-      const params = new URLSearchParams({ limit: "50" });
-      for (const [k, v] of Object.entries(filters)) if (v) params.set(k, v);
+    async function load() {
+      const params = filterParams({ limit: String(pager.size) });
+      const before = pager.cursors[pager.index];
       if (before) params.set("before", before);
       foot.replaceChildren(h("span", { class: "muted" }, "Loading…"));
       let page;
       try { page = await api("?" + params); } catch (err) { return showError(err); }
-      for (const item of page.items) tbody.append(listRow(item));
-      if (!tbody.children.length) {
-        tbody.append(h("tr", {}, h("td", { colspan: 10, class: "empty" }, "No requests match these filters.")));
+      if (mine !== seq) return;
+      if (page.total !== null && page.total !== undefined) pager.total = page.total;
+
+      const first = pager.index * pager.size + 1;
+      tbody.replaceChildren(...page.items.map((item, i) => {
+        numbers.set(item.id, first + i);
+        return listRow(item, first + i);
+      }));
+      if (!page.items.length) {
+        tbody.append(h("tr", {}, h("td", { colspan: 11, class: "empty" }, "No requests match these filters.")));
       }
-      foot.replaceChildren(page.next_cursor
-        ? h("button", { class: "btn", type: "button", onclick: () => load(page.next_cursor) }, "Load more")
-        : h("span", { class: "muted" }, tbody.querySelectorAll("tr.clickable").length + " request(s)"));
+
+      const turn = (delta) => {
+        if (delta > 0) pager.cursors[pager.index + 1] = page.next_cursor;
+        pager.index += delta;
+        load().then(() => card.scrollIntoView({ block: "nearest" }));
+      };
+      const sizeSelect = h("select", { class: "field", "aria-label": "Rows per page" },
+        PAGE_SIZES.map((n) => h("option", { value: n, selected: n === pager.size }, n + " / page")));
+      sizeSelect.addEventListener("change", () => {
+        pager.size = Number(sizeSelect.value);
+        store.set(SIZE_STORE, String(pager.size));
+        resetPager();
+        load();
+      });
+      const range = page.items.length
+        ? first.toLocaleString() + "–" + (first + page.items.length - 1).toLocaleString()
+          + (pager.total !== null ? " of " + pager.total.toLocaleString() : "")
+        : "0 requests";
+      foot.replaceChildren(
+        h("span", { class: "muted" }, range),
+        h("div", { class: "pager" }, sizeSelect,
+          h("button", { class: "btn", type: "button", disabled: pager.index === 0, onclick: () => turn(-1) }, "← Prev"),
+          h("button", { class: "btn", type: "button", disabled: !page.next_cursor, onclick: () => turn(1) }, "Next →")));
     }
-    await load(null);
+    await load();
   }
 
-  function listRow(item) {
+  function listRow(item, no) {
     const open = () => { location.hash = "#/log/" + item.id; };
     const url = item.path + (item.query ? "?" + item.query : "");
     return h("tr", { class: "clickable", onclick: open },
+      h("td", { class: "no mono" }, no.toLocaleString()),
       h("td", {}, methodBadge(item.method)),
       h("td", { class: "url mono", title: item.route || "" }, url,
         item.error_code ? h("div", { class: "muted" }, item.error_code) : null),
@@ -413,9 +467,12 @@ label.lbl { display: block; font-size: 0.78rem; font-weight: 500; margin-bottom:
 
   // --- detail view ----------------------------------------------------------------------------
   async function renderDetail(id) {
-    app.replaceChildren(h("p", { class: "muted" }, "Loading…"));
+    const mine = ++seq;
+    detailNav = null;
+    if (!app.querySelector(".detail-head")) app.replaceChildren(h("p", { class: "muted" }, "Loading…"));
     let log;
     try { log = await api("/" + encodeURIComponent(id)); } catch (err) { return showError(err); }
+    if (mine !== seq) return;
     document.title = log.method + " " + log.path + " · REST API Logs";
 
     const calls = log.llm_calls || [];
@@ -468,20 +525,59 @@ label.lbl { display: block; font-size: 0.78rem; font-weight: 500; margin-bottom:
     tabs.forEach(([label, render], i) => {
       const btn = h("button", { class: "tab", type: "button", role: "tab", "aria-selected": "false" }, label);
       btn.addEventListener("click", () => {
+        activeTab = i;
         tabBar.querySelectorAll(".tab").forEach((t) => t.setAttribute("aria-selected", "false"));
         btn.setAttribute("aria-selected", "true");
         panel.replaceChildren(...[render()].flat());
       });
       tabBar.append(btn);
-      if (i === 0) queueMicrotask(() => btn.click());
+      if (i === activeTab) queueMicrotask(() => btn.click());
     });
+
+    // Prev = the newer neighbour (row number − 1), Next = the older one (+ 1), under the list's filters.
+    const no = numbers.get(log.id);
+    const prevBtn = h("button", { class: "btn", type: "button", disabled: true, title: "Newer request (←)" }, "← Prev log");
+    const nextBtn = h("button", { class: "btn", type: "button", disabled: true, title: "Older request (→)" }, "Next log →");
+    const neighbours = { prev: null, next: null };
+    const go = (target, delta) => {
+      if (!target) return;
+      if (no) numbers.set(target.id, no + delta);
+      location.replace("#/log/" + target.id);
+    };
+    prevBtn.addEventListener("click", () => go(neighbours.prev, -1));
+    nextBtn.addEventListener("click", () => go(neighbours.next, 1));
+    detailNav = { prev: () => go(neighbours.prev, -1), next: () => go(neighbours.next, 1) };
 
     app.replaceChildren(
       h("div", { class: "detail-head" },
         h("button", { class: "btn", type: "button", onclick: () => { location.hash = ""; } }, "← All requests"),
-        h("h2", {}, log.method + " " + log.path)),
+        h("h2", {}, log.method + " " + log.path),
+        h("div", { class: "nav" },
+          no ? h("span", { class: "no", title: "Row number in the list (1 = newest)" },
+            "#" + no.toLocaleString() + (pager.total !== null ? " of " + pager.total.toLocaleString() : "")) : null,
+          prevBtn, nextBtn)),
       summary, tabBar, panel);
+
+    const cursor = log.created_at + "_" + log.id;
+    const neighbour = (dir) => api("?" + filterParams({ limit: "1", [dir]: cursor }))
+      .then((page) => page.items[0] || null, () => null);
+    const [newer, older] = await Promise.all([neighbour("after"), neighbour("before")]);
+    if (mine !== seq) return;
+    neighbours.prev = newer;
+    neighbours.next = older;
+    prevBtn.disabled = !newer;
+    nextBtn.disabled = !older;
   }
+
+  addEventListener("keydown", (e) => {
+    if (!detailNav || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || dialog.open) return;
+    const t = e.target;
+    if (t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName))) return;
+    const move = e.key === "ArrowLeft" ? detailNav.prev : e.key === "ArrowRight" ? detailNav.next : null;
+    if (!move) return;
+    e.preventDefault();
+    move();
+  });
 
   const none = () => h("p", { class: "muted" }, dash);
   const section = (title, value) => [h("h3", {}, title), value === null || value === undefined ? none() : json(value)];
@@ -499,16 +595,13 @@ label.lbl { display: block; font-size: 0.78rem; font-weight: 500; margin-bottom:
   function responsePanel(log) {
     const out = [...section("Headers", log.response_headers)];
     const body = log.response_body;
-    out.push(h("h3", {}, "Body" + (log.response_body_size ? " (" + num(log.response_body_size) + " bytes" + (log.body_truncated ? ", truncated" : "") + ")" : "")));
-    if (body && typeof body === "object" && Array.isArray(body.events)) {
-      out.push(h("div", { class: "card answer" }, body.answer || dash));
-      out.push(h("h3", {}, "Events"));
-      out.push(h("div", { class: "events" }, body.events.map((ev) =>
-        h("div", {}, h("div", { class: "event-name" }, ev.event + (ev.count ? " × " + ev.count : "")),
-          ev.count ? null : json(ev.data === undefined ? null : ev.data)))));
-    } else {
-      out.push(body === null || body === undefined ? none() : json(body));
-    }
+    // Chat SSE is stored condensed: the `delta` events joined into `answer`, the rest kept in order.
+    const sse = body && typeof body === "object" && Array.isArray(body.events);
+    if (sse) out.push(h("h3", {}, "Answer"), h("div", { class: "card answer" }, body.answer || dash));
+    const size = log.response_body_size
+      ? " (" + num(log.response_body_size) + " bytes" + (log.body_truncated ? ", truncated" : "") + ")" : "";
+    out.push(h("h3", {}, "Body" + size + (sse ? " · SSE stream, deltas joined into answer" : "")));
+    out.push(body === null || body === undefined ? none() : json(body));
     return out;
   }
 
@@ -524,7 +617,9 @@ label.lbl { display: block; font-size: 0.78rem; font-weight: 500; margin-bottom:
   function kv(obj) {
     return h("dl", { class: "kv" }, Object.entries(obj).map(([k, v]) => [
       h("dt", {}, k),
-      h("dd", {}, Array.isArray(v) ? (v.length ? v.join(", ") : dash) : typeof v === "object" && v !== null ? JSON.stringify(v) : fmt(v)),
+      h("dd", {}, Array.isArray(v)
+        ? (v.length ? v.map((x) => (typeof x === "object" && x !== null ? JSON.stringify(x) : String(x))).join(", ") : dash)
+        : typeof v === "object" && v !== null ? JSON.stringify(v) : fmt(v)),
     ]));
   }
 

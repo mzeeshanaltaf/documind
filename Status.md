@@ -33,7 +33,7 @@ Legend: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked
 A standalone app at `https://evaluation.documind.zeeshanai.cloud` (code in `evaluation/`) that evaluates DocuMind end to end.
 - **Docs:** overview, data model and metrics in [docs/plan/eval/README.md](docs/plan/eval/README.md); guide in [evaluation/CLAUDE.md](evaluation/CLAUDE.md).
 - **Session logs:** entries tagged `[eval]` in the Session log below.
-- **Current eval phase:** **E6 — Compare & trends** (code done and verified locally 2026-10-19; not deployed; see the `[eval]` E6 log). E5 is live at `https://evaluation.documind.zeeshanai.cloud`; left for the owner there: the two Google OAuth redirect URIs and a browser sign-in on prod (Pending user actions). The live $0.10 budget-pause check from E4 still hasn't been re-run. Next: `/ship` E6, confirm a DocuMind-redeploy marker on prod trends, then E7.
+- **Current eval phase:** **E6 — Compare & trends** (verified locally and deployed 2026-10-19, `b9d2fbe`; see the `[eval]` E6 log). E5 is live at `https://evaluation.documind.zeeshanai.cloud`; left for the owner there: the two Google OAuth redirect URIs and a browser sign-in on prod (Pending user actions). The live $0.10 budget-pause check from E4 still hasn't been re-run. Next: confirm a DocuMind-redeploy marker on prod trends (needs a prod run before and after a DocuMind deploy), then E7.
 
 | # | Phase | Doc | Status |
 |---|---|---|---|
@@ -42,7 +42,7 @@ A standalone app at `https://evaluation.documind.zeeshanai.cloud` (code in `eval
 | E3 | Run engine & deterministic metrics | [phase-E3](docs/plan/eval/phase-E3-run-engine-and-deterministic-metrics.md) | ✅ Done; deployed with E5 |
 | E4 | Claude judge & generation metrics | [phase-E4](docs/plan/eval/phase-E4-claude-judge-and-generation-metrics.md) | ✅ Done; deployed with E5 (live budget-pause check still to re-run) |
 | E5 | Eval web, auth & first deploy | [phase-E5](docs/plan/eval/phase-E5-eval-web-auth-and-deploy.md) | 🟨 Deployed; owner: Google redirect URIs + prod browser sign-in |
-| E6 | Compare & trends | [phase-E6](docs/plan/eval/phase-E6-compare-and-trends.md) | 🟨 Code done, verified locally; not deployed (redeploy marker to check on prod) |
+| E6 | Compare & trends | [phase-E6](docs/plan/eval/phase-E6-compare-and-trends.md) | 🟨 Deployed (`b9d2fbe`); redeploy marker to check on prod |
 | E7 | Synthetic test sets & reference enrichment | [phase-E7](docs/plan/eval/phase-E7-synthetic-test-sets.md) | ⬜ Not started |
 | E8 | Adversarial & safety suite | [phase-E8](docs/plan/eval/phase-E8-adversarial-and-safety-suite.md) | ⬜ Not started |
 | E9 | Human review & judge calibration | [phase-E9](docs/plan/eval/phase-E9-human-review-and-calibration.md) | ⬜ Not started |
@@ -341,7 +341,8 @@ A standalone app at `https://evaluation.documind.zeeshanai.cloud` (code in `eval
   - Locally, **four concurrent runs starve the eval API's DB pool** (5 + 2 connections at ~0.45 s per round trip): `QueuePool limit … reached` after 30 s, pages hang, and a case failed at stage `job`. One golden run at a time is fine (as in E3/E4). Prod's DB is on the same host.
   - `next dev` (eval web) fell into the endless "Compiled in 2ms" reload loop again (6k cycles) without a typecheck running; stopping it and deleting `.next/dev` fixed it.
   - Playwright against `next dev`: `networkidle` and even `load` never fire (HMR); wait for `commit` + a selector.
-- **Next:** `/ship`, then on prod: a run after the deploy should carry a `documind` marker if DocuMind's commit changed. Then E7 (synthetic test sets).
+- **Deployed** `b9d2fbe` (workflow: eval checks + both Coolify deploys green). Both eval containers are healthy on the new image; the prod eval API reports DocuMind `8f7f160`, answers `/v1/trends` 200, and `/compare` on the web redirects to sign-in when signed out.
+- **Next:** on prod, a run after DocuMind's next deploy should carry a `documind` marker (its commit is in each run's snapshot). Then E7 (synthetic test sets).
 
 ### 2026-10-19 — [eval] E5: eval web, auth & first deploy (deployed; owner checks pending)
 - **Built (`evaluation/web/`, Next 16.4 / Better Auth 1.7.7, same lockfile versions as `web/`):**

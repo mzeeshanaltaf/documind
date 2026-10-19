@@ -42,8 +42,8 @@ const WORK: NavItem[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboardIcon },
   { href: "/datasets", label: "Datasets", icon: DatabaseIcon },
   { href: "/runs", label: "Runs", icon: PlayIcon },
-  { href: "/compare", label: "Compare", icon: GitCompareArrowsIcon, phase: "E6" },
-  { href: "/trends", label: "Trends", icon: TrendingUpIcon, phase: "E6" },
+  { href: "/compare", label: "Compare", icon: GitCompareArrowsIcon },
+  { href: "/trends", label: "Trends", icon: TrendingUpIcon },
 ];
 const QUALITY: NavItem[] = [
   { href: "/synthetic", label: "Synthetic", icon: SparklesIcon, phase: "E7" },

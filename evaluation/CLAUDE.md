@@ -4,7 +4,7 @@
 - **Web:** `https://evaluation.documind.zeeshanai.cloud`, admin-only.
 - **API:** internal only.
 
-> Status: **E5 code done** (2026-10-19): API (E2–E4) plus `evaluation/web` (auth, BFF, datasets, runs, live run, drill-down, settings) and both Dockerfiles; the first Coolify deploy is pending (Status.md › Pending user actions). Keep this file ≤ 120 lines.
+> Status: **E6 code done** (2026-10-19): E5 is deployed; E6 adds compare (paired A/B, A/A noise floor) and trends (change markers), not yet deployed. Keep this file ≤ 120 lines.
 
 ## Start here, every session
 1. Read the root `CLAUDE.md` (DocuMind conventions apply here too), then `Status.md` › **Evaluation harness**.
@@ -26,11 +26,12 @@
 ## Repo layout
 Target layout: `docs/plan/eval/README.md` › Folder layout. `evaluation/web/` (E5):
 ```
-src/app/(auth)/sign-in   src/app/(app)/{page (dashboard),datasets,runs,settings}/  robots.ts (= health)
+src/app/(auth)/sign-in   src/app/(app)/{page (dashboard),datasets,runs,compare (+case),trends,settings}/
 src/app/api/auth/[...all]  src/app/api/backend/[...path] (BFF)   src/proxy.ts (cookie-presence redirects)
 src/lib/  auth (Better Auth on DocuMind's tables), admin (role/ban rules), auth-guards (requireAdmin),
-          db (pool, EVAL_AUTH_SCHEMA), eval-api (apiFetch/apiJson/action), api-types, metrics, format, cost
-src/components/  ui/ (copied), brand/, app/ (shell), auth/, datasets/, runs/, case/, charts/
+          db (pool, EVAL_AUTH_SCHEMA), eval-api (apiFetch/apiJson/action), api-types, metrics, format, cost,
+          compare (Δ/p formats, verdicts), case-sources (drill-down sources + evidence quotes)
+src/components/  ui/ (copied), brand/, app/ (shell), auth/, datasets/, runs/, case/, charts/, compare/, trends/
 src/hooks/use-run-events.ts (EventSource via BFF → SWR poll fallback)   scripts/auth-check.ts
 ```
 `evaluation/api/`:
@@ -39,20 +40,19 @@ app/core/       config (EVAL_* settings, parse_schema/with_schema), db, security
 app/models/     enums (Literal values = CHECKs), dataset, prompt (+config_presets), run (runs…run_aggregates), job
 app/documind/   client (DocuMindClient, get_documind), events (typed SSE + parse_event), models
 app/worker/     queue (claim/…/enqueue, enqueue_many, enqueue_finalize), loop (slots), sweeper, limits
-                (DocuMind + judge per-model semaphores, RPM bucket), errors,
-                handlers/{noop, case_generate, case_judge, run_finalize}
+                (DocuMind + judge semaphores, RPM bucket), errors, handlers/{noop, case_generate, case_judge, run_finalize}
 app/judge/      client (every Anthropic call), registry (prompt files → prompt_versions), render (case
                 packet), pricing (judge-pricing.json), schemas (structured outputs), prompts/*.md
 app/metrics/    types, registry (REGISTRY, MetricConfig, evaluate, case_passed), retrieval, citations,
                 operational, safety (+ fingerprints.txt), generation + behavior (judge metrics' math)
-app/stats/      intervals (Wilson), bootstrap (seeded percentile, percentile)
+app/stats/      intervals (Wilson), bootstrap (seeded percentile), paired (bootstrap CI, sign-flip, McNemar, Holm, classes)
 app/services/   datasets, importer, runs (create/snapshot/read/delete), run_state (count, settle, pause/
                 resume/stop, budget pause, sweep), case_results (persist + score, save_judged),
-                judging (judge metric groups), rejudge, prompts, aggregates, exports
+                judging (judge metric groups), rejudge, prompts, aggregates, exports, compare (A/B +
+                A/A noise floor), config_diff (flattened config/snapshot diff), trends (series + markers)
 app/routers/    v1 (get_admin on all), datasets, documind (passthrough), jobs, prompts, runs (+rejudge,
-                events, export), system (/system, /trends: E5 web), health
-alembic/versions/0001_core, 0002_usd_precision, 0003_judge   scripts/{bootstrap_service_users,import_golden}.py
-tests/          (fake_anthropic.py = the canned judge client; test_judge_live.py is opt-in, -m live)
+                events, export), compare, trends, system, health
+alembic/versions/0001_core…0003_judge  scripts/{bootstrap_service_users,import_golden}.py  tests/ (fake_anthropic.py)
 ```
 
 ## Commands
@@ -61,8 +61,7 @@ cd evaluation/api && uv run uvicorn app.main:app --reload --port 8100
 cd evaluation/api && uv run alembic upgrade head          # `alembic check` = models vs DB drift
 cd evaluation/api && uv run pytest && uv run ruff check .  # -m "not db" skips the Postgres tests
 cd evaluation/api && uv run pytest -m live tests/test_judge_live.py  # real DocuMind + Anthropic (~1¢)
-cd evaluation/api && uv run python -m scripts.bootstrap_service_users --org-slug simtora [--dry-run]
-cd evaluation/api && uv run python -m scripts.import_golden   # needs DocuMind up; re-run = no-op
+cd evaluation/api && uv run python -m scripts.bootstrap_service_users --org-slug simtora [--dry-run]; uv run python -m scripts.import_golden  # needs DocuMind up; re-run = no-op
 cd evaluation/web && pnpm dev | pnpm typecheck | pnpm lint | pnpm build   # dev on :3100
 cd evaluation/web && pnpm auth:check   # read-only: exits 1 if DocuMind's auth tables don't match
 docker build -f evaluation/{api,web}/Dockerfile .   # repo-root context (web: --build-arg NEXT_PUBLIC_APP_URL)
@@ -109,12 +108,13 @@ All admin-only; code in `api/app/core/eval.py`, `routers/eval.py`, `services/eva
 - **Chat isn't idempotent.** A retried case (attempt > 1) lists DocuMind's conversations for the case (a crash can land before `meta` is stored), recovers one with a complete scored answer and deletes the rest.
 - **Run state:** every transition happens with the run row locked; "in flight" = a `generating`/`judging` case whose job has a live lock. A dead worker's lock looks live for 5 min, so a pausing run turns `paused` (via the 15 s sweeper) only then. Finishing = `done + failed + skipped ≥ total`.
 - **Money is `numeric(14, 8)`** (DocuMind's precision); 6 decimals rounded case costs. Stored cost = successful attempts; `/usage` also meters interrupted ones, so a killed run's gap is real spend.
-- **Local drills:** in Git Bash set `MSYS_NO_PATHCONV=1` before passing `/v1/...` args, and hard-kill with PowerShell `Stop-Process -Force` (`taskkill //F` fails from Git Bash). respx mocks with a `base_url` need `path__regex`.
+- **Local drills:** in Git Bash set `MSYS_NO_PATHCONV=1` before passing `/v1/...` args, and hard-kill with PowerShell `Stop-Process -Force` (`taskkill //F` fails from Git Bash). respx mocks with a `base_url` need `path__regex`. Run one golden run at a time locally: with the ~0.45 s VPS round trip, 4 busy runs saturate the 7-connection pool (`QueuePool limit … reached`) and cases fail at stage `job`; pages wait 30 s.
 - **Prod DocuMind serves real users** on one uvicorn worker. Keep `EVAL_DOCUMIND_CONCURRENCY` low and run big suites off-hours.
 - **asyncpg pitfalls.** Cast numeric params (`CAST(:x AS float8)`), and pass intervals as `timedelta` **and** `CAST(:d AS interval)`: in `now() - $1` asyncpg infers a timestamp. Give each concurrent task its own session.
 - **Async ORM:** `Base` sets `eager_defaults=True` so server defaults and `onupdate` values come back with RETURNING; an expired attribute can't lazy-load in async. A column named `text` shadows `sqlalchemy.text` in a class body (`run.py` imports it as `sql_text`).
 - **Queue semantics:** every write after `claim` is guarded by `locked_by`, so a slot whose job was reclaimed can't record an outcome. A job whose lock expired more than `max_attempts` times is failed on the next claim. Graceful shutdown releases jobs at once; a hard kill waits for the 5-minute reclaim.
 - **Tests:** `tests/conftest.py` sets `EVAL_DATABASE_URL` to schema `documind_eval_test` before any app import, migrates it once (alembic in a thread) and drops it at the end. Admin checks use the real `eval-bot` / `eval-probe` users in `EVAL_AUTH_SCHEMA`. From this machine the db tests take ~3 min.
 - **Web (E5):** the live run closes its EventSource itself on a terminal `run` event (the server ends the stream and EventSource would reconnect forever), then refetches once for the aggregates (computed only at finalize, so live metric cards are plain running means). React compiler lint rejects reassigning a render-time variable (e.g. a running group header): precompute (`groupMetrics`). `answer_quality.details.analysis` is a per-dimension object; show `summary`. From this machine a drill-down takes ~8 s in dev (each eval API query is a ~0.45 s VPS round trip).
+- **Compare/trends (E6):** Δ = B − A. Operational metrics (latency, TTFT, tokens, cost) are descriptive (CI + raw p, outside Holm, never significant): a back-to-back rerun reads ~99 % of its input from OpenAI's prompt cache vs ~50 % cold, so cost drops ~45 % with an identical setup. The noise floor is an A/A pair found automatically (same config hash + DocuMind version + judge prompt shas; rejudges excluded), preferring A's or B's setup. Trend markers come from `config_diff.kind_of` over consecutive runs of one run mode; locally DocuMind's version is always `dev`, so redeploy markers only show on prod.
 - **Containers:** the API image keeps the repo layout under `/srv` (`config.py` finds the repo root 4 levels up, and `/srv/api/eval/golden.jsonl` for `import_golden`); the web image is DocuMind's standalone pattern (`mkdir -p public`, health `/robots.txt`).
 - **Datasets:** `content_hash` sorts cases by `case_key` and normalizes them through `CaseFields`, so positions, key order and explicit defaults don't change it. Imports replace a version's cases (never merge); re-importing the latest published content is a no-op.

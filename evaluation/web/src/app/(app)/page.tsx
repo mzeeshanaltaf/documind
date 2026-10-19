@@ -138,9 +138,14 @@ async function PinnedTrends() {
     <Section
       title={`Trends · ${dataset.name}`}
       action={
-        <Link href={`/datasets/${dataset.id}`} className="text-sm text-muted-foreground hover:text-foreground hover:underline">
-          {pinned ? "Pinned dataset" : "Latest run's dataset; pin one to keep it"}
-        </Link>
+        <span className="flex items-baseline gap-3 text-sm text-muted-foreground">
+          <Link href={`/datasets/${dataset.id}`} className="hover:text-foreground hover:underline">
+            {pinned ? "Pinned dataset" : "Latest run's dataset; pin one to keep it"}
+          </Link>
+          <Link href={`/trends?dataset=${dataset.id}`} className="hover:text-foreground hover:underline">
+            All trends
+          </Link>
+        </span>
       }
     >
       <p className="-mt-1 text-xs text-muted-foreground">Completed, non-partial runs, oldest to newest. The band is the 95% CI.</p>

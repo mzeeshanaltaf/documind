@@ -41,6 +41,7 @@ select = ["E", "F", "W", "I", "B", "UP", "ASYNC"]
 # Reuses test_runs' fixtures by importing them; test parameters then "redefine" the names.
 "tests/test_judge.py" = ["F811"]
 "tests/test_system.py" = ["F811"]
+"tests/test_compare.py" = ["F811"]
 
 [tool.ruff.lint.isort]
 # evaluation/api/alembic/ (migrations) would otherwise make the `alembic` package look first-party.

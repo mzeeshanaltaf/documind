@@ -1,7 +1,8 @@
 "use client";
 
-import { ChevronDownIcon } from "lucide-react";
+import { ChevronDownIcon, GitCompareArrowsIcon } from "lucide-react";
 import Link from "next/link";
+import { ButtonLink } from "@/components/button-link";
 import { useMemo, useState } from "react";
 import useSWR from "swr";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -133,7 +134,15 @@ export function LiveRun({
               <span className="font-mono">{shortId(run.id)}</span>
             </p>
           </div>
-          <RunControls run={run} onChanged={follow} />
+          <div className="flex flex-wrap items-center gap-2">
+            {(terminal || run.status === "stopped") && (
+              <ButtonLink href={`/compare?a=${run.id}`} variant="outline" size="sm">
+                <GitCompareArrowsIcon data-icon="inline-start" />
+                Compare with…
+              </ButtonLink>
+            )}
+            <RunControls run={run} onChanged={follow} />
+          </div>
         </div>
 
         <div className="grid gap-x-8 gap-y-4 rounded-lg border p-4 sm:grid-cols-2 lg:grid-cols-4">

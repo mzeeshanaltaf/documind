@@ -435,4 +435,99 @@ export type TrendPoint = {
   ci_high: number | null;
   n: number;
 };
-export type Trends = { series: Record<string, TrendPoint[]> };
+export type TrendRun = {
+  run_id: string;
+  name: string | null;
+  finished_at: string | null;
+  dataset_version_id: string;
+  dataset_slug: string;
+  dataset_version: number | null;
+  config_hash: string;
+  documind_version: string | null;
+  source_run_id: string | null;
+};
+export type ChangeKind = "config" | "documind" | "prompt" | "dataset";
+export type MarkerChange = { kind: ChangeKind; key: string; a: unknown; b: unknown };
+export type TrendMarker = {
+  run_id: string;
+  previous_run_id: string;
+  finished_at: string | null;
+  kinds: ChangeKind[];
+  changes: MarkerChange[];
+};
+export type Trends = {
+  run_mode: "full" | "retrieval_only" | null;
+  runs: TrendRun[];
+  series: Record<string, TrendPoint[]>;
+  markers: TrendMarker[];
+  slices: string[];
+};
+
+// --- compare (E6) ----------------------------------------------------------------------------
+
+export type CompareMetric = {
+  key: string;
+  group: string;
+  scale: MetricInfo["scale"];
+  direction: "higher" | "lower";
+  test: "mcnemar" | "permutation";
+  n: number;
+  n_missing: number;
+  mean_a: number | null;
+  mean_b: number | null;
+  delta: number | null;
+  ci: [number, number] | null;
+  p: number | null;
+  /** False for operational metrics: descriptive only (they follow the prompt cache and load). */
+  in_family: boolean;
+  p_holm: number | null;
+  significant: boolean;
+  direction_good: boolean | null;
+  discordant: { a_only: number; b_only: number } | null;
+  noise_delta: number | null;
+  within_noise: boolean | null;
+};
+
+export type CaseClass = "improved" | "regressed" | "mixed" | "unchanged" | "unpaired";
+
+export type CompareCase = {
+  case_key: string;
+  question: string;
+  type: string;
+  run_case_id_a: string | null;
+  run_case_id_b: string | null;
+  status_a: RunCaseStatus | null;
+  status_b: RunCaseStatus | null;
+  passed_a: boolean | null;
+  passed_b: boolean | null;
+  values: Record<string, [number | null, number | null]>;
+  deltas: Record<string, number | null>;
+  changes: Record<string, "improved" | "regressed">;
+  class: CaseClass;
+};
+
+export type Comparison = {
+  a: RunOut;
+  b: RunOut;
+  mode: string;
+  config_diff: { key: string; a: unknown; b: unknown }[];
+  warnings: string[];
+  noise_floor: {
+    run_a: string;
+    run_b: string;
+    is_self: boolean;
+    paired: number;
+    flip_rate: number | null;
+    metrics: Record<string, number>;
+  } | null;
+  pairing: {
+    paired: number;
+    only_a: number;
+    only_b: number;
+    not_done: number;
+    classes: Record<CaseClass, number>;
+    flip_rate: number | null;
+  };
+  metrics: CompareMetric[];
+  cases: CompareCase[];
+};

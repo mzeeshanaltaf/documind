@@ -6,7 +6,7 @@ import { Suspense } from "react";
 import { PageContainer } from "@/components/app/page-container";
 import { PageSkeleton } from "@/components/app/shell-skeleton";
 import { ButtonLink } from "@/components/button-link";
-import { CaseAnswer, type CitedSource } from "@/components/case/answer";
+import { CaseAnswer } from "@/components/case/answer";
 import { ClaimsTable } from "@/components/case/claims-table";
 import { ContextsTable } from "@/components/case/contexts-table";
 import { JudgeReasoning, ScoresTable } from "@/components/case/scores";
@@ -16,6 +16,7 @@ import { CaseStatusBadge, PassMark } from "@/components/runs/status";
 import { Badge } from "@/components/ui/badge";
 import type { MetricInfo, RunCaseDetail, RunCaseOut, RunDetail } from "@/lib/api-types";
 import { requireAdmin } from "@/lib/auth-guards";
+import { caseSources } from "@/lib/case-sources";
 import { apiJson, apiJsonOrNull } from "@/lib/eval-api";
 import { formatDuration, formatUnitCost, humanize } from "@/lib/format";
 import { indexMetrics } from "@/lib/metrics";
@@ -77,18 +78,7 @@ async function Case({ params }: { params: PageProps<"/runs/[id]/cases/[caseId]">
 
   const spec = detail.case;
   const routing = detail.routing;
-  // Evidence quotes per source number: highlighted in the chips and the context rows.
-  const quotesByN: Record<number, string[]> = {};
-  for (const claim of detail.claims) {
-    if (!claim.evidence_quote) continue;
-    for (const n of claim.supporting_ns) (quotesByN[n] ??= []).push(claim.evidence_quote);
-  }
-  const answerContexts = run.mode === "full" ? detail.contexts : [];
-  const sources: Record<number, CitedSource> = {};
-  for (const c of answerContexts) {
-    const citation = detail.citations?.find((x) => x.n === c.n);
-    sources[c.n] ??= { ...c, title: citation?.title ?? null, quotes: quotesByN[c.n] ?? [] };
-  }
+  const { quotesByN, sources } = caseSources(detail, run.mode);
 
   return (
     <PageContainer className="max-w-6xl gap-10">

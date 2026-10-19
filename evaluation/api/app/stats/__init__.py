@@ -1,2 +1,2 @@
-"""Statistics for run aggregates (numpy only): bootstrap and Wilson intervals; paired tests and
-agreement arrive with E6/E9."""
+"""Statistics (numpy only): bootstrap and Wilson intervals for run aggregates, paired tests for
+A/B comparisons (E6); agreement statistics arrive with E9."""

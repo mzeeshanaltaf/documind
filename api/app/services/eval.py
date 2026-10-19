@@ -297,6 +297,25 @@ async def run_usage(session: AsyncSession, run_id: str) -> dict[str, Any]:
     }
 
 
+async def run_conversations(
+    session: AsyncSession, run_id: str, case_id: str | None = None
+) -> list[dict[str, Any]]:
+    """The run's eval conversations (optionally one case's), oldest first. The harness uses it
+    to find a conversation whose id it never received (a crash between DocuMind creating it and
+    the `meta` event being stored), so a retry can't leave a duplicate behind."""
+    stmt = (
+        select(Conversation.id, Conversation.eval_case_id, Conversation.created_at)
+        .where(Conversation.is_eval.is_(True), Conversation.eval_run_id == run_id)
+        .order_by(Conversation.created_at, Conversation.id)
+    )
+    if case_id is not None:
+        stmt = stmt.where(Conversation.eval_case_id == case_id)
+    return [
+        {"id": str(row.id), "eval_case_id": row.eval_case_id, "created_at": row.created_at}
+        for row in (await session.execute(stmt)).all()
+    ]
+
+
 async def delete_run_conversations(session: AsyncSession, run_id: str) -> int:
     """Delete the run's eval conversations (messages cascade); usage rows are kept."""
     result = await session.execute(

@@ -211,6 +211,7 @@ async def test_eval_authorization(
         ("GET", f"/v1/orgs/{seed.org_id}/documents/{hr}/chunks", None),
         ("GET", "/v1/admin/eval/info", None),
         ("GET", "/v1/admin/eval-runs/r1/usage", None),
+        ("GET", "/v1/admin/eval-runs/r1/conversations", None),
         ("DELETE", "/v1/admin/eval-runs/r1/conversations", None),
     ):
         response = await client.request(method, path, headers=member, json=body)
@@ -367,6 +368,20 @@ async def test_chunks_info_and_cleanup(
     for run in (run_a, run_a, run_b):
         events_of(await chat(client, seed, headers(api_key, seed.admin_id, run, "c")))
     events_of(await chat(client, seed, admin))  # a normal conversation
+    listed = await client.get(f"/v1/admin/eval-runs/{run_a}/conversations", headers=admin)
+    assert [c["eval_case_id"] for c in listed.json()["conversations"]] == ["c", "c"]
+    one_case = await client.get(
+        f"/v1/admin/eval-runs/{run_b}/conversations", headers=admin, params={"case_id": "c"}
+    )
+    assert len(one_case.json()["conversations"]) == 1
+    other = await client.get(
+        f"/v1/admin/eval-runs/{run_b}/conversations", headers=admin, params={"case_id": "zz"}
+    )
+    assert other.json() == {"conversations": []}
+    bad_case = await client.get(
+        f"/v1/admin/eval-runs/{run_b}/conversations", headers=admin, params={"case_id": "a:b"}
+    )
+    assert bad_case.status_code == 422
     deleted = await client.delete(f"/v1/admin/eval-runs/{run_a}/conversations", headers=admin)
     assert deleted.json() == {"deleted": 2}
     left = await _rows(

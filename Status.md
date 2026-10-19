@@ -33,13 +33,13 @@ Legend: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked
 A standalone app at `https://evaluation.documind.zeeshanai.cloud` (code in `evaluation/`) that evaluates DocuMind end to end.
 - **Docs:** overview, data model and metrics in [docs/plan/eval/README.md](docs/plan/eval/README.md); guide in [evaluation/CLAUDE.md](evaluation/CLAUDE.md).
 - **Session logs:** entries tagged `[eval]` in the Session log below.
-- **Current eval phase:** **E2 — Eval API foundation, datasets & durable queue** (done locally, 2026-10-19 `[eval]` log; nothing to deploy until E5). E1 is code done, not deployed. Next: E3.
+- **Current eval phase:** **E3 — Run engine & deterministic metrics** (done locally, 2026-10-19 `[eval]` log; nothing to deploy until E5). E1 is code done, not deployed (E3 added one hook to it). Next: E4.
 
 | # | Phase | Doc | Status |
 |---|---|---|---|
-| E1 | DocuMind eval hooks (tagging, overrides, retrieve/chunks/info endpoints, exclusions) | [phase-E1](docs/plan/eval/phase-E1-documind-eval-hooks.md) | 🟨 Code done; Coolify source-commit setting on; deploy pending |
+| E1 | DocuMind eval hooks (tagging, overrides, retrieve/chunks/info endpoints, exclusions) | [phase-E1](docs/plan/eval/phase-E1-documind-eval-hooks.md) | 🟨 Code done (+ E3's per-case conversation list); Coolify source-commit setting on; deploy pending |
 | E2 | Eval API foundation, datasets & durable queue | [phase-E2](docs/plan/eval/phase-E2-eval-api-foundation-and-datasets.md) | ✅ Done (local; deployed with E5) |
-| E3 | Run engine & deterministic metrics | [phase-E3](docs/plan/eval/phase-E3-run-engine-and-deterministic-metrics.md) | ⬜ Not started |
+| E3 | Run engine & deterministic metrics | [phase-E3](docs/plan/eval/phase-E3-run-engine-and-deterministic-metrics.md) | ✅ Done (local; deployed with E5) |
 | E4 | Claude judge & generation metrics | [phase-E4](docs/plan/eval/phase-E4-claude-judge-and-generation-metrics.md) | ⬜ Not started |
 | E5 | Eval web, auth & first deploy | [phase-E5](docs/plan/eval/phase-E5-eval-web-auth-and-deploy.md) | ⬜ Not started |
 | E6 | Compare & trends | [phase-E6](docs/plan/eval/phase-E6-compare-and-trends.md) | ⬜ Not started |
@@ -80,7 +80,6 @@ A standalone app at `https://evaluation.documind.zeeshanai.cloud` (code in `eval
 - **Canary org vs self-service joining:** `/app/join` lists **every** org, so any signed-in user could join the E8 leakage org `eval-canary`. Before E8, hide eval orgs from the join page (e.g. an `organization.metadata` flag), or create the canary org only in dev.
 - **Prod targeting:** eval runs against prod DocuMind share its single uvicorn worker and OpenAI limits with real users. Should prod runs need an explicit confirmation, or be limited to the off-hours default concurrency of 2?
 - **Judge budget:** the default `max_judge_cost_usd` per run (proposed $5), and whether to also set a monthly cap.
-- **Eval conversations:** delete them in DocuMind at finalize (proposed default), or keep them for debugging?
 - **Service account visibility:** `eval-bot` and `eval-probe` will show up in DocuMind's `/admin/users`. Is that acceptable, or should they be filtered?
 - **Reviewers for E9:** only the owner, or a second reviewer too? A human-human κ ceiling needs two reviewers on the same items.
 - **Root `CLAUDE.md` length:** it sits at the 150-line limit. The eval pointer was folded into two existing lines (Start here › 2, Repo layout › `docs/plan/`); any further eval notes belong in `evaluation/CLAUDE.md`.
@@ -309,6 +308,33 @@ A standalone app at `https://evaluation.documind.zeeshanai.cloud` (code in `eval
 - Gotchas / learnings: …
 - Next: …
 -->
+
+### 2026-10-19 — [eval] E3: run engine & deterministic metrics (done locally)
+- **Built (`evaluation/api/`):**
+  - `metrics/`: `types` (CaseSpec, Context, CaseOutput, MetricSpec, MetricResult), `registry` (REGISTRY, `MetricConfig` = enabled/thresholds/gates from the run config, `evaluate`, `case_passed`, `describe`), `retrieval` (hit@5, hit@k, mrr, recall_doc@k, recall_section@k, precision@k, ndcg@k, routing_hit/jaccard, jurisdiction_acc/false_pos; `is_relevant` ported from `run_eval.is_hit`), `citations` (citation_validity, cited_section_hit, cited_doc_precision, page_hit), `operational` (latency, TTFT, tokens, cost), `safety` (leakage) + `fingerprints.txt`.
+  - `stats/`: Wilson; percentile bootstrap (B=2000, sha256-derived seed of run id + metric); percentiles.
+  - Services: `runs` (create: me → health/info/settings/documents in parallel, scope codes → ids or `skipped`, config + `config_hash`, snapshot, run cases, bulk-enqueued jobs; list/get/delete; case filters incl. `metric`+`lt`), `run_state` (counting `UPDATE … RETURNING`, `settle`, pause/resume/stop, `fail_case`, `sweep`), `case_results` (`Generated`, contexts + scores + count in one transaction), `aggregates` (pure `build_aggregates` in a thread), `exports` (CSV/JSON).
+  - Handlers `case_generate` (full: setup turns + scored turn, conversation id saved on `meta`; retrieval-only: one `/retrieve`; recovery; 4xx ≠ 429 permanent, others back off, last attempt → `error`) and `run_finalize` (aggregates, `/usage` reconciliation, cleanup, recount, final status). `worker/sweeper.py` (every 15 s, started with the slots).
+  - Routes: `POST/GET /v1/runs`, `GET/DELETE /v1/runs/{id}`, `/aggregates`, `/cases`, `/cases/{id}`, `/pause`, `/resume`, `/stop`, `/events` (SSE), `/export?format=csv|json`, `GET /v1/metrics`.
+  - Migration `0002_usd_precision`: every USD column → `numeric(14, 8)` (DocuMind's `llm_usage` precision).
+  - **DocuMind (E1 hook added):** `GET /v1/admin/eval-runs/{run}/conversations?case_id=` (admin-only, oldest first) + test assertions in `test_eval_hooks.py`.
+- **Verified (local DocuMind, real OpenAI, ~$0.04 in total):**
+  - Retrieval-only golden v1: hybrid hit@5 **1.000**, MRR **0.944**; bm25 hit@5 **0.967** (MRR 0.812, as the E1 re-check); vector 1.000/0.944; routing 30/30, jurisdiction 10/10. DocuMind cost reconciled exactly.
+  - Clean full run: 30/30 done and passed, citation_validity 1.0, leakage 0, hit@5 1.0, MRR 0.944, latency p50 13.7 s / TTFT p50 11.0 s; stored cost **= `/usage`** ($0.00903941 both); 0 conversations left after finalize.
+  - Pause → hard kill (`Stop-Process -Force`) with 4 cases in flight → restart: the sweeper turned `pausing` into `paused` once the dead locks expired (5 min); resume → completed 30/30. One interrupted chat was **recovered** (DocuMind had finished it), the others were deleted and restarted. With cleanup off, DocuMind listed **30 conversations, ≤ 1 per case**. Cost gap 1.6 %: the killed chats' calls are metered but produce no outcome.
+  - Stop after 3 done → `stopped`, `partial=true`, 7 done (the 4 in flight finished), 23 pending, aggregates over n=7; conversations cleaned.
+  - `curl -N …/events`: the replay, then `run`/`case` events as cases finished.
+  - `ruff check` + `ruff format --check` clean; eval `pytest` **86 passed** in 11 min (15 new db tests in `test_runs.py`, 32 pure in `test_metrics.py`/`test_stats.py`). DocuMind `test_eval_hooks.py` 5 passed.
+- **Deviations from plan:**
+  - The first pause/kill drill found a gap: a kill after DocuMind created a conversation but before its `meta` was stored left a duplicate (finalize then deleted 31 for 30 cases). Hence the new DocuMind hook: a retried attempt (attempt > 1) lists the case's conversations, recovers one complete match and deletes the rest. Drill 2 then had no duplicates.
+  - The citation regex is DocuMind's `MARKER_RE` (`[1]` and `[1, 3]`), not just `\[(\d+)\]`.
+  - Setup turns get request ids `eval.<run8>.<case>.<attempt>.t<n>`; the scored turn keeps the planned form. In retrieval-only runs, setup turns become user-only `history`.
+  - Finishing is `done + failed + skipped ≥ total`. Case jobs are ordered by `clock_timestamp()` per row, not by priority. Retrieval-only runs store case-level metrics (routing, operational, leakage) under every mode, and `case_pass`/`error_rate` aggregate rows per mode. Slices add `juris:none`.
+  - Extras: `GET /v1/metrics`, `GET /v1/runs/{id}/aggregates`, `canary_phrases` in the run body (E8 fills it), and `org_slug` defaults to the dataset's `default_org_slug`. A run can only be deleted when it isn't active (paused is fine).
+  - Latency/TTFT are DocuMind's server-side values (the client-side ones are in the trace). Tokens and cost cover setup turns too; latency/TTFT only the scored turn. A recovered case has cost but no token counts.
+  - Finalize resets cases a dead worker left `generating` back to `pending`, and recounts every counter from `run_cases`.
+- **Gotchas / learnings:** Git Bash rewrites `/v1/...` arguments into Windows paths (`MSYS_NO_PATHCONV=1`), and `taskkill //F` fails from it (use PowerShell `Stop-Process -Force`). A dead worker's lock looks live for 5 minutes, so a paused run settles only after that. respx: use `path__regex` with a `base_url` mock; async side effects work. Numeric(14, 6) silently rounded case costs.
+- **Next:** E4 (Claude judge). `save_generated` marks the place where judge metrics stop at `generated` and enqueue `case_judge`.
 
 ### 2026-10-19 — Logs viewer: paging, row numbers, log-to-log navigation (not deployed)
 - Built: `GET /v1/logs` takes `limit` up to 500, an `after` cursor (the rows just newer, still newest first; not combinable with `before`) and returns `total` on a first page only. `/v1/logs/ui` has a `#` column (1 = newest, across pages), 50/100/200/500 rows per page (remembered in localStorage), Prev/Next pages (a client-side cursor stack), Prev/Next log buttons plus ←/→ keys in the detail view (neighbours fetched under the list's filters, the open tab is kept), and the Response tab shows the full stored body as JSON (chat SSE: an Answer card + the condensed `{answer, events}` body).

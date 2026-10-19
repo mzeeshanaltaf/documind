@@ -100,6 +100,59 @@ async def enqueue(
     return job_id
 
 
+INSERT_MANY_SQL = text(
+    """
+    INSERT INTO jobs (id, kind, run_id, run_case_id, max_attempts, created_at)
+    VALUES (:id, :kind, :run_id, :run_case_id, :max_attempts, clock_timestamp())
+    """
+)
+
+
+async def enqueue_many(
+    session: AsyncSession,
+    kind: str,
+    run_id: uuid.UUID,
+    run_case_ids: list[uuid.UUID],
+    *,
+    max_attempts: int = 3,
+) -> None:
+    """One job per run case, in a single executemany (a run can have hundreds of cases).
+    `clock_timestamp()` advances per row (unlike `now()`), so the claim's `created_at` order is
+    the dataset order."""
+    if not run_case_ids:
+        return
+    await session.execute(
+        INSERT_MANY_SQL,
+        [
+            {
+                "id": uuid.uuid4(),
+                "kind": kind,
+                "run_id": run_id,
+                "run_case_id": run_case_id,
+                "max_attempts": max_attempts,
+            }
+            for run_case_id in run_case_ids
+        ],
+    )
+
+
+async def enqueue_finalize(session: AsyncSession, run_id: uuid.UUID) -> bool:
+    """Enqueue the run's `run_finalize` unless one is already live. The partial unique index
+    `uq_jobs_run_finalize_active` makes this race-free; False = one already existed."""
+    result = await session.execute(
+        text(
+            """
+            INSERT INTO jobs (id, kind, run_id, priority, max_attempts)
+            VALUES (:id, 'run_finalize', :run_id, 10, 3)
+            ON CONFLICT (run_id) WHERE kind = 'run_finalize' AND status IN ('queued', 'running')
+            DO NOTHING
+            """
+        ),
+        {"id": uuid.uuid4(), "run_id": run_id},
+    )
+    return result.rowcount == 1  # type: ignore[attr-defined]
+
+
 async def claim(worker_id: str) -> ClaimedJob | None:
     async with session_scope() as session:
         row = (

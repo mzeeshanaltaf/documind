@@ -4,7 +4,7 @@
 - **Web:** `https://evaluation.documind.zeeshanai.cloud`, admin-only.
 - **API:** internal only.
 
-> Status: **E2 done** (2026-10-19): `evaluation/api` foundation, datasets, durable queue. No run engine (E3) or web (E5) yet. Fill in the sections marked _TBD_ as the phases land. Keep this file ≤ 120 lines.
+> Status: **E3 done** (2026-10-19): `evaluation/api` foundation, datasets, durable queue, run engine and deterministic metrics. No judge (E4) or web (E5) yet. Fill in the sections marked _TBD_ as the phases land. Keep this file ≤ 120 lines.
 
 ## Start here, every session
 1. Read the root `CLAUDE.md` (DocuMind conventions apply here too), then `Status.md` › **Evaluation harness**.
@@ -29,10 +29,15 @@ Target layout: `docs/plan/eval/README.md` › Folder layout. Built so far (`eval
 app/core/       config (EVAL_* settings, parse_schema/with_schema), db, security (verify_api_key, get_admin), log, errors
 app/models/     enums (Literal values = CHECKs), dataset, prompt (+config_presets), run (runs…run_aggregates), job
 app/documind/   client (DocuMindClient, get_documind), events (typed SSE + parse_event), models
-app/worker/     queue (claim/heartbeat/succeed/fail/requeue/release/enqueue), loop (slots), limits, errors, handlers/{noop}
-app/services/   datasets (versions, publish, content_hash, cases), importer (JSONL mapping, golden)
-app/routers/    v1 (get_admin on all), datasets, documind (passthrough), jobs (noop + status), health
-alembic/versions/0001_core.py   scripts/{bootstrap_service_users,import_golden}.py   tests/ (fixtures/sse/*.txt)
+app/worker/     queue (claim/…/enqueue, enqueue_many, enqueue_finalize), loop (slots), sweeper, limits, errors,
+                handlers/{noop, case_generate, run_finalize}
+app/metrics/    types, registry (REGISTRY, MetricConfig, evaluate, case_passed), retrieval, citations,
+                operational, safety (+ fingerprints.txt)
+app/stats/      intervals (Wilson), bootstrap (seeded percentile, percentile)
+app/services/   datasets, importer, runs (create/snapshot/read/delete), run_state (count, settle, pause/
+                resume/stop, sweep), case_results (persist + score), aggregates, exports
+app/routers/    v1 (get_admin on all), datasets, documind (passthrough), jobs, runs (+events, export), health
+alembic/versions/0001_core, 0002_usd_precision   scripts/{bootstrap_service_users,import_golden}.py   tests/
 ```
 
 ## Commands
@@ -67,7 +72,7 @@ All admin-only; code in `api/app/core/eval.py`, `routers/eval.py`, `services/eva
 - **Headers:** `X-Eval-Run-Id` (required with a case id) and `X-Eval-Case-Id`, each `^[A-Za-z0-9_-]{1,100}$` (422 `invalid_eval_header`; non-admin → 403 `eval_forbidden`). Tagged chats create `is_eval` conversations titled `[eval] <case>`, skip quota and title, and tag every `llm_usage` row. An eval conversation can only be continued with eval headers (and vice versa), else 404.
 - **Chat `overrides`** (eval headers required, else 403 `overrides_require_eval`): `top_k` 1–30, `retrieval_mode` bm25|vector|hybrid, `chat_model`, `router_model`, `chat_service_tier` standard|flex|auto, `include_source_text` (default true).
 - **Eval-mode SSE:** `routing` = `Route.as_dict()` + `document_ids`; `sources` = full `Source.as_dict()` (chunk id, text unless disabled, scores); `usage` adds `by_operation` (one entry per call) and `retrieval` (summary).
-- **Endpoints:** `POST /v1/orgs/{id}/retrieve` (`{query, history?, document_ids?, modes, top_k?, router_model?, chat_service_tier?}` → `{routing, queries, config, results{mode: {sources, retrieval}}, usage, timings_ms}`; bm25-only skips the embed), `GET /v1/orgs/{id}/documents/{doc}/chunks?offset&limit≤500`, `GET /v1/admin/eval/info`, `GET /v1/admin/eval-runs/{run}/usage` (`totals`, `by_operation`, `by_case` with `calls/input/cached/output/cost_usd`), `DELETE /v1/admin/eval-runs/{run}/conversations` → `{deleted}` (usage rows are kept). `/health` has `version`.
+- **Endpoints:** `POST /v1/orgs/{id}/retrieve` (`{query, history?, document_ids?, modes, top_k?, router_model?, chat_service_tier?}` → `{routing, queries, config, results{mode: {sources, retrieval}}, usage, timings_ms}`; bm25-only skips the embed), `GET /v1/orgs/{id}/documents/{doc}/chunks?offset&limit≤500`, `GET /v1/admin/eval/info`, `GET /v1/admin/eval-runs/{run}/usage` (`totals`, `by_operation`, `by_case` with `calls/input/cached/output/cost_usd`), `GET /v1/admin/eval-runs/{run}/conversations?case_id=` → `{conversations: [{id, eval_case_id, created_at}]}` (added in E3 for retry recovery), `DELETE /v1/admin/eval-runs/{run}/conversations` → `{deleted}` (usage rows are kept). `/health` has `version`.
 
 ## Conventions
 - Same as the root `CLAUDE.md` › Conventions. Python: async, Pydantic v2, thin routers / logic in services, ruff at 100. TS: Server Components, Server Actions re-check auth, zod, `server-only`.
@@ -78,7 +83,10 @@ All admin-only; code in `api/app/core/eval.py`, `routers/eval.py`, `services/eva
 ## Gotchas already known
 - **No temperature control.** Sonnet and Haiku 5.5 reject non-default `temperature`/`top_p`/`top_k`. Use `messages.parse` structured output, not forced `tool_choice`. Sonnet 5.5 can't disable thinking.
 - **Cookies on localhost.** DocuMind (:3000) and Eval (:3100) share localhost cookies, so the eval app uses `cookiePrefix: "documind-eval"`. Never enable `crossSubDomainCookies`.
-- **Chat isn't idempotent.** A retried case first recovers its existing DocuMind conversation, or deletes it and starts over.
+- **Chat isn't idempotent.** A retried case (attempt > 1) lists DocuMind's conversations for the case (a crash can land before `meta` is stored), recovers one with a complete scored answer and deletes the rest.
+- **Run state:** every transition happens with the run row locked; "in flight" = a `generating`/`judging` case whose job has a live lock. A dead worker's lock looks live for 5 min, so a pausing run turns `paused` (via the 15 s sweeper) only then. Finishing = `done + failed + skipped ≥ total`.
+- **Money is `numeric(14, 8)`** (DocuMind's precision); 6 decimals rounded case costs. Stored cost = successful attempts; `/usage` also meters interrupted ones, so a killed run's gap is real spend.
+- **Local drills:** in Git Bash set `MSYS_NO_PATHCONV=1` before passing `/v1/...` args, and hard-kill with PowerShell `Stop-Process -Force` (`taskkill //F` fails from Git Bash). respx mocks with a `base_url` need `path__regex`.
 - **Prod DocuMind serves real users** on one uvicorn worker. Keep `EVAL_DOCUMIND_CONCURRENCY` low and run big suites off-hours.
 - **asyncpg pitfalls.** Cast numeric params (`CAST(:x AS float8)`), and pass intervals as `timedelta` **and** `CAST(:d AS interval)`: in `now() - $1` asyncpg infers a timestamp. Give each concurrent task its own session.
 - **Async ORM:** `Base` sets `eager_defaults=True` so server defaults and `onupdate` values come back with RETURNING; an expired attribute can't lazy-load in async. A column named `text` shadows `sqlalchemy.text` in a class body (`run.py` imports it as `sql_text`).

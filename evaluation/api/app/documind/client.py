@@ -183,7 +183,34 @@ class DocuMindClient:
     async def run_usage(self, run_id: str, **tags: Any) -> dict[str, Any]:
         return await self._get(f"/v1/admin/eval-runs/{run_id}/usage", **tags)
 
+    async def run_conversations(
+        self, run_id: str, case_id: str | None = None, **tags: Any
+    ) -> list[dict[str, Any]]:
+        """The run's eval conversations (oldest first), optionally one case's."""
+        params = {"case_id": case_id} if case_id else None
+        data = await self._get(f"/v1/admin/eval-runs/{run_id}/conversations", params, **tags)
+        return list(data["conversations"])
+
+    async def org_settings(self, org_id: str, **tags: Any) -> dict[str, Any]:
+        """Effective chat/router models, tier and top_k (env defaults fill unset fields)."""
+        return await self._get(f"/v1/orgs/{org_id}/settings", **tags)
+
     # --- writes ----------------------------------------------------------------------------
+
+    async def delete_conversation(self, conversation_id: str | uuid.UUID, **tags: Any) -> bool:
+        """False when it was already gone (404), so a retry is harmless."""
+        try:
+            await self._request(
+                "DELETE",
+                f"/v1/conversations/{conversation_id}",
+                retry=True,
+                headers=self.tag_headers(**tags),
+            )
+        except DocuMindError as exc:
+            if exc.status_code == 404:
+                return False
+            raise
+        return True
 
     async def delete_run_conversations(self, run_id: str, **tags: Any) -> int:
         """Idempotent (a second call deletes 0), so it retries like a GET."""

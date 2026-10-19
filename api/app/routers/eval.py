@@ -51,6 +51,19 @@ async def run_usage(_: AdminDep, session: SessionDep, run_id: str) -> dict[str, 
     return await service.run_usage(session, check_eval_id(run_id, "run_id"))
 
 
+@router.get("/admin/eval-runs/{run_id}/conversations")
+async def run_conversations(
+    _: AdminDep, session: SessionDep, run_id: str, case_id: str | None = None
+) -> dict[str, list[dict[str, Any]]]:
+    """The run's eval conversations (`?case_id=` narrows to one case), oldest first."""
+    if case_id is not None:
+        check_eval_id(case_id, "case_id")
+    conversations = await service.run_conversations(
+        session, check_eval_id(run_id, "run_id"), case_id
+    )
+    return {"conversations": conversations}
+
+
 @router.delete("/admin/eval-runs/{run_id}/conversations")
 async def delete_run_conversations(_: AdminDep, session: SessionDep, run_id: str) -> dict[str, int]:
     """Delete the run's eval conversations (their messages cascade; usage rows stay)."""

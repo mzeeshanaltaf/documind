@@ -13,6 +13,7 @@ from app.core.log import RequestIdMiddleware, configure_logging
 from app.documind.client import DocuMindError, close_documind
 from app.routers import health, v1
 from app.worker import loop
+from app.worker.sweeper import start_sweeper
 
 configure_logging()
 logger = logging.getLogger("app.main")
@@ -22,10 +23,12 @@ logger = logging.getLogger("app.main")
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     stop = asyncio.Event()
     slots = loop.start_slots(get_settings().eval_worker_slots, stop)
+    # The sweeper settles runs whose in-flight cases died; pointless without workers.
+    sweeper = [start_sweeper(stop)] if slots else []
     logger.info("Started %d worker slot(s)", len(slots))
     yield
     # Busy slots are cancelled and release their job (queued again, attempt refunded).
-    await loop.stop_slots(slots, stop)
+    await loop.stop_slots([*slots, *sweeper], stop)
     await close_documind()
     await engine.dispose()
 

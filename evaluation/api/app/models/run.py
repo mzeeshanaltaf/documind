@@ -38,7 +38,7 @@ from app.models.enums import (
     values,
 )
 
-USD = Numeric(14, 6)
+USD = Numeric(14, 8)  # DocuMind's llm_usage.cost_usd precision
 ZERO = sql_text("0")
 EMPTY_JSON = sql_text("'{}'::jsonb")
 

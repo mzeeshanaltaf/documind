@@ -33,14 +33,14 @@ Legend: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked
 A standalone app at `https://evaluation.documind.zeeshanai.cloud` (code in `evaluation/`) that evaluates DocuMind end to end.
 - **Docs:** overview, data model and metrics in [docs/plan/eval/README.md](docs/plan/eval/README.md); guide in [evaluation/CLAUDE.md](evaluation/CLAUDE.md).
 - **Session logs:** entries tagged `[eval]` in the Session log below.
-- **Current eval phase:** **E4 — Claude judge & generation metrics** (done locally, 2026-10-19 `[eval]` log; nothing to deploy until E5). One acceptance check is blocked by the Anthropic account's spend limit (live $0.10 budget pause; see the log). E1 is code done, not deployed. Next: E5.
+- **Current eval phase:** **E4 — Claude judge & generation metrics** (done locally, 2026-10-19 `[eval]` log; nothing to deploy until E5). The Anthropic spend limit was raised on 2026-10-19 and the API answers again, but the live $0.10 budget-pause check hasn't been re-run yet. The rubric judge is now Haiku 5.5. E1 is code done, not deployed. Next: E5.
 
 | # | Phase | Doc | Status |
 |---|---|---|---|
 | E1 | DocuMind eval hooks (tagging, overrides, retrieve/chunks/info endpoints, exclusions) | [phase-E1](docs/plan/eval/phase-E1-documind-eval-hooks.md) | 🟨 Code done (+ E3's per-case conversation list); Coolify source-commit setting on; deploy pending |
 | E2 | Eval API foundation, datasets & durable queue | [phase-E2](docs/plan/eval/phase-E2-eval-api-foundation-and-datasets.md) | ✅ Done (local; deployed with E5) |
 | E3 | Run engine & deterministic metrics | [phase-E3](docs/plan/eval/phase-E3-run-engine-and-deterministic-metrics.md) | ✅ Done (local; deployed with E5) |
-| E4 | Claude judge & generation metrics | [phase-E4](docs/plan/eval/phase-E4-claude-judge-and-generation-metrics.md) | ✅ Done (local; live budget-pause check waits for the Anthropic spend limit, Nov 1) |
+| E4 | Claude judge & generation metrics | [phase-E4](docs/plan/eval/phase-E4-claude-judge-and-generation-metrics.md) | ✅ Done (local; spend limit raised, live budget-pause check still to re-run) |
 | E5 | Eval web, auth & first deploy | [phase-E5](docs/plan/eval/phase-E5-eval-web-auth-and-deploy.md) | ⬜ Not started |
 | E6 | Compare & trends | [phase-E6](docs/plan/eval/phase-E6-compare-and-trends.md) | ⬜ Not started |
 | E7 | Synthetic test sets & reference enrichment | [phase-E7](docs/plan/eval/phase-E7-synthetic-test-sets.md) | ⬜ Not started |
@@ -61,14 +61,14 @@ A standalone app at `https://evaluation.documind.zeeshanai.cloud` (code in `eval
     - full sources in eval-mode SSE;
     - `POST /orgs/{id}/retrieve`, `GET …/documents/{id}/chunks`, `/admin/eval/info`, per-run usage and cleanup.
 - **Judge:** Claude, cross-family to avoid self-preference bias with DocuMind's OpenAI generator.
-  - Models: Sonnet 5.5 rubric, Haiku 5.5 claim checks, Opus 5.5 synthetic generation.
+  - Models: Haiku 5.5 rubric and claim checks (the rubric was Sonnet 5.5 until 2026-10-19), Opus 5.5 synthetic generation.
   - Prompts are versioned files (hash recorded per run), prompt caching, own metering and a budget cap per run. No temperature control, so stability comes from fixed effort, strict structured outputs and optional N=3 sampling.
 - **Auth:**
   - Better Auth in the eval web on **DocuMind's existing auth tables**, platform admins only (checked in `session.create.before`), Google + email/password, `disableSignUp`.
   - Its own secret and `cookiePrefix: "documind-eval"`. It never migrates the auth tables (`pnpm auth:check` is read-only).
 - **Metrics:**
   - retrieval (hit@k, MRR, recall, nDCG, context precision/recall, routing, jurisdiction);
-  - generation (claim-level faithfulness, key-fact recall, Sonnet rubric, behaviour);
+  - generation (claim-level faithfulness, key-fact recall, Haiku rubric, behaviour);
   - citations (validity, precision, recall, section/page hit);
   - operational (latency, TTFT, cost);
   - safety (leakage = 0, injection resistance, OOS refusal, authz probes).
@@ -308,6 +308,14 @@ A standalone app at `https://evaluation.documind.zeeshanai.cloud` (code in `eval
 - Gotchas / learnings: …
 - Next: …
 -->
+
+### 2026-10-19 — [eval] Rubric judge moved to Haiku 5.5 (done locally)
+- **Why:** the Sonnet 5.5 rubric was 86 % of judge spend ($0.537 of $0.627 per 30 cases), and runs hit the Anthropic spend limit.
+- **Changed:** `judge.answer_quality` and `judge.followup_resolution` now use `model: claude-haiku-5-5`. They keep `thinking: adaptive` and `effort: medium`: Haiku 5.5 supports adaptive thinking, and the rubric benefits from it. Haiku has no server-side fallback, so a refusal is status `refusal`. A run can still put the rubric on Sonnet via `judge.models.rubric`.
+  - The frontmatter change bumps both prompts' hashes, so the next startup creates new `prompt_versions`. Old runs keep their recorded Sonnet versions. A rejudge takes the current files, so rejudging the Sonnet-judged golden run gives a direct Haiku vs Sonnet comparison with no DocuMind calls.
+  - Tests and docs updated (unit test asserts Haiku with no fallback, plus a Sonnet-override request); metric descriptions are now model-neutral.
+- **Verified:** the spend limit has been raised. A live `judge.answer_quality` call on Haiku (adaptive, medium, structured output) returned `end_turn` with a valid `AnswerQuality` in 6.1 s for $0.00074, mostly the first cache write of the system prompt. A `judge.behavior` call returned a valid result in 2.7 s for $0.00035. `ruff` clean; `pytest -m "not db"` 78 passed; `tests/test_judge.py` 11 passed.
+- **Next:** rejudge the Sonnet-judged golden v1 run to record the new judge cost (estimate ≈ $0.12 judge, ≈ $0.15 per full run) and compare answer_quality against the Sonnet baseline (0.85; completeness 0.70, relevance 0.90). That is the first data point for E9's judge calibration. Then the live $0.10 budget-pause check and `pytest -m live`.
 
 ### 2026-10-19 — Logs viewer: markdown-formatted Answer (not deployed)
 - Built: the Response tab's Answer card in `/v1/logs/ui` renders the answer as markdown (headings, paragraphs, nested/ordered lists, GFM tables with alignment, blockquotes, fences, hr, `code`, bold/italic/strike, https links, `[n]` citation markers as superscripts). It's a small inline renderer in `logs_ui.html` that builds DOM nodes (no innerHTML); the CSP (`script-src 'nonce-…'`) rules out a CDN library. Prose styles mirror `.answer-prose`; the panel's section headings are now `.panel > h3` so answer headings keep their own styles.

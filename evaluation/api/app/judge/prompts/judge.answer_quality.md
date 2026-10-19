@@ -3,7 +3,7 @@ key: judge.answer_quality
 kind: judge
 description: Rubric grade (1-5) of correctness, completeness, relevance, jurisdiction handling and refusal helpfulness.
 role: rubric
-model: claude-sonnet-5-5
+model: claude-haiku-5-5
 effort: medium
 thinking: adaptive
 max_tokens: 8000

@@ -25,8 +25,9 @@ Also **rejudge**: re-score an existing run with a different judge config without
 - **Structured output.** Use `client.messages.parse(..., output_format=PydanticModel)`; forced `tool_choice` returns a 400 on Sonnet and Opus 5.5.
 - **Thinking per model:**
   - Sonnet 5.5 can't disable thinking: use adaptive thinking with `effort="medium"`.
-  - Haiku 5.5: thinking disabled, `effort="low"`.
+  - Haiku 5.5: thinking disabled, `effort="low"` for the claim checks; adaptive thinking, `effort="medium"` for the rubric prompts.
   - Opus 5.5: `effort="high"`.
+- **Rubric model (2026-10-19):** the rubric prompts (`answer_quality`, `followup_resolution`) moved from Sonnet 5.5 to Haiku 5.5. Sonnet cost 86 % of the judge spend ($0.537 of $0.627 per 30 cases) and runs hit the account's spend limit. A run can still pick Sonnet through `judge.models.rubric`.
 - **Refusals.** Sonnet and Opus may stop with `stop_reason="refusal"`, which adversarial data makes more likely. Use server-side `fallbacks` where available and record `model_actual`. A Haiku refusal gives metric status `refusal`.
 
 ## 1. Prompt registry — `app/judge/registry.py`, `app/judge/prompts/*.md`
@@ -45,8 +46,8 @@ Also **rejudge**: re-score an existing run with a different judge config without
 | `judge.key_facts` | Haiku, low | `{facts: [{idx, reasoning, entailed: yes\|partial\|no}]}` |
 | `judge.context_relevance` | Haiku, low | `{chunks: [{n, reasoning, relevant: bool}]}` |
 | `judge.behavior` | Haiku, low | `{reasoning, behavior: answered\|abstained\|clarified\|partial\|followed_injection, mentions_owner, followed_injected_instruction}` |
-| `judge.answer_quality` | Sonnet, medium, max_tokens 8000 | `{analysis: {correctness, completeness, relevance, jurisdiction_handling, refusal_helpfulness}, scores: {…: 1-5 \| null}, verdict: pass\|borderline\|fail, summary, issues: [{severity, dimension, quote, explanation}]}` |
-| `judge.followup_resolution` | Sonnet, medium | `{reasoning, resolved, score 1-5}` |
+| `judge.answer_quality` | Haiku, medium, adaptive thinking, max_tokens 8000 | `{analysis: {correctness, completeness, relevance, jurisdiction_handling, refusal_helpfulness}, scores: {…: 1-5 \| null}, verdict: pass\|borderline\|fail, summary, issues: [{severity, dimension, quote, explanation}]}` |
+| `judge.followup_resolution` | Haiku, medium, adaptive thinking | `{reasoning, resolved, score 1-5}` |
 
 **Rules shared by every judge prompt:**
 - **Role:** "a strict evaluator of a company-policy assistant".
@@ -82,7 +83,7 @@ Also **rejudge**: re-score an existing run with a different judge config without
   - `supported_citation_recall`.
 - **`key_fact_recall`** and **`context_recall`:** only when the case has key facts (golden v1 has none until E7, so these are `na` with reason `no_reference`).
 - **`context_precision`:** Haiku relevance per retrieved chunk, stored in `retrieved_contexts.judge_relevant`, then average precision.
-- **`answer_quality.*`:** Sonnet. With N>1 samples, store the median per dimension and the std as `spread`. Normalize with (s−1)/4.
+- **`answer_quality.*`:** Haiku (rubric role). With N>1 samples, store the median per dimension and the std as `spread`. Normalize with (s−1)/4.
 - **Behaviour:**
   - `behavior_correct` against `expected_behavior` (`clarify_or_variations` accepts clarified, or answered with variations);
   - `false_refusal`;

@@ -3,7 +3,7 @@ key: judge.followup_resolution
 kind: judge
 description: Multi-turn cases - does the routed standalone query resolve the follow-up's references?
 role: rubric
-model: claude-sonnet-5-5
+model: claude-haiku-5-5
 effort: medium
 thinking: adaptive
 max_tokens: 6000

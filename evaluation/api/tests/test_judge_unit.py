@@ -49,7 +49,7 @@ def test_every_prompt_file_loads() -> None:
         assert "{{" not in spec.system
         # Above the 512-token cache minimum (≈ 4 chars a token), so the system prompt caches.
         assert len(spec.system) > 2400, spec.key
-    assert specs["judge.answer_quality"].model == "claude-sonnet-5-5"
+    assert specs["judge.answer_quality"].model == "claude-haiku-5-5"
     assert specs["judge.answer_quality"].max_tokens == 8000
     assert specs["judge.claims_verify"].placeholders == {"claims"}
 
@@ -240,8 +240,12 @@ def test_request_per_model() -> None:
     assert "cache_control" not in single["messages"][0]["content"][0]
     assert single["system"][0]["cache_control"] == {"type": "ephemeral"}
 
-    sonnet = registry.file_specs()["judge.answer_quality"]
-    request = client.build_request(sonnet, "p", "t", model=sonnet.model, effort="medium")
+    rubric = registry.file_specs()["judge.answer_quality"]
+    request = client.build_request(rubric, "p", "t", model=rubric.model, effort="medium")
+    assert request["thinking"] == {"type": "adaptive"}
+    assert "fallbacks" not in request and "betas" not in request
+    # A run can still put the rubric on Sonnet (`judge.models.rubric`): it gets the fallback.
+    request = client.build_request(rubric, "p", "t", model="claude-sonnet-5-5", effort="medium")
     assert request["thinking"] == {"type": "adaptive"}
     assert request["fallbacks"] == "default"
     assert request["betas"] == [client.FALLBACK_BETA]

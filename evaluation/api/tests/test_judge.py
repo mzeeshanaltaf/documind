@@ -213,7 +213,7 @@ def _refuse_on(question: str, default: Any) -> Any:
 async def test_refusal_is_its_own_status_and_out_of_the_mean(
     api: httpx.AsyncClient, documind: MockDocuMind, fake: FakeAnthropic
 ) -> None:
-    for key in ("judge.answer_quality", "judge.behavior"):  # Sonnet and Haiku
+    for key in ("judge.answer_quality", "judge.behavior"):  # rubric and claims roles
         fake.outputs[key] = _refuse_on(REFUSE, fake.outputs[key])
     run = await start(api, await published_version([QUESTION, REFUSE]))
     await drain()

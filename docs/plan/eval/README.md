@@ -12,8 +12,7 @@ The existing `api/eval/run_eval.py` stays: it is the quick retrieval-only check 
 - **Database:** shared Postgres, schema **`documind_eval`** (dev: `documind_eval_dev`, tests: `documind_eval_test`).
 - **Integration:** HTTP to the deployed DocuMind `/v1` API as a platform-admin **service account**. DocuMind gets small eval hooks (Phase E1), so eval traffic is tagged, overridable and invisible to users, analytics and quotas.
 - **Judge:** Claude, a different model family from DocuMind's OpenAI generator, which avoids self-preference bias.
-  - `claude-sonnet-5-5`: rubric judging.
-  - `claude-haiku-5-5`: claim-level checks.
+  - `claude-haiku-5-5`: rubric judging and claim-level checks (switched from Sonnet 5.5 on 2026-10-19 for cost; a run can still pick Sonnet via `judge.models.rubric`).
   - `claude-opus-5-5`: synthetic generation.
 - **Auth:** the web runs Better Auth on **DocuMind's existing auth tables** and admits only platform admins (`user.role` contains `admin`, not banned).
 - **Scope:**
@@ -29,7 +28,7 @@ Browser ─► evaluation/web (Next 16, Better Auth on DocuMind auth tables, adm
            evaluation/api (FastAPI, schema documind_eval)
               │ asyncio worker slots + Postgres job queue (FOR UPDATE SKIP LOCKED)
               ├─► DocuMind API /v1 (service account; X-Eval-Run-Id / X-Eval-Case-Id)
-              └─► Anthropic (Sonnet 5.5 rubric · Haiku 5.5 claims · Opus 5.5 generation)
+              └─► Anthropic (Haiku 5.5 rubric + claims · Opus 5.5 generation)
 ```
 
 ## Folder layout
@@ -116,9 +115,9 @@ evaluation/
 | | `routing_hit`, `routing_jaccard`, `jurisdiction_acc`, `jurisdiction_false_pos` | router checks |
 | Generation | `faithfulness` (Haiku) | claims are extracted, then each is verified against DocuMind's numbered sources. Score = supported / claims. `hallucination` = any contradicted claim, or more than 20% not_found. |
 | | `key_fact_recall` (Haiku, ref) | Σ weight of entailed facts (partial = 0.5) / Σ weight |
-| | `answer_quality.*` (Sonnet, 1–5 → (s−1)/4) | `correctness` (ref), `completeness`, `relevance`, `jurisdiction_handling`, `refusal_helpfulness`, plus a verdict and issues |
+| | `answer_quality.*` (Haiku, 1–5 → (s−1)/4) | `correctness` (ref), `completeness`, `relevance`, `jurisdiction_handling`, `refusal_helpfulness`, plus a verdict and issues |
 | | `behavior_correct` (Haiku) | the class (answered, abstained, clarified, partial, followed_injection) is allowed by `expected_behavior`. Also `false_refusal` and `over_clarification`. |
-| | `followup_resolution` (Sonnet) | multi-turn: the routed `standalone_query` resolves the conversation's references |
+| | `followup_resolution` (Haiku) | multi-turn: the routed `standalone_query` resolves the conversation's references |
 | Citations | `citation_validity` | raw `[n]` markers that exist among the sources / all markers |
 | | `citation_precision`, `citation_recall`, `supported_citation_recall` | from the claims table |
 | | `cited_section_hit`, `cited_doc_precision`, `page_hit` | deterministic, against the expected sections and pages |
@@ -145,9 +144,9 @@ evaluation/
 |---|---|
 | DocuMind, per case | ≈ $0.0012 |
 | Haiku checks, per case | ≈ $0.003 |
-| Sonnet rubric, per case | ≈ $0.03 (N=1) / ≈ $0.065 (N=3) |
-| 30-case run | ≈ $1 |
-| 100-case run | ≈ $3.5 |
+| Haiku rubric, per case | ≈ $0.001 (N=1) / ≈ $0.003 (N=3); Sonnet was ≈ $0.018 measured |
+| 30-case run | ≈ $0.15 (was $0.64 with the Sonnet rubric) |
+| 100-case run | ≈ $0.5 |
 | Retrieval-only run, 100 cases | < $0.05 |
 | Synthetic generation | ≈ $0.07 per candidate |
 

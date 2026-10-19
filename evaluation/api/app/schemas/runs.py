@@ -51,8 +51,9 @@ def _priced(model: str | None) -> str | None:
 
 
 class JudgeModels(BaseModel):
-    """Per role: `rubric` = the Sonnet prompts (answer quality, follow-up), `claims` = the Haiku
-    ones (claims, key facts, relevance, behaviour). None = the prompt file's own model."""
+    """Per role: `rubric` = the rubric prompts (answer quality, follow-up), `claims` = the claim
+    checks (claims, key facts, relevance, behaviour). None = the prompt file's own model (Haiku
+    5.5 for both roles)."""
 
     model_config = ConfigDict(extra="forbid")
 

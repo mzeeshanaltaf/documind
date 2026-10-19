@@ -21,7 +21,7 @@
 | DB | Shared Postgres, schema `documind_eval` (dev `documind_eval_dev`, tests `documind_eval_test`) |
 | Jobs | Postgres `jobs` table (`FOR UPDATE OF j SKIP LOCKED`), asyncio worker slots in the API lifespan |
 | System under test | DocuMind `/v1` over HTTP as the `eval-bot` platform-admin service account |
-| Judge | Anthropic: `claude-sonnet-5-5` (rubric), `claude-haiku-5-5` (claims, behaviour, relevance), `claude-opus-5-5` (synthetic generation) |
+| Judge | Anthropic: `claude-haiku-5-5` (rubric, claims, behaviour, relevance; Sonnet 5.5 is a per-run `judge.models.rubric` option), `claude-opus-5-5` (synthetic generation) |
 
 ## Repo layout
 Target layout: `docs/plan/eval/README.md` › Folder layout. Built so far (`evaluation/api/`):
@@ -91,7 +91,7 @@ All admin-only; code in `api/app/core/eval.py`, `routers/eval.py`, `services/eva
 
 ## Gotchas already known
 - **No temperature control.** Sonnet and Haiku 5.5 reject non-default `temperature`/`top_p`/`top_k`. Structured output via `output_config.format` (`anthropic.transform_schema`), not forced `tool_choice`. We call `beta.messages.create` + `model_validate_json`, not `messages.parse`: parse raises on a refusal/`max_tokens` reply before `stop_reason` can be checked. Sonnet 5.5 can't disable thinking (`between_tools` if a Haiku prompt runs on it); Haiku has no server-side fallback.
-- **The Anthropic account has its own spend limit.** Once reached, every call is a 400 "You have reached your specified API usage limits … regain access on <date>"; the judge treats it (and 401/403) as `JudgeUnavailable` → the run pauses with `status_reason = judge_unavailable`, then `POST /resume` once the limit is raised. Live judge runs cost ~$0.65 per 30 cases.
+- **The Anthropic account has its own spend limit.** Once reached, every call is a 400 "You have reached your specified API usage limits … regain access on <date>"; the judge treats it (and 401/403) as `JudgeUnavailable` → the run pauses with `status_reason = judge_unavailable`, then `POST /resume` once the limit is raised. Live judge runs cost ~$0.65 per 30 cases with the Sonnet rubric; Haiku for the rubric is ~1/20 of that rubric cost.
 - **Prompt caching** needs a ≥ 512-token prefix (the system prompts are ~900–1,400 tokens). The packet is rendered in a fixed section order with no ids, so equal packets are byte-identical. It gets a breakpoint only when reused (N samples: the first runs alone, the rest read; the key-facts answer/sources pair), since an unread cache write costs 1.25× input.
 - **Cookies on localhost.** DocuMind (:3000) and Eval (:3100) share localhost cookies, so the eval app uses `cookiePrefix: "documind-eval"`. Never enable `crossSubDomainCookies`.
 - **Chat isn't idempotent.** A retried case (attempt > 1) lists DocuMind's conversations for the case (a crash can land before `meta` is stored), recovers one with a complete scored answer and deletes the rest.

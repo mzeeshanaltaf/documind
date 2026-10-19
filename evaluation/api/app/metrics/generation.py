@@ -190,7 +190,7 @@ SPECS = [
           "Weighted key facts the retrieved sources contain; needs key facts."),
     _spec("context_precision", "unit", "Average precision of the sources Haiku judges relevant.",
           applies_to=lambda case: case.answering),
-    _spec("answer_quality", "unit", "Sonnet's verdict: pass 1, borderline 0.5, fail 0."),
+    _spec("answer_quality", "unit", "The rubric judge's verdict: pass 1, borderline 0.5, fail 0."),
     _spec("answer_quality.correctness", "unit",
           "Agreement with the reference, (s-1)/4; needs a reference.",
           default_threshold=0.5, gating=True),
@@ -201,6 +201,6 @@ SPECS = [
     _spec("answer_quality.refusal_helpfulness", "unit",
           "A warranted, helpful refusal or clarification, (s-1)/4; when it refuses."),
     _spec("followup_resolution", "unit",
-          "The standalone query resolves the follow-up, (s-1)/4 (Sonnet).",
+          "The standalone query resolves the follow-up, (s-1)/4 (rubric judge).",
           applies_to=lambda case: bool(case.setup_turns)),
 ]  # fmt: skip

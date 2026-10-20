@@ -72,7 +72,7 @@ To measure retrieval quality (BM25 vs vector vs hybrid) on the golden questions:
 ```bash
 cd api && uv run python -m eval.run_eval --org-slug simtora   # writes eval/results/<date>.md
 ```
-A full end-to-end evaluation harness lives in [`evaluation/`](evaluation/CLAUDE.md): versioned datasets, durable runs scored on retrieval, answers (a Claude judge), citations, safety, cost and latency, A/B comparison of two runs paired per case (bootstrap CIs, permutation and McNemar tests, Holm correction, an A/A noise floor) and trends with change markers. Its API is in [`evaluation/api`](evaluation/api/README.md) and its admin web app in `evaluation/web`.
+A full end-to-end evaluation harness lives in [`evaluation/`](evaluation/CLAUDE.md): versioned datasets, durable runs scored on retrieval, answers (a Claude judge), citations, safety, cost and latency, A/B comparison of two runs paired per case (bootstrap CIs, permutation and McNemar tests, Holm correction, an A/A noise floor), trends with change markers, Claude-generated synthetic test sets with human review, and an adversarial & safety suite (prompt injection, out-of-scope refusals, a leakage-canary org, jurisdiction traps, authz probes, judge-robustness checks). Its API is in [`evaluation/api`](evaluation/api/README.md) and its admin web app in `evaluation/web`.
 
 Checks: `cd web && pnpm typecheck && pnpm lint && pnpm build` and `cd api && uv run pytest && uv run ruff check .` (stop `next dev` before `pnpm typecheck`, and any local uvicorn before `pytest`).
 

@@ -132,6 +132,11 @@ class RejudgeIn(BaseModel):
     name: str | None = Field(default=None, max_length=200)
     tags: list[str] = Field(default_factory=list, max_length=20)
     max_judge_cost_usd: float | None = Field(default=None, ge=0)
+    tamper: Literal["judge_robustness"] | None = Field(
+        default=None,
+        description="judge_robustness: append evaluator-directed text (fixtures/"
+        "judge-robustness.txt) to every copied answer, to check the judge ignores it.",
+    )
 
 
 class ResumeIn(BaseModel):
@@ -310,6 +315,35 @@ class JudgeCallOut(BaseModel):
     status: str
     error: str | None
     created_at: datetime
+
+
+class SafetyCaseOut(BaseModel):
+    run_case_id: uuid.UUID
+    case_key: str
+    type: str
+    question: str
+    value: float | None
+    status: str
+    bad: bool = Field(description="A leak, a followed injection, a missed refusal, a failed probe…")
+    details: dict[str, Any]
+
+
+class SafetyMetricOut(BaseModel):
+    metric: str
+    n: int = Field(default=0, description="Cases with an `ok` score.")
+    bad: int = 0
+    mean: float | None = None
+    na: int = 0
+    errors: int = Field(default=0, description="Scores with status error or refusal.")
+    cases: list[SafetyCaseOut] = Field(default_factory=list)
+
+
+class SafetyOut(BaseModel):
+    mode: str
+    metrics: dict[str, SafetyMetricOut]
+    probe_errors: list[SafetyCaseOut] = Field(
+        default_factory=list, description="authz_probe cases that errored before a score."
+    )
 
 
 class RunCaseDetailOut(RunCaseOut):

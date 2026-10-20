@@ -4,13 +4,12 @@
 - **Web:** `https://evaluation.documind.zeeshanai.cloud`, admin-only.
 - **API:** internal only.
 
-> Status: **E7 code done** (2026-10-20): synthetic test sets + reference enrichment (generate → checks → human review → commit into a draft); E6 is deployed. Keep this file ≤ 120 lines.
+> Status: **E8 code done** (2026-10-20): adversarial & safety suite (canary org, authz probes, safety metrics + panel, judge-robustness rejudge); E7 committed. Keep this file ≤ 120 lines.
 
 ## Start here, every session
 1. Read the root `CLAUDE.md` (DocuMind conventions apply here too), then `Status.md` › **Evaluation harness**.
 2. Read the current phase doc in `docs/plan/eval/phase-E<n>-*.md`, plus `docs/plan/eval/README.md` for the architecture, data model and metric definitions.
-3. Load the skills that phase lists **before** writing code.
-4. Before ending the session, update `Status.md` › Evaluation harness (tracker, dated `[eval]` session-log entry, deviations, gotchas) and this file if commands or layout changed.
+3. Load the skills that phase lists **before** writing code. Before ending the session, update `Status.md` › Evaluation harness (tracker, dated `[eval]` session-log entry, deviations, gotchas) and this file if commands or layout changed.
 
 ## Stack
 | Layer | Tech |
@@ -41,7 +40,7 @@ app/models/     enums (Literal values = CHECKs), dataset, prompt (+config_preset
 app/documind/   client (DocuMindClient, get_documind), events (typed SSE + parse_event), models
 app/worker/     queue (claim/…/enqueue, enqueue_many, enqueue_finalize), loop (slots), sweeper, limits
                 (DocuMind + judge semaphores, RPM bucket), errors, handlers/{noop, case_generate, case_judge, run_finalize,
-                synthetic_generate}
+                synthetic_generate, authz_probe}
 app/judge/      client (every Anthropic call), registry (prompt files → prompt_versions), render (case
                 packet), pricing (judge-pricing.json), schemas (structured outputs), prompts/*.md
 app/metrics/    types, registry (REGISTRY, MetricConfig, evaluate, case_passed), retrieval, citations,
@@ -51,11 +50,14 @@ app/services/   datasets, importer, runs (create/snapshot/read/delete), run_stat
                 resume/stop, budget pause, sweep), case_results (persist + score, save_judged),
                 judging (judge metric groups), rejudge, prompts, aggregates, exports, compare (A/B +
                 A/A noise floor), config_diff (flattened config/snapshot diff), trends (series + markers),
-                synthetic (sampling, batches), synthetic_checks (pure), synthetic_review (edit/approve/commit)
+                synthetic (sampling, batches), synthetic_checks (pure), synthetic_review (edit/approve/commit),
+                canary (fixture → run snapshot), probes (pure), safety (run safety summary)
 app/routers/    v1 (get_admin on all), datasets, documind (passthrough), jobs, prompts, runs (+rejudge,
-                events, export), compare, trends, synthetic (batches + candidates), system, health
-alembic/versions/0001_core…0004_synthetic  scripts/{bootstrap_service_users,import_golden}.py  tests/ (fake_anthropic.py)
+                events, export, safety), compare, trends, synthetic (batches + candidates), system, health
+alembic/versions/0001_core…0005_adversarial  tests/ (fake_anthropic.py)
+scripts/{bootstrap_service_users,import_golden,import_adversarial,setup_canary_org,make_canary_pdf}.py
 ```
+`evaluation/fixtures/` (baked into the API image): `canary/canary-policy.{md,pdf}`, `adversarial.jsonl`, `judge-robustness.txt`.
 
 ## Commands
 ```bash
@@ -64,8 +66,8 @@ cd evaluation/api && uv run alembic upgrade head          # `alembic check` = mo
 cd evaluation/api && uv run pytest && uv run ruff check .  # -m "not db" skips the Postgres tests
 cd evaluation/api && uv run pytest -m live tests/test_judge_live.py  # real DocuMind + Anthropic (~1¢)
 cd evaluation/api && uv run python -m scripts.bootstrap_service_users --org-slug simtora [--dry-run]; uv run python -m scripts.import_golden  # needs DocuMind up; re-run = no-op
-cd evaluation/web && pnpm dev | pnpm typecheck | pnpm lint | pnpm build   # dev on :3100
-cd evaluation/web && pnpm auth:check   # read-only: exits 1 if DocuMind's auth tables don't match
+cd evaluation/api && uv run python -m scripts.setup_canary_org --wait [--dry-run]; uv run python -m scripts.import_adversarial  # E8, idempotent
+cd evaluation/web && pnpm dev | pnpm typecheck | pnpm lint | pnpm build | pnpm auth:check  # dev :3100; auth:check is read-only
 docker build -f evaluation/{api,web}/Dockerfile .   # repo-root context (web: --build-arg NEXT_PUBLIC_APP_URL)
 ```
 DocuMind itself must be running locally (`api` on :8000) for live runs, the golden import and `/health.documind`. The web needs the eval API on :8100.
@@ -87,6 +89,7 @@ DocuMind itself must be running locally (`api` on :8000) for live runs, the gold
 - **Rejudge** (`POST /v1/runs/{id}/rejudge`) copies answers, contexts and deterministic scores into a new run (`source_run_id`), enqueues only `case_judge`, and never calls DocuMind (finalize skips usage/cleanup; DocuMind cost 0).
 - **Published dataset versions are immutable;** edits create a draft. **Runs are server-side jobs:** they survive closed tabs and restarts (lock reclaim after 5 min).
 - **Synthetic (E7):** `POST /v1/synthetic-batches` samples seeds (seeded `random.Random`, chunks via DocuMind's E1 endpoint) and inserts candidates + one `synthetic_generate` job each, claimed only while the batch is `generating`. A job: `gen.<type>` (Opus) → unanswerable: DocuMind `/retrieve` → `gen.validate` (Sonnet) → deterministic checks → save (dedupe under a per-batch advisory lock); a hard failure auto-rejects. Calls meter as `judge_calls` (`purpose=synthetic`, `batch_id`/`candidate_id`; the batch's `max_cost_usd` pauses it). `gen.*` prompts are `kind: generator`, recorded on the batch, never in run snapshots (`registry.sync(kind=…)`), so they add no trend markers. Commit writes approved candidates into the dataset's draft (`syn-<batch8>-NNN`, `source=synthetic`; enrichment sets reference + key facts by `target_case_key`).
+- **Safety (E8):** every run snapshots the canary's phrases (`snapshot.canary`, empty when the run targets `eval-canary` itself) and the country supplements (`snapshot.documents.supplements`, for `jurisdiction_confusion`). `leakage` ignores codes/phrases the user's own messages contain when the answer repeats them (never in sources/citations). `authz_probe` cases (`cases.probes`, placeholders `{org_id}` `{canary_org_id}` `{bot_conversation_id}` `{doc_id}`) get an `authz_probe` job instead of `case_generate`, run as `EVAL_PROBE_USER_ID`, score only `authz_probe`, are never judged and are carried as `done` by a rejudge. `injection_resisted` is `judge_refined` (deterministic canary/fingerprint check, then AND-ed with the behaviour verdict in the judge's behaviour group); `refusal_rate_oos` is judge-only. `GET /v1/runs/{id}/safety` feeds the run page's panel. `rejudge {tamper: "judge_robustness"}` appends `fixtures/judge-robustness.txt` lines to answers (`scripts.judge_robustness` runs plain vs tampered and checks Δ ≤ noise).
 
 ## DocuMind hooks (E1, in `api/`)
 All admin-only; code in `api/app/core/eval.py`, `routers/eval.py`, `services/eval.py`, tests in `api/tests/test_eval_hooks.py`.
@@ -106,15 +109,12 @@ All admin-only; code in `api/app/core/eval.py`, `routers/eval.py`, `services/eva
 - **Prompt caching** needs a ≥ 512-token prefix (the system prompts are ~900–1,400 tokens). The packet is rendered in a fixed section order with no ids, so equal packets are byte-identical. It gets a breakpoint only when reused (N samples: the first runs alone, the rest read; the key-facts answer/sources pair), since an unread cache write costs 1.25× input.
 - **Cookies on localhost.** DocuMind (:3000) and Eval (:3100) share localhost cookies, so the eval app uses `cookiePrefix: "documind-eval"`. Never enable `crossSubDomainCookies`.
 - **Chat isn't idempotent.** A retried case (attempt > 1) lists DocuMind's conversations for the case (a crash can land before `meta` is stored), recovers one with a complete scored answer and deletes the rest.
-- **Run state:** every transition happens with the run row locked; "in flight" = a `generating`/`judging` case whose job has a live lock. A dead worker's lock looks live for 5 min, so a pausing run turns `paused` (via the 15 s sweeper) only then. Finishing = `done + failed + skipped ≥ total`.
-- **Money is `numeric(14, 8)`** (DocuMind's precision); 6 decimals rounded case costs. Stored cost = successful attempts; `/usage` also meters interrupted ones, so a killed run's gap is real spend.
-- **Local drills:** in Git Bash set `MSYS_NO_PATHCONV=1` before passing `/v1/...` args, and hard-kill with PowerShell `Stop-Process -Force` (`taskkill //F` fails from Git Bash). respx mocks with a `base_url` need `path__regex`. Run one golden run at a time locally: with the ~0.45 s VPS round trip, 4 busy runs saturate the 7-connection pool (`QueuePool limit … reached`) and cases fail at stage `job`; pages wait 30 s.
-- **Prod DocuMind serves real users** on one uvicorn worker. Keep `EVAL_DOCUMIND_CONCURRENCY` low and run big suites off-hours.
-- **asyncpg pitfalls.** Cast numeric params (`CAST(:x AS float8)`), and pass intervals as `timedelta` **and** `CAST(:d AS interval)`: in `now() - $1` asyncpg infers a timestamp. Give each concurrent task its own session.
-- **Async ORM:** `Base` sets `eager_defaults=True` so server defaults and `onupdate` values come back with RETURNING; an expired attribute can't lazy-load in async. A column named `text` shadows `sqlalchemy.text` in a class body (`run.py` imports it as `sql_text`).
+- **Run state:** every transition happens with the run row locked; "in flight" = a `generating`/`judging` case whose job has a live lock. A dead worker's lock looks live for 5 min, so a pausing run turns `paused` (via the 15 s sweeper) only then. Finishing = `done + failed + skipped ≥ total`. **Money is `numeric(14, 8)`** (DocuMind's precision); 6 decimals rounded case costs. Stored cost = successful attempts; `/usage` also meters interrupted ones, so a killed run's gap is real spend.
+- **Local drills:** in Git Bash set `MSYS_NO_PATHCONV=1` before passing `/v1/...` args, and hard-kill with PowerShell `Stop-Process -Force` (`taskkill //F` fails from Git Bash). respx mocks with a `base_url` need `path__regex`. Run one golden run at a time locally: with the ~0.45 s VPS round trip, 4 busy runs saturate the 7-connection pool (`QueuePool limit … reached`) and cases fail at stage `job`; pages wait 30 s. Killing a `--reload` uvicorn on Windows can leave its spawn child holding :8100 (find it by `parent_pid` in `Get-CimInstance Win32_Process`). **Prod DocuMind serves real users** on one uvicorn worker: keep `EVAL_DOCUMIND_CONCURRENCY` low, big suites off-hours.
+- **asyncpg pitfalls.** Cast numeric params (`CAST(:x AS float8)`), and pass intervals as `timedelta` **and** `CAST(:d AS interval)`: in `now() - $1` asyncpg infers a timestamp. Give each concurrent task its own session. **Async ORM:** `Base` sets `eager_defaults=True` so server defaults and `onupdate` values come back with RETURNING; an expired attribute can't lazy-load in async. A column named `text` shadows `sqlalchemy.text` in a class body (`run.py` imports it as `sql_text`).
 - **Queue semantics:** every write after `claim` is guarded by `locked_by`, so a slot whose job was reclaimed can't record an outcome. A job whose lock expired more than `max_attempts` times is failed on the next claim. Graceful shutdown releases jobs at once; a hard kill waits for the 5-minute reclaim.
 - **Tests:** `tests/conftest.py` sets `EVAL_DATABASE_URL` to schema `documind_eval_test` before any app import, migrates it once (alembic in a thread) and drops it at the end. Admin checks use the real `eval-bot` / `eval-probe` users in `EVAL_AUTH_SCHEMA`. From this machine the db tests take ~3 min.
 - **Web (E5):** the live run closes its EventSource itself on a terminal `run` event (the server ends the stream and EventSource would reconnect forever), then refetches once for the aggregates (computed only at finalize, so live metric cards are plain running means). React compiler lint rejects reassigning a render-time variable (e.g. a running group header): precompute (`groupMetrics`). `answer_quality.details.analysis` is a per-dimension object; show `summary`. From this machine a drill-down takes ~8 s in dev (each eval API query is a ~0.45 s VPS round trip).
 - **Compare/trends (E6):** Δ = B − A. Operational metrics (latency, TTFT, tokens, cost) are descriptive (CI + raw p, outside Holm, never significant): a back-to-back rerun reads ~99 % of its input from OpenAI's prompt cache vs ~50 % cold, so cost drops ~45 % with an identical setup. The noise floor is an A/A pair found automatically (same config hash + DocuMind version + judge prompt shas; rejudges excluded), preferring A's or B's setup. Trend markers come from `config_diff.kind_of` over consecutive runs of one run mode; locally DocuMind's version is always `dev`, so redeploy markers only show on prod.
-- **Containers:** the API image keeps the repo layout under `/srv` (`config.py` finds the repo root 4 levels up, and `/srv/api/eval/golden.jsonl` for `import_golden`); the web image is DocuMind's standalone pattern (`mkdir -p public`, health `/robots.txt`).
-- **Datasets:** `content_hash` sorts cases by `case_key` and normalizes them through `CaseFields`, so positions, key order and explicit defaults don't change it. Imports replace a version's cases (never merge); re-importing the latest published content is a no-op.
+- **Containers:** the API image keeps the repo layout under `/srv` (`config.py` finds the repo root 4 levels up, and `/srv/api/eval/golden.jsonl` for `import_golden`); the web image is DocuMind's standalone pattern (`mkdir -p public`, health `/robots.txt`). **Datasets:** `content_hash` sorts cases by `case_key` and normalizes them through `CaseFields`, so positions, key order and explicit defaults don't change it (`probes` is dropped when null, so pre-E8 hashes hold). Imports replace a version's cases (never merge); re-importing the latest published content is a no-op.
+- **Web formatting:** there is no Prettier config and the TSX is hand-wrapped near 120–130 columns; never run Prettier over existing files (it reflows untouched lines).

@@ -48,6 +48,7 @@ class Generated:
     cost_usd: float = 0.0
     usage: dict[str, Any] = field(default_factory=dict)
     trace: dict[str, Any] = field(default_factory=dict)
+    probes: list[dict[str, Any]] | None = None  # authz_probe cases: one result per request
 
 
 def to_context(rank: int, source: Mapping[str, Any]) -> Context:
@@ -143,9 +144,16 @@ def context_rows(
     return rows
 
 
+def canary_phrases(run: Run) -> tuple[str, ...]:
+    """The leakage canary's phrases from the run's snapshot, plus any the run asked for."""
+    snapshot = (run.snapshot.get("canary") or {}).get("phrases") or []
+    return tuple(dict.fromkeys([*snapshot, *(run.config.get("canary_phrases") or [])]))
+
+
 def score_all(run: Run, case: CaseSpec, generated: Generated, config: MetricConfig) -> list[Score]:
     """Deterministic metrics: once (`chat`) for a full run, once per mode for retrieval-only."""
-    snapshot_ids = (run.snapshot.get("documents") or {}).get("ids")
+    documents = run.snapshot.get("documents") or {}
+    snapshot_ids = documents.get("ids")
     common = {
         "run_mode": run.mode,
         "answer": generated.answer,
@@ -159,7 +167,9 @@ def score_all(run: Run, case: CaseSpec, generated: Generated, config: MetricConf
         "cost_usd": generated.cost_usd,
         "top_k": generated.top_k,
         "org_document_ids": frozenset(snapshot_ids) if snapshot_ids is not None else None,
-        "canary_phrases": tuple(run.config.get("canary_phrases") or ()),
+        "canary_phrases": canary_phrases(run),
+        "supplements": documents.get("supplements"),
+        "probes": generated.probes,
     }
     scores: list[Score] = []
     for mode, sources in generated.contexts.items():
@@ -179,7 +189,8 @@ async def save_generated(
     spec = CaseSpec.from_model(case)
     config = MetricConfig.from_config(run.config.get("metrics"))
     scores = score_all(run, spec, generated, config)
-    judging = judging_enabled(run)
+    # A probe case has no answer to judge.
+    judging = judging_enabled(run) and spec.type != "authz_probe"
     passed = None if judging else case_passed(scores, config.gates)
     cited_ns = {int(c["n"]) for c in generated.citations if c.get("n") is not None}
 

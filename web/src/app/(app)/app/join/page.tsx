@@ -6,6 +6,7 @@ import { ShellSkeleton } from "@/components/app/shell-skeleton";
 import { StandaloneShell } from "@/components/app/standalone-shell";
 import { requireSession } from "@/lib/auth-guards";
 import { pool } from "@/lib/db";
+import { IS_EVAL_ORG_SQL } from "@/lib/org-members";
 import { JoinOrgList } from "./join-org-list";
 
 export const metadata: Metadata = { title: "Join organizations" };
@@ -24,6 +25,7 @@ async function Join() {
     `select o.id, o.name, o.slug,
             exists (select 1 from member m where m."organizationId" = o.id and m."userId" = $1) as joined
        from organization o
+      where not (${IS_EVAL_ORG_SQL})
       order by o.name`,
     [user.id],
   );

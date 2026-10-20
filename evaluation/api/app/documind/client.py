@@ -212,6 +212,18 @@ class DocuMindClient:
             raise
         return True
 
+    async def upload_document(self, org_id: str, file_name: str, content: bytes) -> dict[str, Any]:
+        """Upload one PDF (admin); DocuMind queues it for ingestion. A duplicate is a 409 whose
+        details hold the existing id. Never retried."""
+        response = await self._http.post(
+            f"/v1/orgs/{org_id}/documents",
+            files={"files[]": (file_name, content, "application/pdf")},
+            timeout=httpx.Timeout(120.0, connect=10.0),
+        )
+        if not response.is_success:
+            raise error_from_response(response)
+        return response.json()
+
     async def delete_run_conversations(self, run_id: str, **tags: Any) -> int:
         """Idempotent (a second call deletes 0), so it retries like a GET."""
         data = await self._request(
@@ -301,6 +313,28 @@ class DocuMindClient:
                         raise DocuMindError(
                             None, "timeout", f"Chat turn exceeded {CHAT_TIMEOUT_S:.0f} s."
                         )
+        except httpx.TimeoutException as exc:
+            raise DocuMindError(None, "timeout", f"{type(exc).__name__}: {exc}") from exc
+        except httpx.TransportError as exc:
+            raise DocuMindError(None, "unreachable", f"{type(exc).__name__}: {exc}") from exc
+
+    async def probe(
+        self,
+        method: str,
+        path: str,
+        *,
+        json: Any = None,
+        headers: dict[str, str] | None = None,
+    ) -> tuple[int, str | None]:
+        """One raw request for the authz probes (E8): its status and DocuMind's error code. A
+        success body is never read (a chat would stream), only closed. Transport failures raise
+        `DocuMindError` (status None); nothing is retried."""
+        try:
+            async with self._http.stream(method, path, json=json, headers=headers) as response:
+                if response.is_success:
+                    return response.status_code, None
+                await response.aread()
+                return response.status_code, error_from_response(response).code
         except httpx.TimeoutException as exc:
             raise DocuMindError(None, "timeout", f"{type(exc).__name__}: {exc}") from exc
         except httpx.TransportError as exc:

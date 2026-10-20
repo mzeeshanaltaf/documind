@@ -73,20 +73,23 @@ export function SlicesHeatmap({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <ToggleGroup
-          value={[kind]}
-          onValueChange={(v: string[]) => v[0] && setKind(v[0])}
-          variant="outline"
-          size="sm"
-          spacing={0}
-          aria-label="Slice by"
-        >
-          {availableKinds.map((k) => (
-            <ToggleGroupItem key={k.value} value={k.value}>
-              {k.label}
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
+        {/* Up to six kinds: scroll sideways on a phone rather than push the page wider. */}
+        <div className="max-w-full overflow-x-auto">
+          <ToggleGroup
+            value={[kind]}
+            onValueChange={(v: string[]) => v[0] && setKind(v[0])}
+            variant="outline"
+            size="sm"
+            spacing={0}
+            aria-label="Slice by"
+          >
+            {availableKinds.map((k) => (
+              <ToggleGroupItem key={k.value} value={k.value}>
+                {k.label}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+        </div>
         <Button variant="ghost" size="sm" onClick={() => setShowAll((s) => !s)}>
           {showAll ? "Key metrics only" : "All metrics"}
         </Button>

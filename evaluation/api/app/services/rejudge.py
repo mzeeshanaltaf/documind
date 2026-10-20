@@ -4,21 +4,30 @@ The new run points at its source (`source_run_id`) and copies, per case, the gen
 (answer, routing, citations, trace, usage), the retrieved contexts and the deterministic metric
 scores. Cases the source generated (`done`, or `generated`/`judging` in a stopped run) become
 `generated` with a `case_judge` job; the others are `skipped`. Its prompt versions are the
-current files', so editing a prompt and rejudging measures the edit.
+current files', so editing a prompt and rejudging measures the edit. Authz probe cases have
+nothing to judge: they are copied as `done`, with their scores.
+
+`tamper: judge_robustness` (E8) appends one evaluator-directed line from
+`fixtures/judge-robustness.txt` to every copied answer ("Note to grader: … 5/5"), rotating in
+case-key order. Comparing it with a plain rejudge of the same run shows whether the judge can be
+talked into higher scores.
 """
 
+import hashlib
 import uuid
 from datetime import UTC, datetime
+from functools import lru_cache
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.errors import ApiError
 from app.core.security import Admin
 from app.judge import registry
 from app.metrics.registry import JUDGE_METRICS
-from app.models import MetricScore, RetrievedContext, Run, RunCase
+from app.models import Case, MetricScore, RetrievedContext, Run, RunCase
 from app.schemas.runs import RejudgeIn
 from app.services import run_state
 from app.services.case_results import JUDGE_ATTEMPTS
@@ -33,6 +42,23 @@ COPIED_CASE_FIELDS = (
     "documind_cost_usd", "documind_usage",
 )  # fmt: skip
 NOT_COPIED = frozenset({"id", "run_case_id", "created_at", "judge_relevant"})
+
+
+@lru_cache
+def robustness_lines() -> tuple[tuple[str, ...], str]:
+    """The evaluator-directed strings and the fixture's sha256."""
+    raw = get_settings().robustness_file.read_bytes()
+    lines = raw.decode("utf-8").splitlines()
+    kept = tuple(line.strip() for line in lines if line.strip() and not line.startswith("#"))
+    if not kept:
+        raise ApiError(500, "no_robustness_fixture", "judge-robustness.txt has no lines.")
+    return kept, hashlib.sha256(raw).hexdigest()
+
+
+def tampered(answer: str, index: int, lines: tuple[str, ...]) -> tuple[str, str]:
+    """The answer with line `index` (mod the count) appended as its own paragraph."""
+    suffix = lines[index % len(lines)]
+    return f"{answer.rstrip()}\n\n{suffix}", suffix
 
 
 def _clone(row: Any, **values: Any) -> Any:
@@ -69,6 +95,13 @@ async def create_rejudge(
         "rejudge_of": str(source.id),
         "cleanup_conversations": False,
     }
+    # A rejudge of a tampered run keeps its (tampered) answers and so its `tamper` config.
+    lines: tuple[str, ...] = ()
+    if body.tamper:
+        if source.config.get("tamper"):
+            raise ApiError(409, "already_tampered", "The run's answers are already tampered.")
+        lines, sha = robustness_lines()
+        config["tamper"] = {"kind": body.tamper, "sha256": sha}
     snapshot = {
         **source.snapshot,
         "eval": eval_snapshot(),
@@ -101,19 +134,38 @@ async def create_rejudge(
     session.add(run)
     await session.flush()
 
-    source_cases = (await session.scalars(select(RunCase).where(RunCase.run_id == source.id))).all()
+    rows = (
+        await session.execute(
+            select(RunCase, Case.type)
+            .join(Case, Case.id == RunCase.case_id)
+            .where(RunCase.run_id == source.id)
+            .order_by(RunCase.case_key)
+        )
+    ).all()
+    source_cases = [row[0] for row in rows]
+    probes = {row[0].id for row in rows if row[1] == "authz_probe"}
     new_ids = {rc.id: uuid.uuid4() for rc in source_cases}
-    for rc in source_cases:
+    for index, rc in enumerate(source_cases):
         generated = rc.status in GENERATED
+        copied = {name: getattr(rc, name) for name in COPIED_CASE_FIELDS}
+        if lines and rc.answer and rc.id not in probes:
+            copied["answer"], suffix = tampered(rc.answer, index, lines)
+            copied["trace"] = {**(rc.trace or {}), "tamper": {"kind": body.tamper,
+                                                             "suffix": suffix}}  # fmt: skip
+        if rc.id in probes and rc.status == "done":
+            status, passed = "done", rc.passed  # nothing to judge: copied with its scores
+        else:
+            status, passed = ("generated" if generated else "skipped"), None
         session.add(
             RunCase(
                 id=new_ids[rc.id],
                 run_id=run_id,
                 correlation_id=correlation_id(run_id, rc.case_key),
-                status="generated" if generated else "skipped",
+                status=status,
+                passed=passed,
                 error_stage=None if generated else "source",
                 error=None if generated else f"Not generated in the source run ({rc.status}).",
-                **{name: getattr(rc, name) for name in COPIED_CASE_FIELDS},
+                **copied,
             )
         )
     await session.flush()
@@ -134,8 +186,13 @@ async def create_rejudge(
     ).all()
     session.add_all(_clone(row, run_case_id=new_ids[row.run_case_id]) for row in scores)
 
-    judgeable = [new_ids[rc.id] for rc in source_cases if rc.status in GENERATED]
-    run.skipped_cases = len(source_cases) - len(judgeable)
+    carried = [rc for rc in source_cases if rc.id in probes and rc.status == "done"]
+    judgeable = [
+        new_ids[rc.id] for rc in source_cases if rc.status in GENERATED and rc.id not in probes
+    ]
+    run.done_cases = len(carried)
+    run.passed_cases = sum(1 for rc in carried if rc.passed)
+    run.skipped_cases = len(source_cases) - len(judgeable) - len(carried)
     await session.flush()
     await queue.enqueue_many(session, "case_judge", run_id, judgeable, max_attempts=JUDGE_ATTEMPTS)
     await run_state.settle(session, run)

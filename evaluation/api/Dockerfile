@@ -18,7 +18,9 @@ RUN apt-get update \
     && useradd --create-home --uid 10001 app
 
 # The repo layout is kept under /srv: config.py finds the repo root four levels above app/core
-# (/srv), and with it the golden set at /srv/api/eval/golden.jsonl for scripts.import_golden.
+# (/srv), and with it the golden set at /srv/api/eval/golden.jsonl for scripts.import_golden and
+# evaluation/fixtures/ (the leakage canary that every run snapshots, the adversarial suite, the
+# judge-robustness strings).
 WORKDIR /srv/evaluation/api
 
 # Dependencies first (cached until the lockfile changes), then the code.
@@ -27,6 +29,7 @@ RUN uv sync --frozen --no-dev --no-install-project
 
 COPY evaluation/api/ ./
 COPY api/eval/golden.jsonl /srv/api/eval/golden.jsonl
+COPY evaluation/fixtures/ /srv/evaluation/fixtures/
 RUN uv sync --frozen --no-dev && chown -R app:app /srv
 
 # The deployed commit for /health.version: Coolify passes SOURCE_COMMIT when "Include source

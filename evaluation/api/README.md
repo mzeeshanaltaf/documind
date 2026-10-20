@@ -9,6 +9,8 @@ uv sync
 uv run alembic upgrade head                                   # schema from EVAL_DATABASE_URL
 uv run python -m scripts.bootstrap_service_users --org-slug simtora   # then copy the ids to .env.local
 uv run python -m scripts.import_golden                        # needs DocuMind on DOCUMIND_API_URL
+uv run python -m scripts.setup_canary_org --wait              # leakage-canary org `eval-canary` (E8)
+uv run python -m scripts.import_adversarial                   # dataset `adversarial` (E8)
 uv run uvicorn app.main:app --reload --port 8100
 uv run pytest && uv run ruff check .
 ```

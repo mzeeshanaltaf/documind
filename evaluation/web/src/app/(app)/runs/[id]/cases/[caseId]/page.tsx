@@ -9,6 +9,7 @@ import { ButtonLink } from "@/components/button-link";
 import { CaseAnswer } from "@/components/case/answer";
 import { ClaimsTable } from "@/components/case/claims-table";
 import { ContextsTable } from "@/components/case/contexts-table";
+import { hasSafetyChecks, ProbeRequests, SafetyChecks } from "@/components/case/safety-checks";
 import { JudgeReasoning, ScoresTable } from "@/components/case/scores";
 import { DocuMindUsageTable, JudgeCallsTable } from "@/components/case/usage-tables";
 import { runTitle } from "@/components/runs/runs-table";
@@ -79,6 +80,9 @@ async function Case({ params }: { params: PageProps<"/runs/[id]/cases/[caseId]">
   const spec = detail.case;
   const routing = detail.routing;
   const { quotesByN, sources } = caseSources(detail, run.mode);
+  // An authz probe sends requests, not a question: no routing, answer or contexts to show.
+  const probe = spec.type === "authz_probe";
+  const full = run.mode === "full" && !probe;
 
   return (
     <PageContainer className="max-w-6xl gap-10">
@@ -178,6 +182,16 @@ async function Case({ params }: { params: PageProps<"/runs/[id]/cases/[caseId]">
               </ul>
             </Pair>
           )}
+          {spec.injection_canary && (
+            <Pair label="Injection canary">
+              <span className="font-mono text-xs">{spec.injection_canary}</span>
+            </Pair>
+          )}
+          {spec.forbidden_doc_codes.length > 0 && (
+            <Pair label="Forbidden documents">
+              <Codes values={spec.forbidden_doc_codes} />
+            </Pair>
+          )}
           {spec.tags.length > 0 && (
             <Pair label="Tags">
               <Codes values={spec.tags} />
@@ -186,6 +200,17 @@ async function Case({ params }: { params: PageProps<"/runs/[id]/cases/[caseId]">
         </dl>
       </Section>
 
+      {probe && (
+        <Section
+          id="probes"
+          title="Probe requests"
+          description="Sent to DocuMind as the probe user, a plain member of the run's organization. Each must get the status it expects."
+        >
+          <ProbeRequests detail={detail} />
+        </Section>
+      )}
+
+      {!probe && (
       <Section id="routing" title="Routing" description="How DocuMind's router read the question, next to what the case expects.">
         {routing ? (
           <dl className="flex flex-col">
@@ -230,8 +255,9 @@ async function Case({ params }: { params: PageProps<"/runs/[id]/cases/[caseId]">
           <p className="text-sm text-muted-foreground">No routing was recorded.</p>
         )}
       </Section>
+      )}
 
-      {run.mode === "full" && (
+      {full && (
         <Section id="answer" title="Answer" description="Hover a citation for the passage it points to; judged evidence is highlighted.">
           {detail.answer ? (
             <CaseAnswer answer={detail.answer} sources={sources} />
@@ -241,21 +267,33 @@ async function Case({ params }: { params: PageProps<"/runs/[id]/cases/[caseId]">
         </Section>
       )}
 
-      {run.mode === "full" && (
+      {full && hasSafetyChecks(detail) && (
+        <Section
+          id="safety"
+          title="Safety checks"
+          description="The injection canary, system-prompt text, leaked canary phrases and cited supplements. Flagged text is marked in red."
+        >
+          <SafetyChecks detail={detail} />
+        </Section>
+      )}
+
+      {full && (
         <Section id="claims" title="Claims" description="Each claim in the answer, checked against the sources DocuMind gave it.">
           <ClaimsTable claims={detail.claims} />
         </Section>
       )}
 
-      <Section
-        id="contexts"
-        title="Retrieved contexts"
-        description="Label = the dataset's expected sections; Judge = the judge's relevance verdict; Cited = used in the answer."
-      >
-        <ContextsTable contexts={detail.contexts} quotesByN={quotesByN} />
-      </Section>
+      {!probe && (
+        <Section
+          id="contexts"
+          title="Retrieved contexts"
+          description="Label = the dataset's expected sections; Judge = the judge's relevance verdict; Cited = used in the answer."
+        >
+          <ContextsTable contexts={detail.contexts} quotesByN={quotesByN} />
+        </Section>
+      )}
 
-      {run.mode === "full" && (
+      {full && (
         <Section id="reasoning" title="Judge reasoning">
           <JudgeReasoning scores={detail.scores} index={index} />
         </Section>
@@ -265,7 +303,7 @@ async function Case({ params }: { params: PageProps<"/runs/[id]/cases/[caseId]">
         <ScoresTable scores={detail.scores} index={index} />
       </Section>
 
-      {run.mode === "full" && (
+      {full && (
         <Section id="judge-calls" title="Judge calls">
           <JudgeCallsTable calls={detail.judge_calls} />
         </Section>

@@ -94,11 +94,19 @@ export function JudgeReasoning({ scores, index }: { scores: MetricScoreOut[]; in
   );
 }
 
+function detailValue(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(detailValue).join(", ")}]`;
+  return typeof value === "object" && value !== null ? JSON.stringify(value) : String(value);
+}
+
 function detailSummary(details: Record<string, unknown>): string {
   const skip = new Set(["analysis", "summary", "reasoning", "issues", "samples"]);
   return Object.entries(details)
     .filter(([key]) => !skip.has(key))
-    .map(([key, value]) => `${key} ${Array.isArray(value) ? `[${value.join(", ")}]` : typeof value === "object" && value !== null ? JSON.stringify(value) : String(value)}`)
+    .map(([key, value]) =>
+      // Probe requests have their own table on the case page.
+      key === "requests" && Array.isArray(value) ? `requests ${value.length}` : `${key} ${detailValue(value)}`,
+    )
     .join(" · ");
 }
 

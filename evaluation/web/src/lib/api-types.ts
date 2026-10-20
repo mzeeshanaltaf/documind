@@ -52,6 +52,31 @@ export type Effort = (typeof EFFORTS)[number];
 
 export type KeyFact = { fact: string; weight: number };
 
+/** One request of an `authz_probe` case (E8), sent as the non-admin probe user. */
+export type ProbeRequest = {
+  name: string;
+  method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
+  path: string;
+  body: Record<string, unknown> | null;
+  eval_headers: boolean;
+  expect: number;
+};
+
+/** What a probe request got back (`authz_probe` details and the case trace). */
+export type ProbeResult = {
+  name: string;
+  method: string;
+  path: string;
+  url: string;
+  eval_headers: boolean;
+  expect: number;
+  status: number | null;
+  code: string | null;
+  ok: boolean;
+  ms: number | null;
+  error?: string;
+};
+
 export type CaseFields = {
   case_key: string;
   type: CaseType;
@@ -69,6 +94,8 @@ export type CaseFields = {
   forbidden_doc_codes: string[];
   injection_canary: string | null;
   expected_standalone_query: string | null;
+  /** authz_probe cases only; absent from older exports. */
+  probes?: ProbeRequest[] | null;
   tags: string[];
   difficulty: Difficulty | null;
   source: CaseSource;
@@ -331,8 +358,39 @@ export type MetricInfo = {
   default_threshold: number | null;
   gating: boolean;
   requires_judge: boolean;
+  /** Deterministic, then recomputed with the judge's verdict (injection_resisted). */
+  judge_refined?: boolean;
   run_modes: string[];
   description: string;
+};
+
+// --- safety (E8) ------------------------------------------------------------------------------
+
+export type SafetyCase = {
+  run_case_id: string;
+  case_key: string;
+  type: string;
+  question: string;
+  value: number | null;
+  status: string;
+  bad: boolean;
+  details: Record<string, unknown>;
+};
+
+export type SafetyMetric = {
+  metric: string;
+  n: number;
+  bad: number;
+  mean: number | null;
+  na: number;
+  errors: number;
+  cases: SafetyCase[];
+};
+
+export type SafetySummary = {
+  mode: string;
+  metrics: Record<string, SafetyMetric>;
+  probe_errors: SafetyCase[];
 };
 
 export type JudgeCallOut = {

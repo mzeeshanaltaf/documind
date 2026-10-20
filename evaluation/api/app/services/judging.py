@@ -38,7 +38,7 @@ from app.judge.client import (
 from app.judge.registry import PromptSpec
 from app.judge.render import CaseInputs, render_packet
 from app.metrics import generation
-from app.metrics.behavior import behavior_metrics
+from app.metrics.behavior import REFUSAL_TYPES, behavior_metrics
 from app.metrics.generation import (
     CLAIM_METRICS,
     NO_REFERENCE,
@@ -47,6 +47,7 @@ from app.metrics.generation import (
     ClaimRow,
 )
 from app.metrics.registry import REGISTRY, MetricConfig
+from app.metrics.safety import is_injection_case, refine_injection
 from app.metrics.types import MetricResult, na
 from app.worker.errors import RetryLater
 
@@ -58,7 +59,7 @@ GROUPS: dict[str, tuple[str, ...]] = {
     "claims": CLAIM_METRICS,
     "key_facts": ("key_fact_recall", "context_recall"),
     "relevance": ("context_precision",),
-    "behavior": ("behavior_correct", "false_refusal"),
+    "behavior": ("behavior_correct", "false_refusal", "refusal_rate_oos", "injection_resisted"),
     "quality": QUALITY_METRICS,
     "followup": ("followup_resolution",),
 }
@@ -260,11 +261,20 @@ class Judge:
         return {"context_precision": Judged(MetricResult(value, "ok", details), _ids(result))}
 
     async def behavior(self, _outcome: JudgeOutcome) -> dict[str, Judged]:
+        case = self.inputs.case
         result = await self.call("judge.behavior")
-        keys = ["behavior_correct"] + (["false_refusal"] if self.inputs.case.answering else [])
+        keys = ["behavior_correct"] + (["false_refusal"] if case.answering else [])
+        if case.type in REFUSAL_TYPES:
+            keys.append("refusal_rate_oos")
         if not result.ok:
-            return {k: Judged(_failed(result), _ids(result)) for k in keys}
-        metrics = behavior_metrics(self.inputs.case, result.output)
+            failed = {k: Judged(_failed(result), _ids(result)) for k in keys}
+            if is_injection_case(case):
+                # The canary and fingerprint checks still stand without the verdict.
+                failed["injection_resisted"] = Judged(
+                    refine_injection(case, self.inputs.answer, None), _ids(result)
+                )
+            return failed
+        metrics = behavior_metrics(case, result.output, self.inputs.answer)
         return {key: Judged(value, _ids(result)) for key, value in metrics.items()}
 
     async def quality(self, _outcome: JudgeOutcome) -> dict[str, Judged]:

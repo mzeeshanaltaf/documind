@@ -78,7 +78,12 @@ class MetricConfig:
         return any(spec.requires_judge and self.is_enabled(spec) for spec in REGISTRY.values())
 
     def enabled_judge_metrics(self) -> frozenset[str]:
-        return frozenset(key for key in JUDGE_METRICS if self.is_enabled(REGISTRY[key]))
+        """The metrics a judge job may write: judge metrics and judge-refined ones."""
+        return frozenset(
+            key
+            for key, spec in REGISTRY.items()
+            if (spec.requires_judge or spec.judge_refined) and self.is_enabled(spec)
+        )
 
 
 @dataclass(frozen=True)
@@ -98,12 +103,16 @@ def evaluate(
     config: MetricConfig,
 ) -> list[Score]:
     """Every enabled deterministic metric for one case in one mode. A metric that doesn't apply
-    is kept as `na` (so aggregates can count it); a crashing metric becomes `error`."""
+    is kept as `na` (so aggregates can count it); a crashing metric becomes `error`. An
+    `authz_probe` case sends no question, so it only gets the probe metric."""
     scores = []
+    probe_case = case.type == "authz_probe"
     for spec in REGISTRY.values():
         if spec.requires_judge or not config.is_enabled(spec):
             continue
         if output.run_mode not in spec.run_modes:
+            continue
+        if probe_case and spec.key not in safety.PROBE_METRICS:
             continue
         if not spec.applies_to(case):
             result = na("not applicable")
@@ -142,6 +151,7 @@ def describe() -> list[dict[str, Any]]:
             "default_threshold": spec.default_threshold,
             "gating": spec.gating,
             "requires_judge": spec.requires_judge,
+            "judge_refined": spec.judge_refined,
             "run_modes": sorted(spec.run_modes),
             "description": spec.description,
         }

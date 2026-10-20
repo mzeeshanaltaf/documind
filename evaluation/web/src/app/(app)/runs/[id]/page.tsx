@@ -5,7 +5,7 @@ import { Suspense } from "react";
 import { PageContainer } from "@/components/app/page-container";
 import { PageSkeleton } from "@/components/app/shell-skeleton";
 import { LiveRun } from "@/components/runs/live-run";
-import type { AggregateOut, MetricInfo, RunCaseOut, RunDetail } from "@/lib/api-types";
+import type { AggregateOut, MetricInfo, RunCaseOut, RunDetail, SafetySummary } from "@/lib/api-types";
 import { requireAdmin } from "@/lib/auth-guards";
 import { apiJson, apiJsonOrNull } from "@/lib/eval-api";
 
@@ -24,10 +24,11 @@ async function Run({ params }: { params: PageProps<"/runs/[id]">["params"] }) {
   const { id } = await params;
   const run = await apiJsonOrNull<RunDetail>(`runs/${id}`, { userId: user.id });
   if (!run) notFound();
-  const [{ cases }, aggregates, registry] = await Promise.all([
+  const [{ cases }, aggregates, registry, safety] = await Promise.all([
     apiJson<{ cases: RunCaseOut[] }>(`runs/${id}/cases`, { userId: user.id }),
     apiJson<AggregateOut[]>(`runs/${id}/aggregates`, { userId: user.id }),
     apiJson<MetricInfo[]>("metrics", { userId: user.id }),
+    apiJsonOrNull<SafetySummary>(`runs/${id}/safety`, { userId: user.id }),
   ]);
 
   return (
@@ -37,7 +38,13 @@ async function Run({ params }: { params: PageProps<"/runs/[id]">["params"] }) {
           Runs
         </Link>
       </nav>
-      <LiveRun initialRun={run} initialCases={cases} initialAggregates={aggregates} registry={registry} />
+      <LiveRun
+        initialRun={run}
+        initialCases={cases}
+        initialAggregates={aggregates}
+        initialSafety={safety}
+        registry={registry}
+      />
     </PageContainer>
   );
 }

@@ -105,7 +105,12 @@ class CaseOutput:
     top_k: int = 8
     # The org's document ids (None = unknown, so the foreign-document check is skipped).
     org_document_ids: frozenset[str] | None = None
+    # The leakage canary's phrases (run snapshot) plus the run's own.
     canary_phrases: tuple[str, ...] = ()
+    # Country supplements' doc_code → jurisdiction (run snapshot; None = a run made before E8).
+    supplements: Mapping[str, str] | None = None
+    # authz_probe cases: one result per probe request (see services/probes.py).
+    probes: Sequence[Mapping[str, Any]] | None = None
 
 
 @dataclass(frozen=True)
@@ -140,6 +145,9 @@ class MetricSpec:
     run_modes: frozenset[str] = frozenset({"full", "retrieval_only"})
     default_threshold: float | None = None
     requires_judge: bool = False
+    # Deterministic at generation, then recomputed by a judge group with its verdict (E8's
+    # injection_resisted): a run without the judge keeps the deterministic value.
+    judge_refined: bool = False
     gating: bool = False
     description: str = ""
 

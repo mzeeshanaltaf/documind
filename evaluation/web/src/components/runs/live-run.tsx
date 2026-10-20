@@ -14,6 +14,7 @@ import {
   type MetricInfo,
   type RunCaseOut,
   type RunDetail,
+  type SafetySummary,
   TERMINAL_RUN_STATUSES,
 } from "@/lib/api-types";
 import { elapsedMs, formatCost, formatDateTime, formatDuration, shortId } from "@/lib/format";
@@ -31,6 +32,7 @@ import { CaseTable } from "./case-table";
 import { fromAggregate, MetricStrip, provisional } from "./metric-strip";
 import { RunControls } from "./run-controls";
 import { RunProgress } from "./run-progress";
+import { SafetyPanel } from "./safety-panel";
 import { runTitle } from "./runs-table";
 import { SlicesHeatmap } from "./slices-heatmap";
 import { RunStatusBadge } from "./status";
@@ -60,11 +62,13 @@ export function LiveRun({
   initialRun,
   initialCases,
   initialAggregates,
+  initialSafety,
   registry,
 }: {
   initialRun: RunDetail;
   initialCases: RunCaseOut[];
   initialAggregates: AggregateOut[];
+  initialSafety: SafetySummary | null;
   registry: MetricInfo[];
 }) {
   const { run, cases, transport, follow } = useRunEvents(initialRun, initialCases);
@@ -229,6 +233,8 @@ export function LiveRun({
         <MetricStrip summaries={summaries} index={index} thresholds={thresholds} />
         {overall.size > 0 && <AllMetrics overall={overall} index={index} />}
       </Section>
+
+      <SafetyPanel runId={run.id} initial={initialSafety} live={!terminal} />
 
       <Section title="Slices" description="Each metric's mean per case type, department, jurisdiction and tag.">
         <SlicesHeatmap aggregates={aggregates} index={index} mode={mode} keyMetrics={keyMetrics} />

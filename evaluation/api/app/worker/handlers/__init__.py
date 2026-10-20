@@ -5,6 +5,7 @@ in `app.worker.errors`."""
 from collections.abc import Awaitable, Callable
 
 from app.worker.handlers import (
+    authz_probe,
     case_generate,
     case_judge,
     noop,
@@ -18,6 +19,7 @@ Handler = Callable[[ClaimedJob], Awaitable[None]]
 HANDLERS: dict[str, Handler] = {
     "noop": noop.handle,
     "case_generate": case_generate.handle,
+    "authz_probe": authz_probe.handle,
     "case_judge": case_judge.handle,
     "run_finalize": run_finalize.handle,
     "synthetic_generate": synthetic_generate.handle,

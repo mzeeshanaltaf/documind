@@ -42,6 +42,7 @@ const CASE_FIELDS = [
   "forbidden_doc_codes",
   "injection_canary",
   "expected_standalone_query",
+  "probes",
   "tags",
   "difficulty",
   "source",

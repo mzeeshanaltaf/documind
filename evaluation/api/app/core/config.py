@@ -52,6 +52,10 @@ class Settings(BaseSettings):
     eval_anthropic_max_rpm: int = 50
 
     golden_file: Path = REPO_ROOT / "api" / "eval" / "golden.jsonl"
+    # E8: the leakage canary (org + policy) and the adversarial dataset.
+    canary_file: Path = REPO_ROOT / "evaluation" / "fixtures" / "canary" / "canary-policy.md"
+    adversarial_file: Path = REPO_ROOT / "evaluation" / "fixtures" / "adversarial.jsonl"
+    robustness_file: Path = REPO_ROOT / "evaluation" / "fixtures" / "judge-robustness.txt"
 
     # The deployed commit (Dockerfile: SOURCE_COMMIT build arg → GIT_SHA), shown by /health.
     git_sha: str = "dev"

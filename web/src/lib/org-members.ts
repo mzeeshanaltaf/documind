@@ -6,6 +6,15 @@ import { sendInvitationEmail } from "./email/invitation-email";
 /** Matches Better Auth's default (organization.invitationExpiresIn = 48h). */
 export const INVITATION_TTL_MS = 48 * 60 * 60 * 1000;
 
+/**
+ * SQL (alias `o` = organization): true for orgs the evaluation harness owns, flagged
+ * `{"eval": true}` in `organization.metadata` (e.g. the leakage canary `eval-canary`). They never
+ * appear on the self-service join page and can't be joined. `case` keeps the jsonb cast away from
+ * metadata that isn't a JSON object.
+ */
+export const IS_EVAL_ORG_SQL = `case when o.metadata like '{%}'
+  then coalesce((o.metadata::jsonb ->> 'eval') = 'true', false) else false end`;
+
 export type MemberRow = {
   id: string;
   userId: string;

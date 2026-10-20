@@ -86,13 +86,15 @@ class MockDocuMind:
     def __init__(self, router: respx.MockRouter) -> None:
         self.router = router
         router.get("/health").respond(json={"status": "ok", "db": "ok", "version": "test-sha"})
-        router.get("/v1/me").respond(
+        self.me = router.get("/v1/me").respond(
             json={
                 "user": {"id": "bot", "email": "bot@x", "name": "Bot", "is_admin": True},
                 "orgs": [{"id": ORG_ID, "name": "Simtora", "slug": "simtora", "role": None}],
             }
         )
-        router.get("/v1/admin/eval/info").respond(json={"version": "test-sha", "defaults": {}})
+        self.info = router.get("/v1/admin/eval/info").respond(
+            json={"version": "test-sha", "defaults": {}}
+        )
         router.get(f"/v1/orgs/{ORG_ID}/settings").respond(
             json={
                 "chat_model": "gpt-6-luna",

@@ -259,7 +259,36 @@ async def import_golden(
 ) -> ImportResult:
     """DocuMind's retrieval golden set (`api/eval/golden.jsonl`) as dataset `golden`, published.
     Departments must resolve, so DocuMind has to be reachable."""
-    options = dataclasses.replace(GOLDEN_OPTIONS, default_org_slug=org_slug)
+    return await import_fixture(
+        session, documind, content, GOLDEN_OPTIONS, created_by=created_by, org_slug=org_slug
+    )
+
+
+# --- the adversarial & safety suite (evaluation/fixtures/adversarial.jsonl, E8) -------------
+
+ADVERSARIAL_OPTIONS = ImportOptions(
+    dataset_slug="adversarial",
+    dataset_name="Adversarial & safety suite",
+    default_org_slug="simtora",
+    kind="adversarial",
+    defaults={"tags": ["adversarial"], "source": "adversarial"},
+    key_prefix="adv",
+    publish=True,
+)
+
+
+async def import_fixture(
+    session: AsyncSession,
+    documind: DocuMindClient,
+    content: str,
+    options: ImportOptions,
+    *,
+    created_by: str | None = None,
+    org_slug: str = "simtora",
+) -> ImportResult:
+    """A dataset file kept in the repo, published, with departments read from `org_slug`'s
+    documents (DocuMind must be reachable). Unchanged content is a no-op."""
+    options = dataclasses.replace(options, default_org_slug=org_slug)
     parsed = parse_jsonl(content, options)
     if not parsed.errors:
         mapping = await departments_by_code(documind, org_slug)

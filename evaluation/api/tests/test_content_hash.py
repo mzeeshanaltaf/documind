@@ -40,6 +40,7 @@ def test_hash_changes_with_content() -> None:
 
 def test_canonical_case_has_every_content_field_only() -> None:
     canonical = canonical_case(A)
-    assert set(canonical) == set(CaseFields.model_fields)
+    # `probes` (E8) is left out unless set, so older versions keep their hash.
+    assert set(canonical) == set(CaseFields.model_fields) - {"probes"}
     assert canonical["key_facts"] == []
     assert canonical_case(B)["key_facts"] == [{"fact": "30 days", "weight": 1.0}]

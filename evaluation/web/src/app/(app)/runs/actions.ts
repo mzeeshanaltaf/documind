@@ -95,9 +95,11 @@ const rejudgeSchema = z.object({
   name: z.string().trim().max(200).nullish(),
   tags: z.array(z.string().trim().min(1).max(60)).max(20),
   max_judge_cost_usd: z.number().min(0).nullish(),
+  tamper: z.enum(["judge_robustness"]).nullish(),
 });
 
-/** A new run that re-scores this run's answers with the current prompt files (no DocuMind calls). */
+/** A new run that re-scores this run's answers with the current prompt files (no DocuMind calls).
+ * `tamper: judge_robustness` appends evaluator-directed text to every answer first. */
 export async function rejudgeRun(runId: string, input: z.input<typeof rejudgeSchema>): Promise<ActionResult<RunDetail>> {
   const { user } = await requireAdmin();
   if (!id.safeParse(runId).success) return { ok: false, error: "Unknown run." };

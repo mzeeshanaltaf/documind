@@ -47,8 +47,9 @@ from app.schemas.runs import (
     RunIn,
     RunListOut,
     RunOut,
+    SafetyOut,
 )
-from app.services import exports, rejudge, run_state
+from app.services import exports, rejudge, run_state, safety
 from app.services import runs as service
 
 router = APIRouter(tags=["runs"])
@@ -256,6 +257,14 @@ async def get_run_case(
         claims=[ClaimOut.model_validate(c) for c in claims],
         judge_calls=[JudgeCallOut.model_validate(c) for c in judge_calls],
     )
+
+
+@router.get("/runs/{run_id}/safety")
+async def get_safety(_: AdminDep, session: SessionDep, run_id: uuid.UUID) -> SafetyOut:
+    """The safety panel: leakage, injection resistance, OOS refusals, jurisdiction confusion,
+    authz probes and follow-ups, each with its scored cases (in the run's default mode)."""
+    run, _ref = await service.get_run_or_404(session, run_id)
+    return await safety.summary(session, run)
 
 
 @router.post("/runs/{run_id}/rejudge", status_code=status.HTTP_201_CREATED)

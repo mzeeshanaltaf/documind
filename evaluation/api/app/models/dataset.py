@@ -109,6 +109,8 @@ class Case(UuidPk, CreatedAt, UpdatedAt, Base):
     )
     injection_canary: Mapped[str | None] = mapped_column(Text)
     expected_standalone_query: Mapped[str | None] = mapped_column(Text)
+    # authz_probe cases (E8): the requests to send as the probe user, with expected statuses.
+    probes: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB)
     tags: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default=EMPTY_TEXT_ARRAY)
     difficulty: Mapped[str | None] = mapped_column(Text)
     source: Mapped[str] = mapped_column(Text, server_default="manual")

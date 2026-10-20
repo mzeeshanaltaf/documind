@@ -5,11 +5,12 @@ import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { requireSession } from "@/lib/auth-guards";
 import { pool } from "@/lib/db";
-import { isMember } from "@/lib/org-members";
+import { IS_EVAL_ORG_SQL, isMember } from "@/lib/org-members";
 
 export type JoinResult = { ok: true; slug: string; name: string } | { ok: false; error: string };
 
-/** Self-service join: any signed-in user can become a "member" of any organization. */
+/** Self-service join: any signed-in user can become a "member" of any organization, except the
+ * evaluation harness's own orgs (they read as nonexistent). */
 export async function joinOrganization(orgId: string): Promise<JoinResult> {
   const { user } = await requireSession();
   const id = z.string().min(1).max(128).safeParse(orgId);
@@ -17,7 +18,7 @@ export async function joinOrganization(orgId: string): Promise<JoinResult> {
 
   try {
     const { rows } = await pool.query<{ id: string; name: string; slug: string }>(
-      `select id, name, slug from organization where id = $1`,
+      `select o.id, o.name, o.slug from organization o where o.id = $1 and not (${IS_EVAL_ORG_SQL})`,
       [id.data],
     );
     const org = rows[0];

@@ -28,8 +28,8 @@ from app.judge import registry
 from app.judge.pricing import PRICING_FILE as JUDGE_PRICING_FILE
 from app.models import Case, Dataset, DatasetVersion, MetricScore, Run, RunCase
 from app.schemas.runs import RETRIEVAL_MODES, RunIn
+from app.services import canary, run_state
 from app.services import datasets as dataset_service
-from app.services import run_state
 from app.worker import queue
 
 CASE_ATTEMPTS = 4  # case_generate: 429/5xx/timeouts back off 10 s, 20 s, 40 s
@@ -140,7 +140,14 @@ async def create_run(
             "count": len(documents),
             "ids": sorted(d.id for d in documents),
             "by_code": by_code,
+            # jurisdiction_confusion: which documents are another country's rules.
+            "supplements": {
+                d.doc_code: d.jurisdiction
+                for d in documents
+                if d.doc_code and d.jurisdiction and d.doc_type == "country_supplement"
+            },
         },
+        "canary": canary.snapshot_for(org.slug),
         "dataset": {
             "id": str(dataset.id),
             "slug": dataset.slug,
@@ -198,8 +205,12 @@ async def create_run(
     run.skipped_cases = sum(1 for rc in run_cases if rc.status == "skipped")
     await session.flush()
 
-    pending = [rc.id for rc in run_cases if rc.status == "pending"]
-    await queue.enqueue_many(session, "case_generate", run_id, pending, max_attempts=CASE_ATTEMPTS)
+    probe_ids = {case.id for case in cases if case.type == "authz_probe"}
+    pending = [rc for rc in run_cases if rc.status == "pending"]
+    generate = [rc.id for rc in pending if rc.case_id not in probe_ids]
+    probes = [rc.id for rc in pending if rc.case_id in probe_ids]
+    await queue.enqueue_many(session, "case_generate", run_id, generate, max_attempts=CASE_ATTEMPTS)
+    await queue.enqueue_many(session, "authz_probe", run_id, probes, max_attempts=CASE_ATTEMPTS)
     await run_state.settle(session, run)  # every case skipped → straight to finalize
     return run
 

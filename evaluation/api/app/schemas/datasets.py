@@ -1,8 +1,10 @@
+import json
+import re
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.models.enums import CaseSource, CaseType, DatasetKind, Difficulty, ExpectedBehavior
 
@@ -10,6 +12,9 @@ from app.models.enums import CaseSource, CaseType, DatasetKind, Difficulty, Expe
 CASE_KEY_PATTERN = r"^[A-Za-z0-9_-]{1,80}$"
 SLUG_PATTERN = r"^[a-z0-9][a-z0-9-]{0,62}$"
 MAX_SETUP_TURNS = 6
+# Placeholders an authz probe's path may use; the probe handler fills them in per run.
+PROBE_PLACEHOLDERS = frozenset({"org_id", "canary_org_id", "bot_conversation_id", "doc_id"})
+PLACEHOLDER_RE = re.compile(r"\{([a-z_]+)\}")
 
 
 class KeyFact(BaseModel):
@@ -17,6 +22,35 @@ class KeyFact(BaseModel):
 
     fact: str = Field(min_length=1, max_length=2000)
     weight: float = Field(default=1.0, gt=0, le=10)
+
+
+class ProbeRequest(BaseModel):
+    """One request an `authz_probe` case sends to DocuMind as the probe user (a plain member of
+    the run's org). Path placeholders: `{org_id}` (the run's org), `{canary_org_id}` (the
+    leakage canary org, which the probe isn't in), `{bot_conversation_id}` (a conversation the
+    service account owns) and `{doc_id}` (one of the run org's documents)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=200)
+    method: Literal["GET", "POST", "PATCH", "PUT", "DELETE"] = "GET"
+    path: str = Field(pattern=r"^/v1/[A-Za-z0-9_./{}-]+$", max_length=300)
+    body: dict[str, Any] | None = None
+    eval_headers: bool = Field(default=False, description="Send X-Eval-Run-Id/X-Eval-Case-Id.")
+    expect: int = Field(ge=200, le=599, description="The HTTP status DocuMind must answer.")
+
+    @field_validator("path", "body")
+    @classmethod
+    def _placeholders(cls, value: Any) -> Any:
+        unknown = set(PLACEHOLDER_RE.findall(json.dumps(value))) - PROBE_PLACEHOLDERS
+        if unknown:
+            raise ValueError(f"unknown placeholder(s): {', '.join(sorted(unknown))}")
+        return value
+
+    @property
+    def placeholders(self) -> set[str]:
+        """The placeholders used in the path and in the body's strings."""
+        return set(PLACEHOLDER_RE.findall(f"{self.path} {json.dumps(self.body)}"))
 
 
 class CaseFields(BaseModel):
@@ -42,6 +76,9 @@ class CaseFields(BaseModel):
     forbidden_doc_codes: list[str] = Field(default_factory=list)
     injection_canary: str | None = None
     expected_standalone_query: str | None = None
+    probes: list[ProbeRequest] | None = Field(
+        default=None, max_length=20, description="authz_probe cases only: the requests to send."
+    )
     tags: list[str] = Field(default_factory=list)
     difficulty: Difficulty | None = None
     source: CaseSource = "manual"
@@ -53,6 +90,14 @@ class CaseFields(BaseModel):
         if not value.strip():
             raise ValueError("question cannot be blank")
         return value.strip()
+
+    @model_validator(mode="after")
+    def _probes(self) -> "CaseFields":
+        if self.type == "authz_probe" and not self.probes:
+            raise ValueError("an authz_probe case needs at least one probe request")
+        if self.type != "authz_probe" and self.probes:
+            raise ValueError("only authz_probe cases take probes")
+        return self
 
 
 CONTENT_FIELDS: tuple[str, ...] = tuple(CaseFields.model_fields)
@@ -86,6 +131,7 @@ class CasePatch(BaseModel):
     forbidden_doc_codes: list[str] | None = None
     injection_canary: str | None = None
     expected_standalone_query: str | None = None
+    probes: list[ProbeRequest] | None = Field(default=None, max_length=20)
     tags: list[str] | None = None
     difficulty: Difficulty | None = None
     source: CaseSource | None = None

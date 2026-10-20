@@ -33,7 +33,11 @@ def canonical_case(case: CaseFields | Mapping[str, Any]) -> dict[str, Any]:
         case = CaseFields.model_validate(
             {field: case.get(field) for field in CONTENT_FIELDS if case.get(field) is not None}
         )
-    return case.model_dump(mode="json")
+    content = case.model_dump(mode="json")
+    if content.get("probes") is None:
+        # Added in E8: absent unless set, so versions published before it keep their hash.
+        content.pop("probes", None)
+    return content
 
 
 def content_hash(cases: Iterable[CaseFields | Mapping[str, Any]]) -> str:
@@ -285,6 +289,8 @@ async def patch_case(session: AsyncSession, case: Case, body: CasePatch) -> Case
     if body.key_facts is not None:
         # exclude_unset reaches into nested models and would drop a fact's default weight.
         changes["key_facts"] = [fact.model_dump(mode="json") for fact in body.key_facts]
+    if body.probes is not None:
+        changes["probes"] = [probe.model_dump(mode="json") for probe in body.probes]
     nulls = sorted(f for f in REQUIRED_PATCH_FIELDS if f in changes and changes[f] is None)
     if nulls:
         raise ApiError(422, "validation_error", f"These fields can't be null: {', '.join(nulls)}.")

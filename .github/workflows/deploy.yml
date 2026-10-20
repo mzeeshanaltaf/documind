@@ -2,7 +2,8 @@ name: Deploy
 
 # Push to main → check and deploy only what changed:
 #   api/** or model-pricing.json → documind-api;  web/** → documind-web;
-#   evaluation/api/** (+ api/eval/golden.jsonl, baked into its image) → documind-eval-api;
+#   evaluation/api/** (+ evaluation/fixtures/** and api/eval/golden.jsonl, baked into its
+#   image) → documind-eval-api;
 #   evaluation/web/** → documind-eval-web.  .dockerignore → all four.
 # Manual runs (Actions tab → Run workflow) deploy all four.
 # Repo secrets: COOLIFY_BASE_URL, COOLIFY_API_TOKEN (deploy-scoped Coolify token).
@@ -46,6 +47,7 @@ jobs:
               - '.dockerignore'
             eval_api:
               - 'evaluation/api/**'
+              - 'evaluation/fixtures/**'
               - 'api/eval/golden.jsonl'
               - '.dockerignore'
             eval_web:

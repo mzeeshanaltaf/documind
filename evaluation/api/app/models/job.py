@@ -35,7 +35,9 @@ class Job(UuidPk, CreatedAt, UpdatedAt, Base):
     run_case_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("run_cases.id", ondelete="CASCADE")
     )
-    batch_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))  # synthetic (E7)
+    batch_id: Mapped[uuid.UUID | None] = mapped_column(  # synthetic (E7)
+        UUID(as_uuid=True), ForeignKey("synthetic_batches.id", ondelete="CASCADE"), index=True
+    )
     payload: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
     status: Mapped[str] = mapped_column(Text, server_default="queued")
     priority: Mapped[int] = mapped_column(Integer, server_default=text("0"))

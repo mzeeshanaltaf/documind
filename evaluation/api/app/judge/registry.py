@@ -39,7 +39,9 @@ TASK_MARKER = "<!-- task -->"
 FRONTMATTER_RE = re.compile(r"\A---\n(.*?)\n---\n(.*)\Z", re.DOTALL)
 PLACEHOLDER_RE = re.compile(r"\{\{\s*([a-z_]+)\s*\}\}")
 SECTIONS = ("question", "conversation", "expected_behavior", "reference", "sources", "answer",
-            "routing")  # fmt: skip
+            "routing",
+            # Generator prompts (E7): seed chunks, the org's catalog, the candidate under review.
+            "chunks", "catalog", "candidate")  # fmt: skip
 REQUIRED = ("key", "kind", "role", "model", "schema", "packet")
 THINKING = ("adaptive", "disabled")
 EFFORTS = ("low", "medium", "high", "xhigh", "max")
@@ -217,24 +219,51 @@ def version_ref(spec: PromptSpec) -> dict[str, Any]:
     return {"version_id": str(spec.version_id), "sha256": spec.sha256, "version": spec.version}
 
 
-async def sync(session: AsyncSession, specs: dict[str, PromptSpec] | None = None) -> dict[str, Any]:
+async def sync(
+    session: AsyncSession, specs: dict[str, PromptSpec] | None = None, *, kind: str | None = None
+) -> dict[str, Any]:
     """Make sure every prompt file's current content has a `prompt_versions` row. Returns
-    `{key: {version_id, sha256, version}}` for the files as they are now."""
+    `{key: {version_id, sha256, version}}` for the files as they are now, only the prompts of
+    `kind` when given (runs record the judge prompts, synthetic batches the generator ones)."""
     specs = specs if specs is not None else load_prompts()
+    refs = await _sync(session, specs)
+    return {key: ref for key, ref in refs.items() if kind is None or specs[key].kind == kind}
+
+
+async def _sync(session: AsyncSession, specs: dict[str, PromptSpec]) -> dict[str, Any]:
+    """Two reads (prompts by key, versions by sha) cover the usual case where nothing changed;
+    only new or changed prompts and new versions are written. Each query is a VPS round trip,
+    so a per-prompt loop of queries made run and batch creation take ~20 s."""
     await session.execute(text("SELECT pg_advisory_xact_lock(:id)"), {"id": SYNC_LOCK_ID})
+    prompts = {
+        p.key: p
+        for p in (await session.scalars(select(Prompt).where(Prompt.key.in_(list(specs))))).all()
+    }
+    versions = {
+        v.sha256: v
+        for v in (
+            await session.scalars(
+                select(PromptVersion).where(
+                    PromptVersion.sha256.in_([s.sha256 for s in specs.values()])
+                )
+            )
+        ).all()
+    }
     refs: dict[str, Any] = {}
     for key, spec in specs.items():
-        await session.execute(
-            insert(Prompt)
-            .values(id=uuid.uuid4(), key=key, kind=spec.kind, description=spec.description)
-            .on_conflict_do_update(
-                index_elements=[Prompt.key],
-                set_={"kind": spec.kind, "description": spec.description},
+        prompt = prompts.get(key)
+        if prompt is None or (prompt.kind, prompt.description) != (spec.kind, spec.description):
+            await session.execute(
+                insert(Prompt)
+                .values(id=uuid.uuid4(), key=key, kind=spec.kind, description=spec.description)
+                .on_conflict_do_update(
+                    index_elements=[Prompt.key],
+                    set_={"kind": spec.kind, "description": spec.description},
+                )
             )
-        )
-        prompt_id = await session.scalar(select(Prompt.id).where(Prompt.key == key))
-        row = await session.scalar(select(PromptVersion).where(PromptVersion.sha256 == spec.sha256))
+        row = versions.get(spec.sha256)
         if row is None:
+            prompt_id = await session.scalar(select(Prompt.id).where(Prompt.key == key))
             latest = await session.scalar(
                 select(func.max(PromptVersion.version)).where(PromptVersion.prompt_id == prompt_id)
             )
@@ -282,3 +311,7 @@ async def load_version(session: AsyncSession, version_id: uuid.UUID) -> PromptSp
 def file_specs() -> dict[str, PromptSpec]:
     """The prompt files as loaded once per process (tests and the fake client use them)."""
     return load_prompts()
+
+
+def file_keys(kind: str) -> set[str]:
+    return {key for key, spec in file_specs().items() if spec.kind == kind}

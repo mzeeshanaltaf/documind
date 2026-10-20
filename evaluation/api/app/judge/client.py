@@ -93,12 +93,15 @@ def get_client() -> anthropic.AsyncAnthropic:
 
 @dataclass
 class JudgeCtx:
-    """Where a call's cost goes. `over_budget` flips once a call pushed the run past its budget,
-    so the job's remaining calls stop before spending more."""
+    """Where a call's cost goes: a run case, or a synthetic candidate of a batch (E7; the batch's
+    `max_cost_usd` caps it like a run's judge budget). `over_budget` flips once a call pushed the
+    run (batch) past its budget, so the job's remaining calls stop before spending more."""
 
     run_id: uuid.UUID | None
     run_case_id: uuid.UUID | None
     over_budget: bool = False
+    batch_id: uuid.UUID | None = None
+    candidate_id: uuid.UUID | None = None
 
 
 @dataclass(frozen=True)
@@ -257,13 +260,17 @@ def _retry_after(exc: anthropic.APIStatusError) -> timedelta:
 
 
 async def _previous(ctx: JudgeCtx, digest: str) -> JudgeCall | None:
-    if ctx.run_case_id is None:
+    if ctx.run_case_id is not None:
+        owner = JudgeCall.run_case_id == ctx.run_case_id
+    elif ctx.candidate_id is not None:
+        owner = JudgeCall.candidate_id == ctx.candidate_id
+    else:
         return None
     async with session_scope() as session:
         return await session.scalar(
             select(JudgeCall)
             .where(
-                JudgeCall.run_case_id == ctx.run_case_id,
+                owner,
                 JudgeCall.request_hash == digest,
                 JudgeCall.status.in_(("ok", "refusal")),
             )
@@ -299,12 +306,47 @@ ADD_COST_SQL = text(
 )
 
 
+ADD_BATCH_COST_SQL = text(
+    """
+    WITH c AS (
+        UPDATE synthetic_candidates SET cost_usd = cost_usd + CAST(:cost AS numeric)
+        WHERE id = :candidate_id
+    )
+    UPDATE synthetic_batches
+    SET cost_usd = cost_usd + CAST(:cost AS numeric), updated_at = now()
+    WHERE id = :batch_id
+    RETURNING cost_usd, max_cost_usd
+    """
+)
+PAUSE_BATCH_SQL = text(
+    """
+    UPDATE synthetic_batches SET status = 'paused', status_reason = 'budget', updated_at = now()
+    WHERE id = :batch_id AND status = 'generating'
+    """
+)
+
+
 async def _record(call: JudgeCall, ctx: JudgeCtx) -> bool:
-    """Store the call and add its cost. Returns True when the run is now over its budget (it has
-    then been paused)."""
+    """Store the call and add its cost. Returns True when the run (batch) is now over its budget
+    (it has then been paused)."""
     async with session_scope() as session:
         session.add(call)
         await session.flush()
+        if ctx.batch_id is not None and call.cost_usd:
+            row = (
+                await session.execute(
+                    ADD_BATCH_COST_SQL,
+                    {
+                        "cost": call.cost_usd,
+                        "candidate_id": ctx.candidate_id,
+                        "batch_id": ctx.batch_id,
+                    },
+                )
+            ).one_or_none()
+            if row is None or row.max_cost_usd is None or row.cost_usd < row.max_cost_usd:
+                return False
+            await session.execute(PAUSE_BATCH_SQL, {"batch_id": ctx.batch_id})
+            return True
         if ctx.run_id is None or not call.cost_usd:
             return False
         row = (
@@ -351,6 +393,8 @@ async def call(
         id=uuid.uuid4(),
         run_id=ctx.run_id,
         run_case_id=ctx.run_case_id,
+        batch_id=ctx.batch_id,
+        candidate_id=ctx.candidate_id,
         purpose=purpose or spec.key,
         prompt_version_id=spec.version_id,
         model=model,

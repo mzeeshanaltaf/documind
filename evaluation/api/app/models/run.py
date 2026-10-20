@@ -228,7 +228,13 @@ class JudgeCall(UuidPk, CreatedAt, Base):
     run_case_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("run_cases.id", ondelete="CASCADE"), index=True
     )
-    batch_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))  # synthetic (E7)
+    # Synthetic generation (E7). SET NULL keeps the spend (month totals read judge_calls).
+    batch_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("synthetic_batches.id", ondelete="SET NULL"), index=True
+    )
+    candidate_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("synthetic_candidates.id", ondelete="SET NULL"), index=True
+    )
     purpose: Mapped[str] = mapped_column(Text)
     prompt_version_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("prompt_versions.id", ondelete="SET NULL")

@@ -47,6 +47,14 @@ JobKind = Literal[
     "calibration_compute",  # E9
 ]
 JobStatus = Literal["queued", "running", "succeeded", "failed", "cancelled"]
+# E7: synthetic test sets.
+BatchKind = Literal["synthetic", "enrichment"]
+BatchStatus = Literal["generating", "paused", "review"]
+SyntheticType = Literal[
+    "single_hop", "multi_hop", "jurisdiction", "comparative", "unanswerable", "out_of_scope"
+]
+CandidateStatus = Literal["pending", "approved", "rejected"]
+CandidateGenStatus = Literal["queued", "generated", "failed"]
 
 
 def values(literal: object) -> tuple[str, ...]:

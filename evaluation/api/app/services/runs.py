@@ -151,7 +151,7 @@ async def create_run(
             "case_count": version.case_count,
         },
         "eval": eval_snapshot(),
-        "prompts": await registry.sync(session),
+        "prompts": await registry.sync(session, kind="judge"),
         "service_user_id": me.user.id,
     }
     run = Run(

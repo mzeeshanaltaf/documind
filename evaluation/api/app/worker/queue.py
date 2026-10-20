@@ -3,7 +3,8 @@
 A claimed job is `running` and locked by one worker slot, which heartbeats it every minute. A
 crashed process stops heartbeating, so after `RECLAIM_AFTER` another slot reclaims the job. Jobs
 of a run are only claimed while the run is active (running, stopping, finalizing), except its
-`run_finalize`. A paused run's jobs therefore wait in place.
+`run_finalize`. A paused run's jobs therefore wait in place, and so do a synthetic batch's jobs
+unless the batch is `generating` (E7).
 
 Every write after the claim is guarded by `locked_by`, so a slot whose lock was reclaimed can't
 overwrite the new owner's outcome.
@@ -48,10 +49,12 @@ CLAIM_SQL = text(
                     attempts = attempts + 1, updated_at = now()
     WHERE id = (
         SELECT j.id FROM jobs j LEFT JOIN runs r ON r.id = j.run_id
+            LEFT JOIN synthetic_batches b ON b.id = j.batch_id
         WHERE ((j.status = 'queued' AND j.available_at <= now())
                OR (j.status = 'running' AND j.locked_at < now() - CAST(:reclaim AS interval)))
           AND (j.run_id IS NULL OR r.status IN ('running', 'stopping', 'finalizing')
                OR j.kind = 'run_finalize')
+          AND (j.batch_id IS NULL OR b.status = 'generating')
         ORDER BY j.priority DESC, j.created_at
         -- OF j: Postgres rejects FOR UPDATE on the nullable side of an outer join.
         FOR UPDATE OF j SKIP LOCKED

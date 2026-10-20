@@ -98,6 +98,49 @@ class FollowupResolution(BaseModel):
     score: Score
 
 
+# --- generator prompts (E7) ----------------------------------------------------------------------
+
+
+class GeneratedFact(BaseModel):
+    fact: str = Field(description="One atomic fact a complete answer must convey.")
+    weight: Literal[1, 2, 3] = Field(description="3 = essential, 2 = important, 1 = detail.")
+
+
+class GeneratedCase(BaseModel):
+    rationale: str = Field(
+        description="Which passage answers the question and what the case tests, written first."
+    )
+    question: str
+    reference_answer: str
+    key_facts: list[GeneratedFact]
+    evidence_quotes: list[str] = Field(
+        description="Short verbatim quotes from the chunks that carry the answer; [] if none."
+    )
+    expected_doc_codes: list[str]
+    expected_sections: list[str] = Field(description='"CODE §number" taken from chunk headers.')
+    expected_jurisdiction: str | None = Field(description="Country code, or null.")
+    expected_behavior: Literal["answer", "refuse"]
+
+
+class CandidateValidation(BaseModel):
+    reasoning: str
+    answerable_from_sources: bool
+    reference_supported: bool = Field(
+        description="The reference answer and key facts follow from the sources."
+    )
+    self_contained: bool
+    ambiguity: Literal["low", "medium", "high"]
+    issues: list[str]
+    keep: bool
+
+
+class EnrichedReference(BaseModel):
+    rationale: str
+    reference_answer: str
+    key_facts: list[GeneratedFact]
+    evidence_quotes: list[str]
+
+
 SCHEMAS: dict[str, type[BaseModel]] = {
     cls.__name__: cls
     for cls in (
@@ -108,5 +151,8 @@ SCHEMAS: dict[str, type[BaseModel]] = {
         Behavior,
         AnswerQuality,
         FollowupResolution,
+        GeneratedCase,
+        CandidateValidation,
+        EnrichedReference,
     )
 }

@@ -72,7 +72,7 @@ async def create_rejudge(
     snapshot = {
         **source.snapshot,
         "eval": eval_snapshot(),
-        "prompts": await registry.sync(session),
+        "prompts": await registry.sync(session, kind="judge"),
         "source_run": {
             "id": str(source.id),
             "config_hash": source.config_hash,

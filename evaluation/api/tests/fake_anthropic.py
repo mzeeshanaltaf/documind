@@ -5,6 +5,7 @@ It simulates prompt caching per (model, system): the first request writes the sy
 the cache, later ones read it. Token counts are len(text) // 4.
 """
 
+import hashlib
 import json
 import re
 from collections.abc import Callable
@@ -110,6 +111,58 @@ DEFAULT_OUTPUTS: dict[str, Callable[[dict[str, Any]], Any] | dict[str, Any]] = {
 }
 
 
+CHUNK_HEADER_RE = re.compile(r"^\[(\d+)\] (\S+) · .*?§(\S+)", re.MULTILINE)
+
+
+def chunk_sections(request: dict[str, Any]) -> list[tuple[str, str]]:
+    """(doc code, section number) of each `<chunks>` header in the packet."""
+    packet = _packet(request)
+    chunks = (
+        packet.split("<chunks>", 1)[-1].split("</chunks>", 1)[0] if "<chunks>" in packet else ""
+    )
+    return [(code, number) for _, code, number in CHUNK_HEADER_RE.findall(chunks)]
+
+
+def default_generated(request: dict[str, Any]) -> dict[str, Any]:
+    """A valid `GeneratedCase` built from the packet's chunk headers; the question's words come
+    from a hash of the packet + task, so different seeds never look like duplicates."""
+    sections = chunk_sections(request)
+    digest = hashlib.sha256((_packet(request) + _task(request)).encode()).hexdigest()
+    words = " ".join(f"w{digest[i : i + 5]}" for i in range(0, 40, 5))
+    return {
+        "rationale": "The excerpt states it.",
+        "question": f"How about {words}?",
+        "reference_answer": "Employees get 30 days.",
+        "key_facts": [{"fact": "30 days per year.", "weight": 3}],
+        "evidence_quotes": [],
+        "expected_doc_codes": sorted({code for code, _ in sections}),
+        "expected_sections": [f"{code} §{number}" for code, number in sections],
+        "expected_jurisdiction": None,
+        "expected_behavior": "answer" if sections else "refuse",
+    }
+
+
+DEFAULT_OUTPUTS.update(
+    {
+        **{
+            f"gen.{kind}": default_generated
+            for kind in ("single_hop", "multi_hop", "jurisdiction", "comparative",
+                         "unanswerable", "out_of_scope")
+        },
+        "gen.validate": {
+            "reasoning": "Grounded and clear.", "answerable_from_sources": True,
+            "reference_supported": True, "self_contained": True, "ambiguity": "low",
+            "issues": [], "keep": True,
+        },
+        "gen.enrich_reference": {
+            "rationale": "From the section.", "reference_answer": "The plan lasts 90 days.",
+            "key_facts": [{"fact": "It lasts 90 days.", "weight": 3}],
+            "evidence_quotes": ["lasts 90 days"],
+        },
+    }
+)  # fmt: skip
+
+
 def _canonical(value: Any) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"))
 
@@ -122,13 +175,16 @@ class FakeAnthropic:
         self.by_schema = {
             _canonical(spec.output_schema): key for key, spec in registry.file_specs().items()
         }
+        # Prompts sharing a schema (the gen.* generators) are told apart by their system prompt.
+        self.by_system = {spec.system: key for key, spec in registry.file_specs().items()}
         self.beta = SimpleNamespace(messages=SimpleNamespace(create=self.create))
 
     def keys(self) -> list[str]:
         return [key for key, _ in self.calls]
 
     def key_of(self, request: dict[str, Any]) -> str:
-        return self.by_schema[_canonical(request["output_config"]["format"]["schema"])]
+        key = self.by_system.get(request["system"][0]["text"])
+        return key or self.by_schema[_canonical(request["output_config"]["format"]["schema"])]
 
     async def create(self, **request: Any) -> BetaMessage:
         key = self.key_of(request)

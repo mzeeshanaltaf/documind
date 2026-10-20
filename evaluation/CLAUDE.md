@@ -4,7 +4,7 @@
 - **Web:** `https://evaluation.documind.zeeshanai.cloud`, admin-only.
 - **API:** internal only.
 
-> Status: **E6 code done** (2026-10-19): E5 is deployed; E6 adds compare (paired A/B, A/A noise floor) and trends (change markers), not yet deployed. Keep this file ≤ 120 lines.
+> Status: **E7 code done** (2026-10-20): synthetic test sets + reference enrichment (generate → checks → human review → commit into a draft); E6 is deployed. Keep this file ≤ 120 lines.
 
 ## Start here, every session
 1. Read the root `CLAUDE.md` (DocuMind conventions apply here too), then `Status.md` › **Evaluation harness**.
@@ -26,21 +26,22 @@
 ## Repo layout
 Target layout: `docs/plan/eval/README.md` › Folder layout. `evaluation/web/` (E5):
 ```
-src/app/(auth)/sign-in   src/app/(app)/{page (dashboard),datasets,runs,compare (+case),trends,settings}/
+src/app/(auth)/sign-in   src/app/(app)/{page (dashboard),datasets,synthetic (+new, [batchId] review),runs,compare (+case),trends,settings}/
 src/app/api/auth/[...all]  src/app/api/backend/[...path] (BFF)   src/proxy.ts (cookie-presence redirects)
 src/lib/  auth (Better Auth on DocuMind's tables), admin (role/ban rules), auth-guards (requireAdmin),
           db (pool, EVAL_AUTH_SCHEMA), eval-api (apiFetch/apiJson/action), api-types, metrics, format, cost,
           compare (Δ/p formats, verdicts), case-sources (drill-down sources + evidence quotes)
-src/components/  ui/ (copied), brand/, app/ (shell), auth/, datasets/, runs/, case/, charts/, compare/, trends/
+src/components/  ui/ (copied), brand/, app/ (shell), auth/, datasets/, synthetic/, runs/, case/, charts/, compare/, trends/
 src/hooks/use-run-events.ts (EventSource via BFF → SWR poll fallback)   scripts/auth-check.ts
 ```
 `evaluation/api/`:
 ```
 app/core/       config (EVAL_* settings, parse_schema/with_schema), db, security (verify_api_key, get_admin), log, errors
-app/models/     enums (Literal values = CHECKs), dataset, prompt (+config_presets), run (runs…run_aggregates), job
+app/models/     enums (Literal values = CHECKs), dataset, prompt (+config_presets), run (runs…run_aggregates), job, synthetic
 app/documind/   client (DocuMindClient, get_documind), events (typed SSE + parse_event), models
 app/worker/     queue (claim/…/enqueue, enqueue_many, enqueue_finalize), loop (slots), sweeper, limits
-                (DocuMind + judge semaphores, RPM bucket), errors, handlers/{noop, case_generate, case_judge, run_finalize}
+                (DocuMind + judge semaphores, RPM bucket), errors, handlers/{noop, case_generate, case_judge, run_finalize,
+                synthetic_generate}
 app/judge/      client (every Anthropic call), registry (prompt files → prompt_versions), render (case
                 packet), pricing (judge-pricing.json), schemas (structured outputs), prompts/*.md
 app/metrics/    types, registry (REGISTRY, MetricConfig, evaluate, case_passed), retrieval, citations,
@@ -49,10 +50,11 @@ app/stats/      intervals (Wilson), bootstrap (seeded percentile), paired (boots
 app/services/   datasets, importer, runs (create/snapshot/read/delete), run_state (count, settle, pause/
                 resume/stop, budget pause, sweep), case_results (persist + score, save_judged),
                 judging (judge metric groups), rejudge, prompts, aggregates, exports, compare (A/B +
-                A/A noise floor), config_diff (flattened config/snapshot diff), trends (series + markers)
+                A/A noise floor), config_diff (flattened config/snapshot diff), trends (series + markers),
+                synthetic (sampling, batches), synthetic_checks (pure), synthetic_review (edit/approve/commit)
 app/routers/    v1 (get_admin on all), datasets, documind (passthrough), jobs, prompts, runs (+rejudge,
-                events, export), compare, trends, system, health
-alembic/versions/0001_core…0003_judge  scripts/{bootstrap_service_users,import_golden}.py  tests/ (fake_anthropic.py)
+                events, export), compare, trends, synthetic (batches + candidates), system, health
+alembic/versions/0001_core…0004_synthetic  scripts/{bootstrap_service_users,import_golden}.py  tests/ (fake_anthropic.py)
 ```
 
 ## Commands
@@ -77,15 +79,14 @@ DocuMind itself must be running locally (`api` on :8000) for live runs, the gold
 - **Browser → eval web only.** The BFF (`/api/backend/*`) checks the session plus admin (403), then calls the eval API with `X-API-Key` + `X-User-Id`, and streams SSE unbuffered. It forwards `content-type`, `accept` and `Last-Event-ID` (EventSource resume) only. Reads in the browser go through it (SWR, SSE, imports, exports); mutations are Server Actions (`app/(app)/*/actions.ts`, each `requireAdmin()` + `apiJson`, then `refresh()`).
 - **Sign-in gate:** `databaseHooks.session.create.before` throws `APIError("FORBIDDEN", {code: "NOT_PLATFORM_ADMIN"})` for non-admins (email: inline error; Google: `/sign-in?error=NOT_PLATFORM_ADMIN`). `disabledPaths` leaves only sign-in, callback, get-session and sign-out: this app can't change DocuMind accounts. `requireAdmin()` re-checks role/ban on every request.
 - **The eval API authorizes everything.** The admin check runs against `{EVAL_AUTH_SCHEMA}."user"` (quoted, schema-qualified).
-- **The eval web touches only the Better Auth tables.** All eval data goes through the eval API.
-- **The eval web never migrates the auth tables.** `pnpm auth:check` is read-only. DocuMind owns those tables.
+- **The eval web touches only the Better Auth tables** (all eval data goes through the eval API) **and never migrates them:** `pnpm auth:check` is read-only; DocuMind owns them.
 - **DocuMind calls go through `app/documind/client.py`** and carry `X-Eval-Run-Id`, `X-Eval-Case-Id` and `X-Request-ID=eval.<run8>.<case_key>.<attempt>` (no colons).
 - **Every Anthropic call goes through `app/judge/client.py`.** It writes a `judge_calls` row (tokens incl. cache, cost from `judge-pricing.json` at the model that served it), checks the run budget (reached → run `pausing`, reason `budget`), and reuses a run case's earlier `ok`/`refusal` call with the same `request_hash`.
 - **Judge prompts are files** (`app/judge/prompts/*.md`: frontmatter + system prompt + `<!-- task -->` line; `_rules.md` is the shared include). The hash (key, bodies, schema, params) becomes a numbered `prompt_versions` row at startup and at run creation; runs record the version ids and judge **from those rows**, so a file edit only affects new runs and rejudges.
 - **Judge flow:** with judging on (`judge.enabled` + a judge metric enabled + full run), `case_generate` stops a case at `generated` and enqueues `case_judge` (priority 1); `save_judged` decides `passed` over all scores and counts the case. Each metric group fails alone (`error`/`refusal`); 429 requeues, 5xx retries the job.
 - **Rejudge** (`POST /v1/runs/{id}/rejudge`) copies answers, contexts and deterministic scores into a new run (`source_run_id`), enqueues only `case_judge`, and never calls DocuMind (finalize skips usage/cleanup; DocuMind cost 0).
-- **Published dataset versions are immutable;** edits create a draft.
-- **Runs are server-side jobs.** They survive closed tabs and restarts (lock reclaim after 5 min).
+- **Published dataset versions are immutable;** edits create a draft. **Runs are server-side jobs:** they survive closed tabs and restarts (lock reclaim after 5 min).
+- **Synthetic (E7):** `POST /v1/synthetic-batches` samples seeds (seeded `random.Random`, chunks via DocuMind's E1 endpoint) and inserts candidates + one `synthetic_generate` job each, claimed only while the batch is `generating`. A job: `gen.<type>` (Opus) → unanswerable: DocuMind `/retrieve` → `gen.validate` (Sonnet) → deterministic checks → save (dedupe under a per-batch advisory lock); a hard failure auto-rejects. Calls meter as `judge_calls` (`purpose=synthetic`, `batch_id`/`candidate_id`; the batch's `max_cost_usd` pauses it). `gen.*` prompts are `kind: generator`, recorded on the batch, never in run snapshots (`registry.sync(kind=…)`), so they add no trend markers. Commit writes approved candidates into the dataset's draft (`syn-<batch8>-NNN`, `source=synthetic`; enrichment sets reference + key facts by `target_case_key`).
 
 ## DocuMind hooks (E1, in `api/`)
 All admin-only; code in `api/app/core/eval.py`, `routers/eval.py`, `services/eval.py`, tests in `api/tests/test_eval_hooks.py`.
@@ -97,12 +98,11 @@ All admin-only; code in `api/app/core/eval.py`, `routers/eval.py`, `services/eva
 ## Conventions
 - Same as the root `CLAUDE.md` › Conventions. Python: async, Pydantic v2, thin routers / logic in services, ruff at 100. TS: Server Components, Server Actions re-check auth, zod, `server-only`.
 - **Design:** follow the root `PRODUCT.md` + `DESIGN.md`. The tokens in `evaluation/web/src/app/globals.css`, `components/ui`, `button-link`, `option-select`, the logo mark and `remark-citations` are **copies** of `web/` (synced 2026-10-19; checkbox/switch/tabs added via the shadcn CLI). Copy changes over by hand. Scores, case keys and doc codes are mono; highlighter yellow only marks evidence quotes and cited spans; charts use `--chart-1` (sequential, one hue).
-- **Files:** write them with the Write/Edit tools, never shell heredocs.
-- **Git:** commit and push only when the user asks (`/ship`).
+- **Files:** write them with the Write/Edit tools, never shell heredocs. **Git:** commit and push only when the user asks (`/ship`).
 
 ## Gotchas already known
 - **No temperature control.** Sonnet and Haiku 5.5 reject non-default `temperature`/`top_p`/`top_k`. Structured output via `output_config.format` (`anthropic.transform_schema`), not forced `tool_choice`. We call `beta.messages.create` + `model_validate_json`, not `messages.parse`: parse raises on a refusal/`max_tokens` reply before `stop_reason` can be checked. Sonnet 5.5 can't disable thinking (`between_tools` if a Haiku prompt runs on it); Haiku has no server-side fallback.
-- **The Anthropic account has its own spend limit.** Once reached, every call is a 400 "You have reached your specified API usage limits … regain access on <date>"; the judge treats it (and 401/403) as `JudgeUnavailable` → the run pauses with `status_reason = judge_unavailable`, then `POST /resume` once the limit is raised. Live judge runs cost ~$0.65 per 30 cases with the Sonnet rubric; Haiku for the rubric is ~1/20 of that rubric cost.
+- **The Anthropic account has its own spend limit.** Once reached, every call is a 400 "You have reached your specified API usage limits … regain access on <date>"; the judge treats it (and 401/403) as `JudgeUnavailable` → the run pauses with `status_reason = judge_unavailable`, then `POST /resume` once the limit is raised (synthetic batches pause the same way: `POST /v1/synthetic-batches/{id}/resume`). Live judge runs cost ~$0.65 per 30 cases with the Sonnet rubric; Haiku for the rubric is ~1/20 of that rubric cost.
 - **Prompt caching** needs a ≥ 512-token prefix (the system prompts are ~900–1,400 tokens). The packet is rendered in a fixed section order with no ids, so equal packets are byte-identical. It gets a breakpoint only when reused (N samples: the first runs alone, the rest read; the key-facts answer/sources pair), since an unread cache write costs 1.25× input.
 - **Cookies on localhost.** DocuMind (:3000) and Eval (:3100) share localhost cookies, so the eval app uses `cookiePrefix: "documind-eval"`. Never enable `crossSubDomainCookies`.
 - **Chat isn't idempotent.** A retried case (attempt > 1) lists DocuMind's conversations for the case (a crash can land before `meta` is stored), recovers one with a complete scored answer and deletes the rest.

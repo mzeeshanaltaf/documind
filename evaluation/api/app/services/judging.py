@@ -104,9 +104,9 @@ async def prompts_for(session: AsyncSession, snapshot: Mapping[str, Any]) -> dic
     """The prompt versions a run recorded at creation; prompts it lacks (a run created before
     E4) come from the current files."""
     refs = dict(snapshot.get("prompts") or {})
-    missing = set(registry.file_specs()) - refs.keys()
+    missing = registry.file_keys("judge") - refs.keys()
     if missing:
-        current = await registry.sync(session)
+        current = await registry.sync(session, kind="judge")
         refs.update({key: current[key] for key in missing})
     return {
         key: await registry.load_version(session, uuid.UUID(ref["version_id"]))

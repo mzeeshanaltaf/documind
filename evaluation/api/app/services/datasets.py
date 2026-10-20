@@ -282,6 +282,9 @@ async def patch_case(session: AsyncSession, case: Case, body: CasePatch) -> Case
     version = await get_version_or_404(session, case.dataset_version_id, for_update=True)
     ensure_draft(version)
     changes = body.model_dump(mode="json", exclude_unset=True)
+    if body.key_facts is not None:
+        # exclude_unset reaches into nested models and would drop a fact's default weight.
+        changes["key_facts"] = [fact.model_dump(mode="json") for fact in body.key_facts]
     nulls = sorted(f for f in REQUIRED_PATCH_FIELDS if f in changes and changes[f] is None)
     if nulls:
         raise ApiError(422, "validation_error", f"These fields can't be null: {', '.join(nulls)}.")

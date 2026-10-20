@@ -38,7 +38,7 @@ evaluation/
   fixtures/canary/canary-policy.md            # source of the leakage-canary PDF (E8)
   api/
     pyproject.toml uv.lock Dockerfile alembic.ini judge-pricing.json
-    alembic/env.py  alembic/versions/0001_core.py 0002_synthetic.py 0003_review.py
+    alembic/env.py  alembic/versions/0001_core 0002_usd_precision 0003_judge 0004_synthetic (E9 adds review)
     app/main.py                                 # lifespan: prompt registry sync + worker slots
     app/core/{config,db,security,log,errors}.py
     app/models/  app/schemas/  app/routers/  app/services/

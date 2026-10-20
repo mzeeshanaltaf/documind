@@ -531,3 +531,184 @@ export type Comparison = {
   metrics: CompareMetric[];
   cases: CompareCase[];
 };
+
+// --- synthetic test sets (E7) ----------------------------------------------------------------------
+
+export const SYNTHETIC_TYPES = [
+  "single_hop",
+  "multi_hop",
+  "jurisdiction",
+  "comparative",
+  "unanswerable",
+  "out_of_scope",
+] as const;
+export type SyntheticType = (typeof SYNTHETIC_TYPES)[number];
+export type BatchKind = "synthetic" | "enrichment";
+export type BatchStatus = "generating" | "paused" | "review";
+export type CandidateStatus = "pending" | "approved" | "rejected";
+export const GENERATOR_MODELS = ["claude-opus-5-5", "claude-sonnet-5-5"] as const;
+
+/** A DocuMind document as the passthrough returns it (only what the forms read). */
+export type DocumindDocument = {
+  id: string;
+  title: string;
+  doc_code: string | null;
+  department: string | null;
+  jurisdiction: string | null;
+  doc_type: string | null;
+  status: string | null;
+};
+
+export type BatchCounts = {
+  total: number;
+  queued: number;
+  pending: number;
+  approved: number;
+  rejected: number;
+  auto_rejected: number;
+  committed: number;
+};
+
+export type SyntheticBatch = {
+  id: string;
+  name: string | null;
+  kind: BatchKind;
+  org_id: string;
+  org_slug: string;
+  target_dataset_id: string | null;
+  target_dataset: DatasetRef | null;
+  source_version_id: string | null;
+  config: {
+    seed?: number;
+    generator_model?: string | null;
+    validator_model?: string | null;
+    type_counts?: Partial<Record<SyntheticType, number>>;
+    shortfall?: Partial<Record<SyntheticType, number>>;
+    doc_codes?: string[];
+    eligible_chunks?: number;
+    dataset_version?: number;
+    skipped?: { case_key: string; reason: string }[];
+  };
+  status: BatchStatus;
+  status_reason: string | null;
+  prompt_version_ids: Record<string, { version_id: string; sha256: string; version: number }>;
+  cost_usd: number;
+  max_cost_usd: number | null;
+  estimate_usd: number;
+  candidate_count: number;
+  generated_count: number;
+  failed_count: number;
+  counts: BatchCounts;
+  by_type: Record<string, BatchCounts>;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  finished_at: string | null;
+  committed_at: string | null;
+  committed_version_id: string | null;
+};
+
+export type SourceExcerpt = {
+  n: number;
+  role: "seed" | "retrieved";
+  chunk_id: string;
+  doc_code: string | null;
+  title: string | null;
+  department: string | null;
+  jurisdiction: string | null;
+  section_number: string | null;
+  section_title: string | null;
+  page_start: number | null;
+  page_end: number | null;
+  text: string;
+};
+
+export type CandidateChecks = {
+  failures?: string[];
+  warnings?: string[];
+  overlap?: number;
+  duplicate?: { label: string; question: string; score: number };
+  sections?: {
+    ok: boolean;
+    malformed: string[];
+    unknown_sections: string[];
+    unknown_doc_codes: string[];
+    unlisted_codes: string[];
+  };
+  has_sections?: boolean;
+  quotes?: { count: number; missing: string[] };
+  validation?: {
+    status: string;
+    error?: string | null;
+    model?: string | null;
+    reasoning?: string;
+    answerable_from_sources?: boolean;
+    reference_supported?: boolean;
+    self_contained?: boolean;
+    ambiguity?: "low" | "medium" | "high";
+    issues?: string[];
+    keep?: boolean;
+  };
+  retrieval?: { n: number; section: string | null }[];
+  retrieval_error?: string;
+  generation_error?: string;
+  generator_model?: string | null;
+  chunk_count?: number;
+  missing_sections?: string[];
+};
+
+export type Candidate = {
+  id: string;
+  batch_id: string;
+  ordinal: number;
+  type: CaseType;
+  gen_status: "queued" | "generated" | "failed";
+  status: CandidateStatus;
+  seed: { hints?: Record<string, string>; sections?: string[] };
+  question: string | null;
+  setup_turns: string[];
+  reference_answer: string | null;
+  key_facts: KeyFact[];
+  expected_doc_codes: string[];
+  expected_sections: string[];
+  expected_pages: unknown;
+  expected_departments: string[];
+  expected_jurisdiction: string | null;
+  expected_behavior: ExpectedBehavior;
+  source_chunk_ids: string[];
+  source_excerpt: SourceExcerpt[];
+  evidence_quotes: string[];
+  rationale: string | null;
+  checks: CandidateChecks;
+  auto_rejected: boolean;
+  reject_reason: string | null;
+  edited: boolean;
+  target_case_key: string | null;
+  error: string | null;
+  cost_usd: number;
+  reviewer_id: string | null;
+  reviewed_at: string | null;
+  case_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CandidatePatch = Partial<
+  Pick<
+    Candidate,
+    | "reference_answer"
+    | "key_facts"
+    | "expected_doc_codes"
+    | "expected_sections"
+    | "expected_jurisdiction"
+    | "expected_behavior"
+  > & { question: string }
+>;
+
+export type CommitResult = {
+  dataset: DatasetRef;
+  version: VersionOut;
+  added: number;
+  updated: number;
+  skipped: { candidate_id: string; reason: string }[];
+};

@@ -35,7 +35,9 @@ def _copy_prompt(tmp: Path, key: str = "judge.behavior", edit: str | None = None
 
 def test_every_prompt_file_loads() -> None:
     specs = registry.load_prompts()
-    assert set(specs) == {
+    judges = {key: spec for key, spec in specs.items() if spec.kind == "judge"}
+    generators = {key: spec for key, spec in specs.items() if spec.kind == "generator"}
+    assert set(judges) == {
         "judge.claims_extract",
         "judge.claims_verify",
         "judge.key_facts",
@@ -44,11 +46,27 @@ def test_every_prompt_file_loads() -> None:
         "judge.answer_quality",
         "judge.followup_resolution",
     }
+    # E7: the synthetic generators and their validator.
+    assert set(generators) == {
+        *(f"gen.{t}" for t in ("single_hop", "multi_hop", "jurisdiction", "comparative",
+                               "unanswerable", "out_of_scope")),
+        "gen.validate",
+        "gen.enrich_reference",
+    }  # fmt: skip
+    assert set(judges) | set(generators) == set(specs)
     for spec in specs.values():
-        assert spec.system.startswith("You are a strict evaluator of a company-policy assistant.")
+        opening = (
+            "You are a strict evaluator of a company-policy assistant."
+            if spec.kind == "judge"
+            else "You " + ("review" if spec.key == "gen.validate" else "write")
+        )
+        assert spec.system.startswith(opening), spec.key
         assert "{{" not in spec.system
         # Above the 512-token cache minimum (≈ 4 chars a token), so the system prompt caches.
         assert len(spec.system) > 2400, spec.key
+    assert generators["gen.single_hop"].model == "claude-opus-5-5"
+    assert generators["gen.validate"].model == "claude-sonnet-5-5"
+    assert generators["gen.jurisdiction"].placeholders == {"jurisdiction"}
     assert specs["judge.answer_quality"].model == "claude-haiku-5-5"
     assert specs["judge.answer_quality"].max_tokens == 8000
     assert specs["judge.claims_verify"].placeholders == {"claims"}

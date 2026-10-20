@@ -13,6 +13,7 @@ from app.models.run import (
     RunAggregate,
     RunCase,
 )
+from app.models.synthetic import SyntheticBatch, SyntheticCandidate
 
 __all__ = [
     "Base",
@@ -30,5 +31,7 @@ __all__ = [
     "Run",
     "RunAggregate",
     "RunCase",
+    "SyntheticBatch",
+    "SyntheticCandidate",
     "metadata",
 ]

@@ -165,5 +165,6 @@ Leakage looks for the canary org's phrases (`fixtures/canary/canary-policy.md`, 
 | E5 | Eval web, auth & first deploy | [phase-E5](phase-E5-eval-web-auth-and-deploy.md) |
 | E6 | Compare & trends | [phase-E6](phase-E6-compare-and-trends.md) |
 | E7 | Synthetic test sets & reference enrichment | [phase-E7](phase-E7-synthetic-test-sets.md) |
+| E7b | Synthetic v1 second batch (offline) | [phase-E7b](phase-E7b-synthetic-v1-second-batch-offline.md) |
 | E8 | Adversarial & safety suite | [phase-E8](phase-E8-adversarial-and-safety-suite.md) |
 | E9 | Human review & judge calibration | [phase-E9](phase-E9-human-review-and-calibration.md) |

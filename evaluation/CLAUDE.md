@@ -54,8 +54,8 @@ app/services/   datasets, importer, runs (create/snapshot/read/delete), run_stat
                 canary (fixture → run snapshot), probes (pure), safety (run safety summary)
 app/routers/    v1 (get_admin on all), datasets, documind (passthrough), jobs, prompts, runs (+rejudge,
                 events, export, safety), compare, trends, synthetic (batches + candidates), system, health
-alembic/versions/0001_core…0005_adversarial  tests/ (fake_anthropic.py)
-scripts/{bootstrap_service_users,import_golden,import_adversarial,setup_canary_org,make_canary_pdf}.py
+alembic/versions/0001_core…0006_offline  tests/ (fake_anthropic.py)
+scripts/{bootstrap_service_users,import_golden,import_adversarial,setup_canary_org,make_canary_pdf,offline_tasks}.py
 ```
 `evaluation/fixtures/` (baked into the API image): `canary/canary-policy.{md,pdf}`, `adversarial.jsonl`, `judge-robustness.txt`.
 
@@ -83,7 +83,7 @@ DocuMind itself must be running locally (`api` on :8000) for live runs, the gold
 - **The eval API authorizes everything.** The admin check runs against `{EVAL_AUTH_SCHEMA}."user"` (quoted, schema-qualified).
 - **The eval web touches only the Better Auth tables** (all eval data goes through the eval API) **and never migrates them:** `pnpm auth:check` is read-only; DocuMind owns them.
 - **DocuMind calls go through `app/documind/client.py`** and carry `X-Eval-Run-Id`, `X-Eval-Case-Id` and `X-Request-ID=eval.<run8>.<case_key>.<attempt>` (no colons).
-- **Every Anthropic call goes through `app/judge/client.py`.** It writes a `judge_calls` row (tokens incl. cache, cost from `judge-pricing.json` at the model that served it), checks the run budget (reached → run `pausing`, reason `budget`), and reuses a run case's earlier `ok`/`refusal` call with the same `request_hash`.
+- **Every Anthropic call goes through `app/judge/client.py`.** It writes a `judge_calls` row (tokens incl. cache, cost from `judge-pricing.json` at the model that served it), checks the run budget (reached → run `pausing`, reason `budget`), and reuses a run case's earlier `ok`/`refusal` call with the same `request_hash`. **Offline mode** (`EVAL_JUDGE_MODE=offline`, local only, no API spend): `call()` parks the request in `offline_tasks` and raises `RetryLater` (poll `EVAL_OFFLINE_POLL_S`); Claude Code answers via `uv run python -m scripts.offline_tasks status|show|import` (schema-validated), storing a `judge_calls` row (`model_actual=claude-code-offline`, cost 0) the retry reuses; later-stage calls park in later rounds; runs get `snapshot.eval.judge_mode=offline` (a trend marker, not comparable with Haiku scores), batches `config.judge_mode`.
 - **Judge prompts are files** (`app/judge/prompts/*.md`: frontmatter + system prompt + `<!-- task -->` line; `_rules.md` is the shared include). The hash (key, bodies, schema, params) becomes a numbered `prompt_versions` row at startup and at run creation; runs record the version ids and judge **from those rows**, so a file edit only affects new runs and rejudges.
 - **Judge flow:** with judging on (`judge.enabled` + a judge metric enabled + full run), `case_generate` stops a case at `generated` and enqueues `case_judge` (priority 1); `save_judged` decides `passed` over all scores and counts the case. Each metric group fails alone (`error`/`refusal`); 429 requeues, 5xx retries the job.
 - **Rejudge** (`POST /v1/runs/{id}/rejudge`) copies answers, contexts and deterministic scores into a new run (`source_run_id`), enqueues only `case_judge`, and never calls DocuMind (finalize skips usage/cleanup; DocuMind cost 0).

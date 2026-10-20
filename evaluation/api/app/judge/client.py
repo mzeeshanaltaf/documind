@@ -37,7 +37,7 @@ from sqlalchemy import select, text
 
 from app.core.config import get_settings
 from app.core.db import session_scope
-from app.judge import pricing
+from app.judge import offline, pricing
 from app.judge.pricing import Tokens
 from app.judge.registry import PromptSpec
 from app.models import JudgeCall
@@ -388,6 +388,29 @@ async def call(
         return _reuse(previous, spec.output_model)
     if ctx.over_budget:
         raise BudgetExceeded("the run is over its judge budget")
+    if offline.enabled():
+        owner_id = ctx.run_case_id or ctx.candidate_id
+        if owner_id is None:
+            raise JudgeConfigError("Offline judging needs a run case or a synthetic candidate")
+        await offline.park(
+            owner_id=owner_id,
+            digest=digest,
+            run_id=ctx.run_id,
+            run_case_id=ctx.run_case_id,
+            batch_id=ctx.batch_id,
+            candidate_id=ctx.candidate_id,
+            purpose=purpose or spec.key,
+            prompt_version_id=spec.version_id,
+            model=model,
+            effort=effort,
+            sample_idx=sample_idx,
+            system=spec.system,
+            packet=packet,
+            task=task,
+            output_schema=spec.output_schema,
+        )
+        delay = timedelta(seconds=get_settings().eval_offline_poll_s)
+        raise RetryLater(delay, "waiting for an offline answer")
 
     row = JudgeCall(
         id=uuid.uuid4(),

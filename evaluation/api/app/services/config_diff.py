@@ -91,7 +91,7 @@ def kind_of(key: str) -> ChangeKind | None:
         return "config"
     if key.startswith("documind.version"):
         return "documind"
-    if key.startswith("judge_prompts."):
+    if key.startswith("judge_prompts.") or key == "eval.judge_mode":
         return "prompt"
     if key in ("dataset.slug", "dataset.version"):
         return "dataset"

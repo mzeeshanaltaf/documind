@@ -37,7 +37,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import ApiError
 from app.documind.client import DocuMindClient
 from app.documind.models import Document
-from app.judge import registry
+from app.judge import offline, registry
 from app.models import Case, Dataset, DatasetVersion, SyntheticBatch, SyntheticCandidate
 from app.schemas.synthetic import BatchIn
 from app.services import datasets as dataset_service
@@ -818,6 +818,8 @@ async def create_batch(
         "validator_model": body.validator_model,
         "seed": seed,
     }
+    if offline.enabled():
+        config["judge_mode"] = "offline"  # answered by Claude Code, not the API models
 
     if body.kind == "enrichment":
         assert source is not None

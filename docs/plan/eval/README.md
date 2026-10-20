@@ -70,6 +70,7 @@ evaluation/
 | `EVAL_SERVICE_USER_ID`, `EVAL_PROBE_USER_ID` | from `bootstrap_service_users.py` | same |
 | `ANTHROPIC_API_KEY` | | |
 | `EVAL_DOCUMIND_CONCURRENCY=2`, `EVAL_JUDGE_CONCURRENCY=4`, `EVAL_ANTHROPIC_MAX_RPM=50`, `EVAL_WORKER_SLOTS=4` | | |
+| `EVAL_JUDGE_MODE=api\|offline` (default `api`), `EVAL_OFFLINE_POLL_S=15` | | Offline = local only: Anthropic calls are parked for Claude Code to answer (`scripts.offline_tasks`) |
 
 `DOCUMIND_API_KEY`, `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are shared with DocuMind.
 

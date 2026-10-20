@@ -1,6 +1,7 @@
 import re
 from functools import cached_property, lru_cache
 from pathlib import Path
+from typing import Literal
 from urllib.parse import parse_qs, parse_qsl, urlencode, urlsplit, urlunsplit
 
 from pydantic import field_validator
@@ -45,6 +46,10 @@ class Settings(BaseSettings):
     eval_probe_user_id: str | None = None
 
     anthropic_api_key: str | None = None
+    # `offline` (local only): no Anthropic call is made; each one is parked in `offline_tasks`
+    # for Claude Code to answer (`scripts.offline_tasks`) and the job retries until it is.
+    eval_judge_mode: Literal["api", "offline"] = "api"
+    eval_offline_poll_s: int = 15
 
     eval_worker_slots: int = 4
     eval_documind_concurrency: int = 2

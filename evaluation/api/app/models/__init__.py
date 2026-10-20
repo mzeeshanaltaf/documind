@@ -3,6 +3,7 @@
 from app.models.base import Base, metadata
 from app.models.dataset import Case, Dataset, DatasetVersion
 from app.models.job import Job
+from app.models.offline import OfflineTask
 from app.models.prompt import ConfigPreset, Prompt, PromptVersion
 from app.models.run import (
     Claim,
@@ -25,6 +26,7 @@ __all__ = [
     "Job",
     "JudgeCall",
     "MetricScore",
+    "OfflineTask",
     "Prompt",
     "PromptVersion",
     "RetrievedContext",

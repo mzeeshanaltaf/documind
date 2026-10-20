@@ -24,7 +24,7 @@ from app.core.config import get_settings
 from app.core.errors import ApiError
 from app.core.security import Admin
 from app.documind.client import DocuMindClient
-from app.judge import registry
+from app.judge import offline, registry
 from app.judge.pricing import PRICING_FILE as JUDGE_PRICING_FILE
 from app.models import Case, Dataset, DatasetVersion, MetricScore, Run, RunCase
 from app.schemas.runs import RETRIEVAL_MODES, RunIn
@@ -57,6 +57,9 @@ def eval_snapshot() -> dict[str, Any]:
     return {
         "git_sha": get_settings().git_sha,
         "judge_pricing_sha256": file_sha256(JUDGE_PRICING_FILE),
+        # Set only for offline judging (answered by Claude Code, not Haiku); None = api, so older
+        # runs, which lack the key, compare equal.
+        "judge_mode": "offline" if offline.enabled() else None,
     }
 
 

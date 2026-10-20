@@ -11,7 +11,7 @@
 ## Current phase
 **Phase 10 — API request logs & viewer** (code complete, not yet deployed; see the 2026-10-19 log). **Phase 9 — Umami analytics & wrap-up** (code complete, not yet deployed). The tracker and events are built and verified locally; what's left is the `/ship` push and the live checks (see *Pending user actions*). Phase 8 still waits on one browser chat through the BFF.
 
-> ⚠️ **Before launch: the owner must have the Privacy Policy (`/privacy`) reviewed legally.** It was written to match what the app really does (see the Phase 7 log), but it is not legal advice.
+> ✅ The Privacy Policy (`/privacy`) has been legally reviewed (owner-confirmed 2026-10-20). Re-review it if the app's data handling changes.
 
 ## Phase tracker
 | # | Phase | Doc | Status |
@@ -284,8 +284,8 @@ A standalone app at `https://evaluation.documind.zeeshanai.cloud` (code in `eval
 
 ## Pending user actions
 - **Eval E8 (owner):**
-  1. `/ship` the E8 changes. One push deploys DocuMind's web (the join-page filter for eval orgs), the eval API (prod migration `0005_adversarial` runs on container start; the image now carries `evaluation/fixtures/`) and the eval web. Check that `documind-web` deployed **before** step 2, or `eval-canary` would show on `/app/join`.
-  2. In the `documind-eval-api` container: `uv run python -m scripts.setup_canary_org --wait` (creates `eval-canary` with `{"eval": true}`, uploads the canary PDF as `eval-bot`, ~1 min of ingestion), then `uv run python -m scripts.import_adversarial`. Sign in to DocuMind as a non-admin and confirm `/app/join` doesn't list "Canary Holdings (eval)".
+  1. ~~`/ship` the E8 changes~~ — done (web on `553bd31`, eval API on `e138a9c`, all healthy 2026-10-20).
+  2. ~~Canary + adversarial import on prod~~ — done 2026-10-20 in the `documind-eval-api` container (`eval-canary` created, `CNR-HR-001` ready as HR / GLOBAL; `adversarial` v1 published, 43 cases, same `content_hash` as dev). **Still yours:** sign in to DocuMind as a non-admin and confirm `/app/join` doesn't list "Canary Holdings (eval)".
   3. Off-hours, start a run on prod: dataset `adversarial` v1, full, judge off (≈ $0.03, ~10 min at concurrency 2). Acceptance: leakage 0 and every authz probe passes (the run page's Safety panel shows both).
   4. From 2026-11-01 (Anthropic limit): on dev press **Resume** on "E8 adversarial (judged)" (`957e97cd`, paused `judge_unavailable`, budget $1; ≈ $0.2), then run `uv run python -m scripts.judge_robustness --source 957e97cd-277b-46f9-aa6b-4ddb52e03d8c` (two rejudges, ≈ $0.3; prints PASS/FAIL per judge metric). Record the OOS refusal rate and the robustness result in Status.md.
 - **Eval E7 (owner):**
@@ -295,16 +295,13 @@ A standalone app at `https://evaluation.documind.zeeshanai.cloud` (code in `eval
   4. For `synthetic-v1` (≥ 60 approved cases): generate a second batch (e.g. 60 more, ≈ $4.2) if the first doesn't reach 60, publish, and start a full run on it.
   5. ~~`/ship` the E7 changes~~ — pushed as `7962c51` during the E8 session (its deploy wasn't checked there).
 - **Eval E5 (owner):**
-  1. Google Cloud Console → the OAuth client DocuMind uses → add the redirect URIs `https://evaluation.documind.zeeshanai.cloud/api/auth/callback/google` and `http://localhost:3100/api/auth/callback/google`. Until then "Continue with Google" on Evaluation fails with `redirect_uri_mismatch` (email/password sign-in works).
+  1. ~~Google redirect URIs for Evaluation~~ — done (owner, 2026-10-20).
   2. In a browser, sign in at https://evaluation.documind.zeeshanai.cloud with your DocuMind admin account (Google after step 1, and email), then start a small run (e.g. golden v1, retrieval only, < $0.05) and watch it go live. That is the only E5 hop not verified by me (it needs your credentials).
 - ~~**Eval E2 (owner, at E5 deploy time):** bootstrap the prod service users and import the golden set~~ — done 2026-10-19 inside the `documind-eval-api` container (`eval-bot` admin, `eval-probe` member of `simtora`; ids set in Coolify; golden v1, 30 cases, same `content_hash` as dev).
 - **Eval E1 (owner):** (both done: prod `/health` shows the commit, and the eval API reads prod `/admin/eval/info`)
   1. ~~In Coolify, enable "Include source commit in build" on `documind-api`~~ — done 2026-10-19 via the API (`PATCH /applications/<uuid>` with `include_source_commit_in_build: true`, verified by reading it back). It applies from the next deploy (Dockerfile `SOURCE_COMMIT` build arg → `GIT_SHA` → `/health.version`). If `/health.version` still shows `dev` after that deploy, pass `SOURCE_COMMIT` as a build arg from `.github/workflows/deploy.yml`.
   2. `/ship` (done by the push that follows this entry) (together with Phase 10). The prod migrations `0003_request_logs` + `0004_eval_hooks` run on container start; then check `https://api.documind.zeeshanai.cloud/health` shows a version.
-- **Phase 9 (owner):**
-  1. `/ship` the Phase 9 changes. The push redeploys web only (the web build bakes in the Umami vars).
-  2. After the deploy, open https://documind.zeeshanai.cloud with DevTools → Network: the page loads `analytics.zeeshanai.cloud/script.js`, and a `POST …/api/send` returns 200 on each navigation. Umami → DocuMind → Realtime shows the visit.
-  3. Exercise the events on prod (CTA click, a chat question, a citation, a 👍/👎) and check they appear under Umami → Events. Ad blockers can block the tracker, so test in a clean profile.
+- ~~**Phase 9 (owner):** `/ship`, the Umami script/`/api/send` check and the event checks~~ — done (owner, confirmed 2026-10-20). Phase 10's `/ship` and request-logs viewer check are done too.
 - **Phase 8 blockers (owner):**
   1. ~~Create Better Auth's tables in the prod schema `documind`~~ — done 2026-10-07 (`pnpm auth:migrate` with the prod URL; all 7 tables verified in `documind`).
   2. ~~Commit + push the Phase 8 files~~ — done (`a90ca59`, fix `9b9c832`).
@@ -312,11 +309,12 @@ A standalone app at `https://evaluation.documind.zeeshanai.cloud` (code in `eval
   4. ~~Google OAuth redirect URI for prod~~ — done 2026-10-08. The JS origin isn't needed: Better Auth uses the server-side code flow, and Google checks JS origins only for browser flows (GIS/One Tap).
   5. ~~Sign up as admin on prod, Google sign-in, create org `simtora`~~ — done 2026-10-08.
   6. ~~Delete the n8n "DocuMind Phase 8 check" message~~ — done 2026-10-08.
-  7. In a browser on https://documind.zeeshanai.cloud: ask one question in `simtora` and confirm the answer streams token by token (not all at once); then click a citation and confirm the PDF opens at the cited page. This is the only hop not yet verified (browser → Traefik → Next BFF).
+  7. ~~Browser chat on prod: streaming answer + citation opens the PDF at the cited page~~ — done (owner, 2026-10-20).
 - **Phase 2 manual check (owner):** Click "Continue with Google" on http://localhost:3000/sign-in and complete the consent screen. If Google shows `redirect_uri_mismatch`, add `http://localhost:3000/api/auth/callback/google` to the OAuth client.
   - Done as of Phase 3: the owner's admin account exists, and the org "Simtora Technologies" (`simtora`) exists with the owner as `owner`.
-- **Before launch: get the Privacy Policy (`/privacy`) legally reviewed.** Check especially the legal bases, international transfers (OpenAI, Resend, Google, Upstash), retention promises ("we delete an organization's data when it's closed" and account deletion on request are manual today) and the 16+ age line. Its effective date is the `EFFECTIVE_DATE` constant in `app/(marketing)/privacy/page.tsx`.
-- Check the n8n contact workflow received the Phase 7 test message ("DocuMind Phase 7 check", `phase7-check@example.com`) and delete it.
+- ~~**Before launch: get the Privacy Policy (`/privacy`) legally reviewed.**~~ Review confirmed by the owner 2026-10-20. (Kept for reference: the points to check were the legal bases, international transfers (OpenAI, Resend, Google, Upstash), retention promises ("we delete an organization's data when it's closed" and account deletion on request are manual today) and the 16+ age line. Its effective date is the `EFFECTIVE_DATE` constant in `app/(marketing)/privacy/page.tsx`.)
+- ~~Delete the n8n "DocuMind Phase 7 check" test message~~ — done (owner, 2026-10-20).
+- **Dev vs prod eval data are separate** (`documind_eval_dev` vs `documind_eval`): datasets and synthetic batches made locally do not appear on prod. Promote a reviewed dataset with `scripts.export_dataset` → `scripts.import_dataset` (see `evaluation/CLAUDE.md`). Prod now has `golden` v1 + v2 (35 cases: 30 + 5 from the E7 smoke batch), `adversarial` v1 (43) and `synthetic-v1` v1 (39), all with the same `content_hash` as dev (imported 2026-10-20; `import_dataset.py` was copied into the running container because the scripts weren't committed yet, so it's gone after the next redeploy until they are). E5 smoke stays dev-only. `synthetic-v1` has 39 cases, short of the 60 target; a second batch waits on the Anthropic limit (2026-11-01).
 
 ## Session log
 <!-- Newest first. Template:
@@ -326,6 +324,13 @@ A standalone app at `https://evaluation.documind.zeeshanai.cloud` (code in `eval
 - Gotchas / learnings: …
 - Next: …
 -->
+
+### 2026-10-20 — [eval] Prod canary + adversarial import; dataset export/import scripts
+- **Done on prod:** checked the deploys (web `553bd31`, eval web `553bd31`, eval API `e138a9c`, all healthy; web was live before the canary was created), then in the `documind-eval-api` container ran `setup_canary_org --wait` (`eval-canary`, `CNR-HR-001` ready, HR / GLOBAL) and `import_adversarial` (`adversarial` v1 published, 43 cases, `content_hash` `5658f191…`, same as dev). A dry run first rolled back cleanly. Left for the owner: the non-admin `/app/join` check and the prod adversarial run (Pending › Eval E8 step 3).
+- **Why prod showed fewer datasets/batches than localhost:** separate DBs (see Pending). Only golden had been imported to prod.
+- **Built:** `evaluation/api/scripts/export_dataset.py` (one version → a single `documind-eval-dataset/1` JSON: dataset header, canonical cases, `content_hash`; default latest published, `--version N`, `--out -` for stdout) and `import_dataset.py` (`--file -` reads stdin, `--draft`, `--dry-run`; no DocuMind needed since departments are in the file; fails if the imported hash differs; re-import of unchanged content is a no-op). Verified on dev: golden export → import = unchanged, hash matches; stdin + dry run work; adversarial exports (43). `synthetic-v1` has no published version yet. `ruff` clean. Not covered by a pytest test.
+- **Owner confirmed done:** Phase 8 browser chat check, Phase 9/10 ship + live checks, Privacy Policy legal review, n8n test message deleted, Google redirect URIs for Evaluation.
+- **Next:** E7 reviews on dev, publish, then `export_dataset` → pipe into the prod container; owner's remaining items above; then E9.
 
 ### 2026-10-20 — [eval] Offline judging & generation (Claude Code answers instead of the Anthropic API; local only)
 - **Built:** `EVAL_JUDGE_MODE=offline` (+ `EVAL_OFFLINE_POLL_S`, default 15). In `judge/client.call()`, after the `request_hash` reuse check, the request is parked in the new `offline_tasks` table (migration `0006_offline`, unique `(owner_id, request_hash)`) and `RetryLater` requeues the job without spending an attempt. Works for judge metrics (`case_judge`) and synthetic generation/validation/enrichment (`synthetic_generate`) alike, because both go through `call()`. `scripts/offline_tasks.py`: `status`, `show [--purpose P --limit N --out FILE]` (readable: each prompt's system text + schema once), `export`, `import ANSWERS.jsonl` (one `{"task_id", "output"}` or `{"task_id", "refusal": true}` per line; output validated against the prompt's schema, stored as a `judge_calls` row with `model_actual=claude-code-offline`, cost 0). The job's next poll reuses it; follow-up prompts (claims_verify after claims_extract, validate after generate) park in later rounds.

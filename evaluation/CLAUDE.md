@@ -55,7 +55,7 @@ app/services/   datasets, importer, runs (create/snapshot/read/delete), run_stat
 app/routers/    v1 (get_admin on all), datasets, documind (passthrough), jobs, prompts, runs (+rejudge,
                 events, export, safety), compare, trends, synthetic (batches + candidates), system, health
 alembic/versions/0001_core…0006_offline  tests/ (fake_anthropic.py)
-scripts/{bootstrap_service_users,import_golden,import_adversarial,setup_canary_org,make_canary_pdf,offline_tasks}.py
+scripts/{bootstrap_service_users,import_golden,import_adversarial,export_dataset,import_dataset,setup_canary_org,make_canary_pdf,offline_tasks}.py
 ```
 `evaluation/fixtures/` (baked into the API image): `canary/canary-policy.{md,pdf}`, `adversarial.jsonl`, `judge-robustness.txt`.
 
@@ -67,6 +67,9 @@ cd evaluation/api && uv run pytest && uv run ruff check .  # -m "not db" skips t
 cd evaluation/api && uv run pytest -m live tests/test_judge_live.py  # real DocuMind + Anthropic (~1¢)
 cd evaluation/api && uv run python -m scripts.bootstrap_service_users --org-slug simtora [--dry-run]; uv run python -m scripts.import_golden  # needs DocuMind up; re-run = no-op
 cd evaluation/api && uv run python -m scripts.setup_canary_org --wait [--dry-run]; uv run python -m scripts.import_adversarial  # E8, idempotent
+# promote a reviewed dataset dev -> prod (dev DB and prod DB are separate): export a published version, pipe it into the prod container
+cd evaluation/api && uv run python -m scripts.export_dataset --slug synthetic-v1 --out ds.json   # latest published, or --version N
+ssh <vps> 'docker exec -i <eval-api container> python -m scripts.import_dataset --file -' < ds.json   # --dry-run / --draft; re-run = no-op; checks content_hash
 cd evaluation/web && pnpm dev | pnpm typecheck | pnpm lint | pnpm build | pnpm auth:check  # dev :3100; auth:check is read-only
 docker build -f evaluation/{api,web}/Dockerfile .   # repo-root context (web: --build-arg NEXT_PUBLIC_APP_URL)
 ```

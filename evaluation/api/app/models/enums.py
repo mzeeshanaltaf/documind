@@ -55,6 +55,11 @@ SyntheticType = Literal[
 ]
 CandidateStatus = Literal["pending", "approved", "rejected"]
 CandidateGenStatus = Literal["queued", "generated", "failed"]
+# E9: human review & judge calibration.
+ReviewSampling = Literal["stratified", "random", "disagreement"]
+ReviewItemStatus = Literal["pending", "done", "skipped"]
+# `stale` is never stored: it's decided per run, against the run's prompt version and model.
+CalibrationStatus = Literal["uncalibrated", "unreliable", "moderate", "calibrated"]
 
 
 def values(literal: object) -> tuple[str, ...]:

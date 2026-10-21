@@ -9,7 +9,7 @@
 > - Never write secrets here; this repo is public.
 
 ## Current phase
-Phases 1–10 are built, deployed and owner-checked. Active work is the evaluation harness (below): next is **E9 — Human review & judge calibration**; the judged parts of E4/E7/E8 wait for the Anthropic spend limit (access back 2026-11-01).
+Phases 1–10 are built, deployed and owner-checked. The evaluation harness (below) is **code-complete with E9 — Human review & judge calibration** (2026-10-21, not yet committed or deployed); the judged parts of E4/E7/E8 and the first calibration grades wait for the Anthropic spend limit (access back 2026-11-01).
 
 > ✅ The Privacy Policy (`/privacy`) has been legally reviewed (owner-confirmed 2026-10-20). Re-review it if the app's data handling changes.
 
@@ -33,7 +33,7 @@ Legend: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked
 A standalone app at `https://evaluation.documind.zeeshanai.cloud` (code in `evaluation/`) that evaluates DocuMind end to end.
 - **Docs:** overview, data model and metrics in [docs/plan/eval/README.md](docs/plan/eval/README.md); guide in [evaluation/CLAUDE.md](evaluation/CLAUDE.md).
 - **Session logs:** entries tagged `[eval]` in the Session log below.
-- **Current eval phase:** **E9 — Human review & judge calibration** (not started). E1–E8 and E7b are built and live at `https://evaluation.documind.zeeshanai.cloud`. Waiting on the Anthropic limit (2026-11-01): the judged adversarial run + robustness rejudge (E8) and optional judged runs on `synthetic-v1` v2. Still open (owner): the prod `/app/join` canary check, a prod adversarial run, a prod browser sign-in, and a DocuMind-redeploy marker on prod trends (see *Pending user actions*).
+- **Current eval phase:** **E9 — Human review & judge calibration**: code done 2026-10-21 (not committed/deployed yet), so the harness is complete in code. First calibration numbers need ~30 human grades (see *Pending user actions*). E1–E8 and E7b are built and live at `https://evaluation.documind.zeeshanai.cloud`. Waiting on the Anthropic limit (2026-11-01): the judged adversarial run + robustness rejudge (E8) and optional judged runs on `synthetic-v1` v2. Still open (owner): the prod `/app/join` canary check, a prod adversarial run, a prod browser sign-in, and a DocuMind-redeploy marker on prod trends (see *Pending user actions*).
 
 | # | Phase | Doc | Status |
 |---|---|---|---|
@@ -46,7 +46,7 @@ A standalone app at `https://evaluation.documind.zeeshanai.cloud` (code in `eval
 | E7 | Synthetic test sets & reference enrichment | [phase-E7](docs/plan/eval/phase-E7-synthetic-test-sets.md) | 🟨 Deployed; batches finished offline, owner review of Acceptance + Golden references may remain |
 | E7b | Synthetic v1 second batch (60, offline) | [phase-E7b](docs/plan/eval/phase-E7b-synthetic-v1-second-batch-offline.md) | ✅ Done 2026-10-20: `synthetic-v1` v2 = 91 cases, generated offline at $0, published and on prod (hash matches) |
 | E8 | Adversarial & safety suite | [phase-E8](docs/plan/eval/phase-E8-adversarial-and-safety-suite.md) | 🟨 Deployed, canary + dataset on prod; judged parts wait for the Anthropic limit, prod run is yours |
-| E9 | Human review & judge calibration | [phase-E9](docs/plan/eval/phase-E9-human-review-and-calibration.md) | ⬜ Not started |
+| E9 | Human review & judge calibration | [phase-E9](docs/plan/eval/phase-E9-human-review-and-calibration.md) | 🟨 Code done 2026-10-21 (tests, build, browser check on dev); owner: commit/deploy, 30 graded correctness items for the first numbers |
 
 ### Decisions made (eval planning session, 2026-10-18)
 - **Stack:**
@@ -82,7 +82,7 @@ A standalone app at `https://evaluation.documind.zeeshanai.cloud` (code in `eval
 - **Prod targeting:** eval runs against prod DocuMind share its single uvicorn worker and OpenAI limits with real users. Should prod runs need an explicit confirmation, or be limited to the off-hours default concurrency of 2?
 - **Judge budget:** the default `max_judge_cost_usd` per run (proposed $5), and whether to also set a monthly cap.
 - **Service account visibility:** `eval-bot` and `eval-probe` will show up in DocuMind's `/admin/users`. Is that acceptable, or should they be filtered?
-- **Reviewers for E9:** only the owner, or a second reviewer too? A human-human κ ceiling needs two reviewers on the same items.
+- **Reviewers for E9:** only the owner, or a second reviewer too? A human-human κ ceiling needs two reviewers on the same items. The code supports it (a second admin opens the same queue; reviews are per reviewer), so this is now only a staffing question.
 - **Root `CLAUDE.md` length:** it sits at the 150-line limit. The eval pointer was folded into two existing lines (Start here › 2, Repo layout › `docs/plan/`); any further eval notes belong in `evaluation/CLAUDE.md`.
 
 ## Decisions made (planning session, 2026-10-06)
@@ -279,6 +279,11 @@ A standalone app at `https://evaluation.documind.zeeshanai.cloud` (code in `eval
 - **Eval env:** eval-web build-time = `NEXT_PUBLIC_APP_URL` (DocuMind's URL) only; runtime `DATABASE_URL` (prod, schema `documind`), `EVAL_AUTH_SCHEMA=documind`, `EVAL_BETTER_AUTH_SECRET`, `EVAL_BETTER_AUTH_URL`/`EVAL_PUBLIC_URL`, `EVAL_API_URL=http://documind-eval-api:8100`, `EVAL_API_KEY`, `GOOGLE_*` (the prod client). eval-api runtime: `EVAL_DATABASE_URL` (schema `documind_eval`), `EVAL_AUTH_SCHEMA`, `EVAL_API_KEY`, `DOCUMIND_API_URL=http://documind-api:8000`, `DOCUMIND_API_KEY` (prod), `ANTHROPIC_API_KEY`, `EVAL_SERVICE_USER_ID`/`EVAL_PROBE_USER_ID`, concurrency defaults. The new prod `EVAL_API_KEY`/`EVAL_BETTER_AUTH_SECRET` and the prod ids/app uuids are also in `.env.production.local`.
 
 ## Pending user actions
+- **Eval E9:**
+  1. Commit/deploy (`/ship`). The eval API runs `alembic upgrade head` on start, which adds `0007_review` on prod.
+  2. First calibration numbers (acceptance): from 2026-11-01 (Anthropic limit), a Haiku-judged full run on a dataset **with references** (`synthetic-v1` v2, or golden v2), then `/review/new` → metric Correctness, stratified, 30 cases, blind → grade all 30 (keys 1–5, `n`). `/calibration` then shows κw, ρ, bias and the confusion matrix; record them here. Correctness needs references: golden v1 has none, so its runs only offer the other metrics.
+  3. Optional: a second admin grades the same queue for the human-human ceiling.
+  - Offline-judged runs (`EVAL_JUDGE_MODE=offline`) calibrate as their own model (`claude-code-offline`), never pooled with Haiku.
 - **Eval E8:**
   1. Sign in to DocuMind as a non-admin and confirm `/app/join` doesn't list "Canary Holdings (eval)".
   2. Off-hours, start a run on prod: dataset `adversarial` v1, full, judge off (≈ $0.03, ~10 min at concurrency 2). Acceptance: leakage 0 and every authz probe passes (the run page's Safety panel).
@@ -289,6 +294,15 @@ A standalone app at `https://evaluation.documind.zeeshanai.cloud` (code in `eval
 
 ## Session log
 <!-- Newest first. Keep entries short: what was built, deviations, gotchas, next. Decisions that outlive a phase go in the sections above. -->
+
+### 2026-10-21 — [eval] E9: human review & judge calibration (code done; not committed or deployed)
+- **Eval API:** migration `0007_review` (`review_queues`, `review_items`, `reviews`, `calibrations`); `stats/agreement.py` (Cohen κ, quadratic κw, Spearman ρ with average ranks, confusion; checked against scikit-learn/scipy on 200 random cases + textbook examples); `judge/rubric.py` (a prompt section's anchors as data); `services/review.py` (reviewable metrics, stratified/random/disagreement sampling, the case packet the judge saw, blind reveal + lock, grades); `services/calibration.py` (pairs → rows, status rules, run/current badges incl. `stale`); handler `calibration_compute` (debounced 20 s after a submit); routes `/v1/review-queues…`, `/v1/reviews`, `/v1/calibration` (+ `/recompute`), `/v1/runs/{id}/calibration`.
+- **Eval web:** `/review` (queues), `/review/new` (run, metric + extra metrics, sampling, size, seed, blind), `/review/[queueId]` grader (packet left, rubric right, keys 1–5 / 0 n/a / ↑↓ / n / s, item strip, reveal with agreement chips and the judge's reasoning and evidence quotes), `/calibration` (current chips, metric × prompt version × model table; a row opens the confusion heatmap, judge-vs-human scatter, human ceiling, test-retest), badges + caution notes on run pages (strip and all-metrics table), "Grade a sample" on completed full runs, dashboard chips; sidebar items enabled.
+- **Verified:** suite 248 passed, 1 skipped (23 E9 unit tests + an end-to-end DB test: blind queue → grades → debounced compute → rows → badges → `stale` after editing `judge.answer_quality.md`); ruff clean; web typecheck, lint, build clean. Browser check on dev (Playwright as eval-bot via a temporary session row, deleted after): stratified queue on "E6 A/A full #2" covered every completeness score (2–5), grading by keyboard, reveal, skip, calibration table/heatmap/scatter in light and dark, run badges. The smoke queue, its reviews and the compute job were removed afterwards; dev's `calibrations` is empty.
+- **No calibration numbers yet:** no human grades exist, and every judged dev run is on golden v1 (no references, so no correctness). See *Pending user actions › Eval E9*.
+- **Deviations:** migration is `0007_review` (the plan said `0003`); `review_queues` adds `seed` and `details` (sampling stats), `calibrations` adds `details` (scatter pairs, human-human n, test-retest spread), `review_items` adds `skipped_by` (skips are per reviewer). Reviewable metrics are the rubric dimensions, the verdict, follow-up, behaviour (the reviewer picks the class; correct = allowed by the expected behaviour, as for the judge) and faithfulness (per-claim verdicts, nominal κ over claims, ρ/MAE/bias over per-case supported shares; n counts cases). Other judge metrics show "uncalibrated" and say they aren't gradable. A κw ≥ 0.6 with 20 ≤ n < 30 is `moderate` (the plan left it open); an undefined κ (everyone used one category) is `uncalibrated`. Blind = a UI rule: the judge's scores are still visible on the run's own pages.
+- **Gotchas:** `tests/conftest.py` now pins `EVAL_JUDGE_MODE=api`: with the local offline setting every fake judge call parked and `drain()` never settled (likely the same for the existing judge tests run locally; not checked separately). shadcn components use `data-slot` attributes, so the grader marks its slots `data-review-slot`. The full suite now takes ~45 min from this machine.
+- **Next:** owner: `/ship`, then the 30-item correctness calibration from 2026-11-01.
 
 ### 2026-10-20 — [eval] E7b: `synthetic-v1` v2 (91 cases) generated offline and on prod ✅
 - Batch **Synthetic v1 batch 2 (60, offline)** (`6b651e03…`, seed 4242, `judge_mode=offline`, counts 18/12/12/6/6/6) answered by Claude Code in 9 rounds, $0 (`judge_calls.model_actual = claude-code-offline`). 60 candidates → 53 generated, 7 refused (all multi_hop: I answered `{"refusal": true}` where the two excerpts had no natural link), 52 passed validation, 1 validator-rejected (3D-printer unanswerable; the general limited-personal-use rule gives a partial answer). Validation pass rate 52/60 = 87 %, an upper bound because the same model generated and validated. 6 passed with an `ambiguous` warning.

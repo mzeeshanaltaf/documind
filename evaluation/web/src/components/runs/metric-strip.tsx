@@ -1,5 +1,6 @@
 import { CircleAlertIcon, CircleCheckIcon } from "lucide-react";
-import type { AggregateOut, RunCaseOut } from "@/lib/api-types";
+import { CalibrationBadge } from "@/components/calibration/calibration-badge";
+import type { AggregateOut, CalibrationBadge as Badge, RunCaseOut } from "@/lib/api-types";
 import { formatMetric, meetsThreshold, type MetricIndex, metricLabel } from "@/lib/metrics";
 import { cn } from "@/lib/utils";
 
@@ -65,16 +66,19 @@ function IntervalBar({ s }: { s: MetricSummary }) {
 
 /**
  * Key metrics as one ruled strip (a spec sheet, not a card grid): label, the mean in mono, its
- * 95% CI, n and how many cases didn't apply. Gated metrics say whether the mean clears the gate.
+ * 95% CI, n and how many cases didn't apply. Gated metrics say whether the mean clears the gate;
+ * judge metrics carry their calibration badge (how far the judge agrees with people).
  */
 export function MetricStrip({
   summaries,
   index,
   thresholds,
+  badges,
 }: {
   summaries: MetricSummary[];
   index: MetricIndex;
   thresholds?: Record<string, number>;
+  badges?: Record<string, Badge>;
 }) {
   if (!summaries.length) return null;
   return (
@@ -112,6 +116,7 @@ export function MetricStrip({
                 {s.errors > 0 && <span className="text-destructive"> · {s.errors} failed</span>}
                 {s.provisional && <> · so far</>}
               </span>
+              {badges?.[s.key] && <CalibrationBadge badge={badges[s.key]} className="mt-0.5" />}
             </dd>
           </div>
         );

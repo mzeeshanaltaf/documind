@@ -2,11 +2,13 @@ from fastapi import APIRouter, Depends
 
 from app.core.security import get_admin
 from app.routers import (
+    calibration,
     compare,
     datasets,
     documind,
     jobs,
     prompts,
+    review,
     runs,
     synthetic,
     system,
@@ -17,5 +19,7 @@ from app.routers import (
 # (FastAPI resolves get_admin once per request, also for routes that take AdminDep).
 router = APIRouter(prefix="/v1", dependencies=[Depends(get_admin)])
 
-for module in (compare, datasets, documind, jobs, prompts, runs, synthetic, system, trends):
+for module in (
+    calibration, compare, datasets, documind, jobs, prompts, review, runs, synthetic, system, trends
+):  # fmt: skip
     router.include_router(module.router)

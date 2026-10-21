@@ -47,8 +47,8 @@ const WORK: NavItem[] = [
 ];
 const QUALITY: NavItem[] = [
   { href: "/synthetic", label: "Synthetic", icon: SparklesIcon },
-  { href: "/review", label: "Review", icon: ClipboardCheckIcon, phase: "E9" },
-  { href: "/calibration", label: "Calibration", icon: GaugeIcon, phase: "E9" },
+  { href: "/review", label: "Review", icon: ClipboardCheckIcon },
+  { href: "/calibration", label: "Calibration", icon: GaugeIcon },
 ];
 
 function NavItems({ items, pathname }: { items: NavItem[]; pathname: string }) {

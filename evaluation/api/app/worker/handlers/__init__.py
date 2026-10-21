@@ -6,6 +6,7 @@ from collections.abc import Awaitable, Callable
 
 from app.worker.handlers import (
     authz_probe,
+    calibration_compute,
     case_generate,
     case_judge,
     noop,
@@ -23,4 +24,5 @@ HANDLERS: dict[str, Handler] = {
     "case_judge": case_judge.handle,
     "run_finalize": run_finalize.handle,
     "synthetic_generate": synthetic_generate.handle,
+    "calibration_compute": calibration_compute.handle,
 }

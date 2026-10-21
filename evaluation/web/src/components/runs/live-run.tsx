@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDownIcon, GitCompareArrowsIcon } from "lucide-react";
+import { ChevronDownIcon, ClipboardCheckIcon, GitCompareArrowsIcon } from "lucide-react";
 import Link from "next/link";
 import { ButtonLink } from "@/components/button-link";
 import { useMemo, useState } from "react";
@@ -8,9 +8,11 @@ import useSWR from "swr";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { CalibrationBadge, CalibrationCautions } from "@/components/calibration/calibration-badge";
 import { useRunEvents } from "@/hooks/use-run-events";
 import {
   type AggregateOut,
+  type CalibrationBadge as Badge,
   type MetricInfo,
   type RunCaseOut,
   type RunDetail,
@@ -64,15 +66,19 @@ export function LiveRun({
   initialAggregates,
   initialSafety,
   registry,
+  calibration,
 }: {
   initialRun: RunDetail;
   initialCases: RunCaseOut[];
   initialAggregates: AggregateOut[];
   initialSafety: SafetySummary | null;
   registry: MetricInfo[];
+  /** Every judge metric's calibration badge against this run's prompt versions and model. */
+  calibration: Badge[];
 }) {
   const { run, cases, transport, follow } = useRunEvents(initialRun, initialCases);
   const index = useMemo(() => indexMetrics(registry), [registry]);
+  const badges = useMemo(() => Object.fromEntries(calibration.map((b) => [b.metric, b])), [calibration]);
   const terminal = TERMINAL_RUN_STATUSES.includes(run.status);
 
   const modes = run.mode === "full" ? ["chat"] : (run.config.retrieval_modes ?? ["bm25", "vector", "hybrid"]);
@@ -139,6 +145,12 @@ export function LiveRun({
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            {run.status === "completed" && run.mode === "full" && calibration.length > 0 && (
+              <ButtonLink href={`/review/new?run=${run.id}`} variant="outline" size="sm">
+                <ClipboardCheckIcon data-icon="inline-start" />
+                Grade a sample
+              </ButtonLink>
+            )}
             {(terminal || run.status === "stopped") && (
               <ButtonLink href={`/compare?a=${run.id}`} variant="outline" size="sm">
                 <GitCompareArrowsIcon data-icon="inline-start" />
@@ -230,8 +242,9 @@ export function LiveRun({
           terminal ? "Means with 95% confidence intervals over the finished cases." : "Running means over the cases finished so far."
         }
       >
-        <MetricStrip summaries={summaries} index={index} thresholds={thresholds} />
-        {overall.size > 0 && <AllMetrics overall={overall} index={index} />}
+        <MetricStrip summaries={summaries} index={index} thresholds={thresholds} badges={badges} />
+        <CalibrationCautions badges={calibration} runId={run.id} />
+        {overall.size > 0 && <AllMetrics overall={overall} index={index} badges={badges} />}
       </Section>
 
       <SafetyPanel runId={run.id} initial={initialSafety} live={!terminal} />
@@ -247,7 +260,15 @@ export function LiveRun({
   );
 }
 
-function AllMetrics({ overall, index }: { overall: Map<string, AggregateOut>; index: ReturnType<typeof indexMetrics> }) {
+function AllMetrics({
+  overall,
+  index,
+  badges,
+}: {
+  overall: Map<string, AggregateOut>;
+  index: ReturnType<typeof indexMetrics>;
+  badges: Record<string, Badge>;
+}) {
   const groups = groupMetrics([...overall.keys()], index);
   const count = groups.reduce((n, g) => n + g.keys.length, 0);
   return (
@@ -276,7 +297,9 @@ function AllMetrics({ overall, index }: { overall: Map<string, AggregateOut>; in
                     {GROUP_LABELS[group] ?? group}
                   </TableCell>
                 </TableRow>,
-                ...keys.map((key) => <AggregateRow key={key} aggregate={overall.get(key)!} info={index[key]} />),
+                ...keys.map((key) => (
+                  <AggregateRow key={key} aggregate={overall.get(key)!} info={index[key]} badge={badges[key]} />
+                )),
               ])}
             </TableBody>
           </Table>
@@ -286,11 +309,16 @@ function AllMetrics({ overall, index }: { overall: Map<string, AggregateOut>; in
   );
 }
 
-function AggregateRow({ aggregate: a, info }: { aggregate: AggregateOut; info: MetricInfo | undefined }) {
+function AggregateRow({ aggregate: a, info, badge }: { aggregate: AggregateOut; info: MetricInfo | undefined; badge?: Badge }) {
   const details = a.details as Record<string, number>;
   return (
     <TableRow>
-      <TableCell title={info?.description}>{metricLabel(a.metric)}</TableCell>
+      <TableCell title={info?.description}>
+        <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+          {metricLabel(a.metric)}
+          {badge && <CalibrationBadge badge={badge} compact />}
+        </span>
+      </TableCell>
       <TableCell className="text-right font-mono text-xs tabular-nums">
         {formatMetric(a.mean, info)}
         {details.p50 !== undefined && <span className="block text-muted-foreground">p50 {formatMetric(details.p50, info)}</span>}

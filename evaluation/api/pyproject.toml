@@ -45,6 +45,7 @@ select = ["E", "F", "W", "I", "B", "UP", "ASYNC"]
 "tests/test_compare.py" = ["F811"]
 "tests/test_adversarial.py" = ["F811"]
 "tests/test_offline.py" = ["F811"]
+"tests/test_review.py" = ["F811"]
 
 [tool.ruff.lint.isort]
 # evaluation/api/alembic/ (migrations) would otherwise make the `alembic` package look first-party.

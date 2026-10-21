@@ -770,3 +770,222 @@ export type CommitResult = {
   updated: number;
   skipped: { candidate_id: string; reason: string }[];
 };
+
+// --- review & calibration (E9) ---------------------------------------------------------------------
+
+export const REVIEW_SAMPLINGS = ["stratified", "random", "disagreement"] as const;
+export type ReviewSampling = (typeof REVIEW_SAMPLINGS)[number];
+/** The judge metrics people can grade (the eval API's `services/review.REVIEWABLE`). */
+export const REVIEWABLE_METRICS = [
+  "answer_quality.correctness",
+  "answer_quality.completeness",
+  "answer_quality.relevance",
+  "answer_quality.jurisdiction_handling",
+  "answer_quality.refusal_helpfulness",
+  "answer_quality",
+  "followup_resolution",
+  "behavior_correct",
+  "faithfulness",
+] as const;
+export const CALIBRATION_STATUSES = ["uncalibrated", "unreliable", "moderate", "calibrated", "stale"] as const;
+export type CalibrationStatus = (typeof CALIBRATION_STATUSES)[number];
+
+export type ReviewProgress = {
+  total: number;
+  done: number;
+  skipped: number;
+  mine_done: number;
+  mine_skipped: number;
+  mine_remaining: number;
+  double_graded: number;
+};
+
+export type ReviewQueue = {
+  id: string;
+  run_id: string;
+  run_name: string | null;
+  name: string;
+  metrics: string[];
+  sampling: ReviewSampling;
+  seed: number;
+  size: number;
+  blind: boolean;
+  details: {
+    eligible?: number;
+    stratified_by?: string;
+    available?: Record<string, number>;
+    picked?: Record<string, number>;
+  };
+  created_by: string | null;
+  created_at: string;
+  progress: ReviewProgress | null;
+};
+
+export type ReviewItemSummary = {
+  id: string;
+  position: number;
+  status: "pending" | "done" | "skipped";
+  case_key: string;
+  run_case_id: string;
+  reviewers: number;
+  mine_done: boolean;
+  mine_skipped: boolean;
+};
+
+export type ReviewQueueDetail = ReviewQueue & { items: ReviewItemSummary[] };
+
+export type ReviewSource = {
+  n: number;
+  header: string;
+  doc_code: string | null;
+  title: string | null;
+  section_number: string | null;
+  section_title: string | null;
+  page_start: number | null;
+  page_end: number | null;
+  jurisdiction: string | null;
+  text: string;
+};
+
+export type ReviewMetric = {
+  key: string;
+  kind: "ordinal" | "binary" | "claims";
+  /** The statistics' categories, in order. */
+  labels: string[];
+  /** What the reviewer picks: the labels, or behaviour classes for behavior_correct. */
+  choices: string[];
+  description: string;
+};
+
+export type RubricAnchor = { label: string; text: string };
+export type Rubric = {
+  section: string;
+  groups: { key: string | null; description: string; anchors: RubricAnchor[] }[];
+  notes: string[];
+  prompt: string;
+  prompt_version: number | null;
+};
+
+export type MyReview = {
+  metric: string;
+  value: number | null;
+  label: string | null;
+  comment: string | null;
+  claim_verdicts: Record<string, string> | null;
+  updated_at: string;
+};
+
+export type JudgeClaimView = {
+  idx: number;
+  verdict: string | null;
+  reasoning: string | null;
+  evidence_quote: string | null;
+  supporting_ns: number[];
+};
+
+export type JudgeView = {
+  value: number | null;
+  label: string | null;
+  n_samples: number;
+  spread: number | null;
+  /** A dimension's analysis, the verdict's summary, the behaviour or follow-up reasoning. */
+  reasoning?: string | null;
+  samples?: number[] | null;
+  issues?: { severity: string; dimension: string; quote: string; explanation: string }[] | null;
+  choice?: string | null;
+  claims?: JudgeClaimView[];
+};
+
+export type ReviewItem = {
+  id: string;
+  queue_id: string;
+  position: number;
+  status: string;
+  run_id: string;
+  run_case_id: string;
+  case_key: string;
+  case_type: string;
+  packet: {
+    question: string;
+    conversation: { role: string; content: string }[];
+    expected_behavior: string;
+    expected_behavior_text: string;
+    reference_answer: string | null;
+    key_facts: KeyFact[];
+    standalone_query: string | null;
+    sources: ReviewSource[];
+    answer: string;
+  };
+  metrics: ReviewMetric[];
+  rubrics: Record<string, Rubric>;
+  claims: { idx: number; text: string; citation_ns: number[] }[];
+  mine: Record<string, MyReview>;
+  revealed: boolean;
+  locked: boolean;
+  judge: Record<string, JudgeView> | null;
+};
+
+export type ReviewNext = { item: ReviewItem | null; progress: ReviewProgress };
+export type ReviewGrade = {
+  metric: string;
+  label?: string | null;
+  comment?: string | null;
+  claim_verdicts?: Record<string, string> | null;
+};
+
+export type Calibration = {
+  id: string;
+  metric: string;
+  prompt_key: string;
+  prompt_version: number;
+  prompt_version_id: string;
+  judge_model: string;
+  n: number;
+  kappa: number | null;
+  kappa_weighted: number | null;
+  spearman: number | null;
+  exact_pct: number | null;
+  within1_pct: number | null;
+  mae: number | null;
+  bias: number | null;
+  human_kappa: number | null;
+  confusion: { labels?: string[]; matrix?: number[][] };
+  details: {
+    kind?: "ordinal" | "binary" | "claims";
+    primary?: "kappa_weighted" | "kappa";
+    units?: number;
+    /** Category index pairs [judge, human], or per-case faithfulness values. */
+    pairs?: [number, number][];
+    human?: { n: number; kappa: number | null };
+    retest?: { n: number; mean_spread_steps: number };
+  };
+  status: Exclude<CalibrationStatus, "stale">;
+  current: boolean;
+  computed_at: string;
+};
+
+export type CalibrationBadge = {
+  metric: string;
+  reviewable: boolean;
+  status: CalibrationStatus;
+  n: number;
+  kappa: number | null;
+  primary: "kappa_weighted" | "kappa" | null;
+  calibration_id: string | null;
+  prompt_version: number | null;
+  judge_model: string | null;
+  latest: {
+    calibration_id: string;
+    prompt_version: number;
+    judge_model: string;
+    status: string;
+    n: number;
+    kappa: number | null;
+  } | null;
+};
+
+export type CalibrationList = {
+  rows: Calibration[];
+  current: CalibrationBadge[];
+  thresholds: { min_n: number; calibrated_n: number; unreliable_below: number; calibrated_from: number };
+};

@@ -24,6 +24,9 @@ os.environ["EVAL_DATABASE_URL"] = with_schema(
 )
 os.environ["EVAL_WORKER_SLOTS"] = "0"
 os.environ["EVAL_ANTHROPIC_MAX_RPM"] = "100000"  # the fake judge client needs no pacing
+# The judge tests use the fake client; a local `EVAL_JUDGE_MODE=offline` in .env.local would
+# park every call instead (test_offline turns offline mode on itself).
+os.environ["EVAL_JUDGE_MODE"] = "api"
 get_settings.cache_clear()
 assert get_settings().db_schema == TEST_SCHEMA
 

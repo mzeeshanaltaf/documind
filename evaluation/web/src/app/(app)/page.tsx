@@ -6,10 +6,11 @@ import { Suspense } from "react";
 import { PageContainer } from "@/components/app/page-container";
 import { PageHeader } from "@/components/app/page-header";
 import { ButtonLink } from "@/components/button-link";
+import { CalibrationChips } from "@/components/calibration/calibration-chips";
 import { MetricSparklines } from "@/components/charts/metric-sparklines";
 import { RunsTable } from "@/components/runs/runs-table";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { DatasetOut, MetricInfo, RunOut, SystemInfo, Trends } from "@/lib/api-types";
+import type { CalibrationList, DatasetOut, MetricInfo, RunOut, SystemInfo, Trends } from "@/lib/api-types";
 import { requireAdmin } from "@/lib/auth-guards";
 import { apiJson } from "@/lib/eval-api";
 import { formatCost, shortId } from "@/lib/format";
@@ -83,6 +84,15 @@ export default function DashboardPage() {
           <SystemSummary />
         </Suspense>
       </div>
+      <Suspense
+        fallback={
+          <Section title="Judge calibration">
+            <BlockSkeleton rows={1} />
+          </Section>
+        }
+      >
+        <JudgeCalibration />
+      </Suspense>
     </PageContainer>
   );
 }
@@ -150,6 +160,26 @@ async function PinnedTrends() {
     >
       <p className="-mt-1 text-xs text-muted-foreground">Completed, non-partial runs, oldest to newest. The band is the 95% CI.</p>
       <MetricSparklines series={series} registry={registry} />
+    </Section>
+  );
+}
+
+async function JudgeCalibration() {
+  const { user } = await requireAdmin();
+  const { current } = await apiJson<CalibrationList>("calibration", { userId: user.id });
+  return (
+    <Section
+      title="Judge calibration"
+      action={
+        <Link href="/calibration" className="text-sm text-muted-foreground hover:text-foreground hover:underline">
+          Details
+        </Link>
+      }
+    >
+      <p className="-mt-1 text-xs text-muted-foreground">
+        How far each judge metric agrees with human reviewers, for the prompts as they are now.
+      </p>
+      <CalibrationChips badges={current} />
     </Section>
   );
 }

@@ -11,6 +11,8 @@
 ## Current phase
 Phases 1–10 are built, deployed and owner-checked. The evaluation harness (below) is **code-complete with E9 — Human review & judge calibration** (2026-10-21, deployed `efbdc8e`); the judged parts of E4/E7/E8 and the first calibration grades wait for the Anthropic spend limit (access back 2026-11-01).
 
+**DocuMind Office** (3D virtual office, `office/`) was planned 2026-10-22; **O1 is done** (2026-10-22, local only) and **O2 is next** (see the *DocuMind Office* section below).
+
 > ✅ The Privacy Policy (`/privacy`) has been legally reviewed (owner-confirmed 2026-10-20). Re-review it if the app's data handling changes.
 
 ## Phase tracker
@@ -84,6 +86,53 @@ A standalone app at `https://evaluation.documind.zeeshanai.cloud` (code in `eval
 - **Service account visibility:** `eval-bot` and `eval-probe` will show up in DocuMind's `/admin/users`. Is that acceptable, or should they be filtered?
 - **Reviewers for E9:** only the owner, or a second reviewer too? A human-human κ ceiling needs two reviewers on the same items. The code supports it (a second admin opens the same queue; reviews are per reviewer), so this is now only a staffing question.
 - **Root `CLAUDE.md` length:** it sits at the 150-line limit. The eval pointer was folded into two existing lines (Start here › 2, Repo layout › `docs/plan/`); any further eval notes belong in `evaluation/CLAUDE.md`.
+
+## DocuMind Office (3D)
+A walkable low-poly 3D office at `https://office.documind.zeeshanai.cloud` (code in `office/`):
+- you pick an org, then an office city (or Worldwide), then walk in;
+- Reception issues access cards;
+- department experts answer through DocuMind (real citations, real quota);
+- a presentation room, a play area, quests and achievements, and a rooftop.
+
+Docs: overview in [docs/plan/office/README.md](docs/plan/office/README.md), guide in [office/CLAUDE.md](office/CLAUDE.md). Session logs are tagged `[office]`.
+
+| # | Phase | Doc | Status |
+|---|---|---|---|
+| O1 | Scaffold, auth, BFF & DB | [phase-O1](docs/plan/office/phase-O1-scaffold-auth-bff-db.md) | ✅ Done (local; deploy is O10) |
+| O2 | Engine core | [phase-O2](docs/plan/office/phase-O2-engine-core.md) | ⬜ Not started |
+| O3 | Org & location selection | [phase-O3](docs/plan/office/phase-O3-org-and-location-selection.md) | ⬜ Not started |
+| O4 | City scenes | [phase-O4](docs/plan/office/phase-O4-city-scenes.md) | ⬜ Not started |
+| O5 | Lobby, reception, cards & NPC chat | [phase-O5](docs/plan/office/phase-O5-lobby-reception-cards-chat.md) | ⬜ Not started |
+| O6 | Department rooms & citations | [phase-O6](docs/plan/office/phase-O6-department-rooms-and-citations.md) | ⬜ Not started |
+| O7 | Presentation room | [phase-O7](docs/plan/office/phase-O7-presentation-room.md) | ⬜ Not started |
+| O8 | Play area & leaderboards | [phase-O8](docs/plan/office/phase-O8-play-area.md) | ⬜ Not started |
+| O9 | Quests, achievements & rooftop | [phase-O9](docs/plan/office/phase-O9-quests-achievements-rooftop.md) | ⬜ Not started |
+| O10 | Polish, a11y, performance & deploy | [phase-O10](docs/plan/office/phase-O10-polish-and-deploy.md) | ⬜ Not started |
+
+### Decisions made (office planning session, 2026-10-22)
+- **Sign-in:** DocuMind accounts only.
+  - Better Auth runs on DocuMind's auth tables (the `evaluation/web` pattern), with its own secret and cookie prefix `documind-office`.
+  - Any verified, non-banned user can enter, and sees only their orgs (`/v1/me`; eval orgs are hidden).
+  - The real quota applies.
+- **Hosting:** a standalone Next.js 16 app with a BFF to the existing FastAPI (**no backend change**), dev port :3200, Coolify app `documind-office-web`.
+  - Its own state lives in schema `documind_office` (dev `documind_office_dev`): `players`, `progress`, `game_scores`, with FKs to the auth tables (cascade).
+- **3D:** React Three Fiber v9 + drei + rapier, stylized low-poly (procedural geometry plus CC0 kits).
+- **Locations** come from document jurisdictions, with Simtora overrides: San Francisco HQ, Lahore, Berlin, Paris, Sydney, London, plus the Worldwide "Global Hub". Real local-time lighting (suncalc).
+- **Chat scoping is client-side via `document_ids`:** department ∩ (office country ∪ GLOBAL ∪ base `policy_manual`).
+  - Worldwide rooms get all of the department's documents, with a country chip row.
+  - Worldwide reception is unscoped (DocuMind routes).
+  - The presenter is scoped to the overview documents.
+- **Rooms:** one per department present (not Corporate, which the presentation room hosts). Each has a named expert NPC per office; greetings are static (no quota).
+- **Extras chosen by the owner:** NPC experts; quests and achievements with a rooftop unlock.
+  - **Out of scope:** multiplayer and voice.
+- **Original mini-games:** Policy Trivia (bank generated offline by Claude Code, cited), Sort & Toss (recycling, ties to the Facilities manual) and Desk Table Tennis. Per-org leaderboards show first name + initial, with a hide option.
+- **Chat rate limit:** the office BFF shares DocuMind's Upstash chat limit (same prefix and key).
+
+### Open questions (office)
+- **Privacy:** office progress, scores, avatar and leaderboard names need a privacy note. Should it be a section in DocuMind's legally reviewed `/privacy`, or a separate office page? (Decide by O10.)
+- **Office chats in DocuMind history:** they appear as normal, untagged conversations in the user's DocuMind history. Is that acceptable, or should they get a marker? (A marker would need a backend change.)
+- **Trivia for other orgs:** only Simtora gets a bank. Is that acceptable, or should banks be generated on demand (that would cost LLM spend)?
+- **Umami:** create a separate website for the office (optional, O10)?
 
 ## Decisions made (planning session, 2026-10-06)
 - **Tenancy:** platform admin only.
@@ -279,6 +328,7 @@ A standalone app at `https://evaluation.documind.zeeshanai.cloud` (code in `eval
 - **Eval env:** eval-web build-time = `NEXT_PUBLIC_APP_URL` (DocuMind's URL) only; runtime `DATABASE_URL` (prod, schema `documind`), `EVAL_AUTH_SCHEMA=documind`, `EVAL_BETTER_AUTH_SECRET`, `EVAL_BETTER_AUTH_URL`/`EVAL_PUBLIC_URL`, `EVAL_API_URL=http://documind-eval-api:8100`, `EVAL_API_KEY`, `GOOGLE_*` (the prod client). eval-api runtime: `EVAL_DATABASE_URL` (schema `documind_eval`), `EVAL_AUTH_SCHEMA`, `EVAL_API_KEY`, `DOCUMIND_API_URL=http://documind-api:8000`, `DOCUMIND_API_KEY` (prod), `ANTHROPIC_API_KEY`, `EVAL_SERVICE_USER_ID`/`EVAL_PROBE_USER_ID`, concurrency defaults. The new prod `EVAL_API_KEY`/`EVAL_BETTER_AUTH_SECRET` and the prod ids/app uuids are also in `.env.production.local`.
 
 ## Pending user actions
+- **Office O1:** the local Google redirect URI was added (2026-10-22; the prod one comes in O10). Sign in at http://localhost:3200 with Google once to confirm.
 - **Eval E9:**
   1. Deployed 2026-10-21 (`efbdc8e`; prod `alembic current` = `0007_review`, both eval containers healthy). A prod browser look at `/review` and `/calibration` with your account is still yours.
   2. First calibration numbers (acceptance): from 2026-11-01 (Anthropic limit), a Haiku-judged full run on a dataset **with references** (`synthetic-v1` v2, or golden v2), then `/review/new` → metric Correctness, stratified, 30 cases, blind → grade all 30 (keys 1–5, `n`). `/calibration` then shows κw, ρ, bias and the confusion matrix; record them here. Correctness needs references: golden v1 has none, so its runs only offer the other metrics.
@@ -294,6 +344,35 @@ A standalone app at `https://evaluation.documind.zeeshanai.cloud` (code in `eval
 
 ## Session log
 <!-- Newest first. Keep entries short: what was built, deviations, gotchas, next. Decisions that outlive a phase go in the sections above. -->
+
+### 2026-10-22 — [office] O1: scaffold, auth, BFF & DB (local, not committed)
+- **Built:** `office/` (Next 16.4, :3200), with Better Auth on `documind_dev` (cookie prefix `documind-office`, ban gate, no admin requirement) and a BFF proxying DocuMind's `/v1` that shares DocuMind's Upstash chat window. `documind_office_dev` was migrated (`players`, `progress`, `game_scores`). The placeholder home lists orgs, with a user menu. Vitest has 19 tests (node + jsdom projects). `.env.example` has the Office block; `.env.local` has the `OFFICE_*` keys and a new secret.
+- **Verified:** typecheck, lint, build, test and `auth:check` are clean, and a migrate re-run is a no-op. With throwaway `test-office-*` users (since deleted):
+  - **Sign-in:** a non-admin Simtora member signs in and sees "Simtora Technologies". An unverified user gets 403 `EMAIL_NOT_VERIFIED`.
+  - **Bans:** a banned user's sign-in is refused (`ACCOUNT_BANNED`); their existing session gets BFF 403 and the home redirects to sign-in.
+  - **BFF:** `me/quota` answers 200, or 401 without a session; the PDF streams with `content-length`/`content-disposition`. SSE chat streams through.
+  - **Rate limit:** spending the window with **web's own** limiter makes the office POST answer 429 `rate_limited` + `Retry-After`.
+  - **Cascade:** deleting the user cascades every office row.
+- **Deviations:**
+  - `requireOrgAccess` and `withoutEvalOrgs` also hide eval orgs.
+  - `requireSession` and the BFF re-check bans per request.
+  - `apiJson`'s `userId` is optional (it falls back to the session).
+  - `savePlayer` shallow-merges the avatar and settings jsonb.
+  - One pool serves auth and office tables.
+  - No Dockerfile yet (O10).
+  - `.env.local` was filled by a Node script, not the Edit tool, so the secret never appeared in output.
+- **Gotchas:** see `office/CLAUDE.md` (eval orgs in `/v1/me` for admins, orphaned `next dev` on :3200, how to test the shared limit). One accidental real chat on the test user cost ≈ $0.0005; its 4 `llm_usage` rows stay by design.
+- **Next:** O2 (engine core).
+
+### 2026-10-22 — [office] Planning: DocuMind Office (3D virtual office)
+- **Docs:** `docs/plan/office/README.md` plus phase docs O1–O10, `office/CLAUDE.md`, the *DocuMind Office* section above, and the pointers folded into the root `CLAUDE.md` (still 150 lines).
+- **Owner choices:** DocuMind sign-in with the real quota, a standalone app, low-poly style, NPC experts, quests and achievements.
+- **Exploration facts:**
+  - Chat accepts only `document_ids` for scoping (no department or jurisdiction filter), so rooms scope on the client.
+  - The `/v1/me`, documents, quota and PDF endpoints cover everything; no backend change is needed.
+  - The Simtora HQ is San Francisco (`Company-Overview.pdf` p.3).
+- **Naming:** "Paper Toss" is a specific existing game, so the toss game is the original **Sort & Toss**.
+- **Next:** O1 in a new session.
 
 ### 2026-10-21 — [eval] E9: human review & judge calibration (deployed `efbdc8e`)
 - **Eval API:** migration `0007_review` (`review_queues`, `review_items`, `reviews`, `calibrations`); `stats/agreement.py` (Cohen κ, quadratic κw, Spearman ρ with average ranks, confusion; checked against scikit-learn/scipy on 200 random cases + textbook examples); `judge/rubric.py` (a prompt section's anchors as data); `services/review.py` (reviewable metrics, stratified/random/disagreement sampling, the case packet the judge saw, blind reveal + lock, grades); `services/calibration.py` (pairs → rows, status rules, run/current badges incl. `stale`); handler `calibration_compute` (debounced 20 s after a submit); routes `/v1/review-queues…`, `/v1/reviews`, `/v1/calibration` (+ `/recompute`), `/v1/runs/{id}/calibration`.

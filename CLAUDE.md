@@ -6,7 +6,7 @@
 
 ## Start here, every session
 1. Read **`Status.md`**: it gives the current phase, decisions, open questions and the session log.
-2. Read the current phase doc in **`docs/plan/phase-<n>-*.md`** (eval work: `docs/plan/eval/phase-E<n>-*.md` + `evaluation/CLAUDE.md`): it lists the tasks, the skills to load, and the acceptance criteria.
+2. Read the current phase doc in **`docs/plan/phase-<n>-*.md`** (eval work: `docs/plan/eval/phase-E<n>-*.md` + `evaluation/CLAUDE.md`; 3D office: `docs/plan/office/phase-O<n>-*.md` + `office/CLAUDE.md`): it lists the tasks, the skills to load, and the acceptance criteria.
 3. Load the skills that phase lists **before** writing code.
 4. Before ending the session, update `Status.md`: the phase table, a dated session-log entry, and any deviations or gotchas.
    - If you change something this file documents (commands, layout, conventions), update this file too, keeping it ≤ 150 lines.
@@ -46,7 +46,7 @@ api/                FastAPI app
   alembic/  scripts/seed_policies.py  eval/ (golden.jsonl, run_eval.py)  tests/
 video/              hero explainer motion graphic (src/explainer.html, build.mjs, render.mjs; output → web/public/documind-explainer.mp4)
 docs/policies/      14 seed PDFs (fictional company "Simtora Technologies")
-docs/plan/          phase-1 … phase-10 docs; eval/ = Evaluation harness E1–E9 (code in evaluation/, guide evaluation/CLAUDE.md)
+docs/plan/          phase-1 … phase-10 docs; eval/ = Evaluation harness E1–E9 (code in evaluation/, guide evaluation/CLAUDE.md); office/ = 3D office O1–O10 (code in office/)
 PRODUCT.md, DESIGN.md  design context (impeccable); DESIGN.json = its sidecar
 model-pricing.json  per-model $/1M tokens for standard & flex tiers (single source)
 docker-compose.dev.yml  local MinIO · api/Dockerfile, web/Dockerfile (context = repo root), .github/workflows/deploy.yml → Coolify (see Status.md › Production)

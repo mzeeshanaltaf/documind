@@ -11,6 +11,8 @@ export type TierConfig = {
   /** Directional-light shadow map size (0 when shadows are off). */
   shadowMap: number;
   maxNpcs: number;
+  /** Ambient cars in the city (O4). */
+  maxCars: number;
   /** Subtle post-processing (bloom + vignette), a lazy chunk. */
   post: boolean;
   /** Fixed when the WebGL context is created; a live tier change keeps the first value. */
@@ -19,9 +21,9 @@ export type TierConfig = {
 };
 
 export const TIERS: Record<Tier, TierConfig> = {
-  low: { dpr: 1, shadows: false, shadowMap: 0, maxNpcs: 6, post: false, antialias: false, nameTags: false },
-  medium: { dpr: 1.5, shadows: true, shadowMap: 1024, maxNpcs: 12, post: false, antialias: true, nameTags: true },
-  high: { dpr: 2, shadows: true, shadowMap: 2048, maxNpcs: 24, post: true, antialias: true, nameTags: true },
+  low: { dpr: 1, shadows: false, shadowMap: 0, maxNpcs: 6, maxCars: 8, post: false, antialias: false, nameTags: false },
+  medium: { dpr: 1.5, shadows: true, shadowMap: 1024, maxNpcs: 12, maxCars: 14, post: false, antialias: true, nameTags: true },
+  high: { dpr: 2, shadows: true, shadowMap: 2048, maxNpcs: 24, maxCars: 20, post: true, antialias: true, nameTags: true },
 };
 
 /** One step up (+1) or down (-1), clamped to the ends. */

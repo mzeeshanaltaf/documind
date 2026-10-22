@@ -23,8 +23,11 @@ export const LANDMARK_KITS = [
 ] as const;
 export type LandmarkKit = (typeof LANDMARK_KITS)[number];
 
-/** City scene colours (O4): street ground, building facades (picked per building), one accent. */
-export type Palette = { ground: string; buildings: string[]; accent: string };
+/**
+ * City scene look (O4): street ground, building facades (picked per building), one accent, and
+ * the range of storeys for the blocks round the office.
+ */
+export type Palette = { ground: string; buildings: string[]; accent: string; floors: [min: number, max: number] };
 
 export type Location = {
   /** URL slug: `/[orgSlug]/[location]`. */
@@ -72,12 +75,14 @@ export const GENERIC_PALETTE: Palette = {
   ground: "#c9cfc8",
   buildings: ["#e6e8e3", "#d3d8d2", "#bcc4bf"],
   accent: "#2f6f5e",
+  floors: [3, 9],
 };
 
 const HUB_PALETTE: Palette = {
   ground: "#d8e0da",
   buildings: ["#eef1ec", "#dfe6e1", "#cdd8d1"],
   accent: "#2f6f5e",
+  floors: [2, 4],
 };
 
 type LocationDocument = Pick<DocumentOut, "jurisdiction" | "doc_code" | "indexed_at">;

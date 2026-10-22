@@ -13,7 +13,7 @@
 5. At the end, update Status.md › Office (phase table, plus an `[office]` session-log entry) and this file (commands, versions, gotchas), keeping it ≤ 150 lines.
 
 ## Status
-**O3 done (2026-10-22):** org picker, globe location picker, `/[orgSlug]/[location]` opens the game (placeholder city). **O4 is next** (city scenes). O2: engine core (dev-only `/dev/sandbox`). O1: scaffold, sign-in, BFF, `documind_office_dev` schema.
+**O4 done (2026-10-22):** generated city per location (landmark kit, real local-time sky, traffic, pedestrians), the office tower whose doors enter the office (a placeholder lobby until O5) and the floating Global Hub with travel kiosks. **O5 is next** (lobby, reception, cards, NPC chat). O3: org and globe location pickers. O2: engine core (dev-only `/dev/sandbox`). O1: scaffold, sign-in, BFF, `documind_office_dev` schema.
 
 ## Layout (as built)
 - `src/lib/`: `auth` (Better Auth), `auth-guards` (`requireSession`, `requireOrgAccess`/`requireOrgAccessBySlug`, `withoutEvalOrgs` (+ logos)), `locations` (`deriveLocations`, pure) + `country-defaults`, `format` (local time, UTC offset, day/night), `account` (ban/admin rules, client-safe), `db` (one pool: auth `search_path`, max 3), `db-url`, `office-db` (`query()` with `{office}`), `api` (`apiFetch`/`apiJson`; `userId` optional in Server Components), `api-types`, `rate-limit`, `backend-path` (BFF path rules), `player` (zod schemas, `defaultDisplayName`), `org-meta`, `site`.
@@ -26,7 +26,8 @@
   - `store/game-store.ts` (zustand `useGame`: world/transition phase, input, player, interactables, focus, modal, settings, quality); `player/rig.ts` holds per-frame values (camera yaw, exact position).
   - `engine/`: `GameCanvas` (tiers, PerformanceMonitor, AdaptiveDpr), `SceneManager` (lazy scene per key, each in its own keyed `<Physics>`), `Loading` (curtain; it drives the transition timers), `quality.ts`, `SunLight`, `QualityApplier`, `PostFx` (lazy, high tier).
   - `input/` (bindings, joystick, `use-keyboard`), `interact/` (`select.ts` pure, `Interactable`, `InteractionSystem`, `interact.ts`), `player/` (`Avatar` + `avatar-clips` + `avatar-style`, `Player` (KCC), `FollowCamera`), `audio/audio.ts` (Howler buses), `quests/bus.ts`, `settings.ts`, `persist.ts`, `world/kit.tsx` (`Block`, `useSignTexture`), `world/sandbox/`, `world/placeholder/` (stands in for city/office/rooftop).
-- **HUD, `src/components/hud/`:** `hud` (breadcrumb, quota + minimap slots, menu button), `interaction-prompt`, `game-menu` (Esc: settings, controls), `avatar-editor`, `sign-dialog`, `dialogue-panel`, `touch-controls`. Page: `src/app/dev/sandbox/page.tsx` (`notFound()` in production).
+- **City (O4), `src/game/world/city/`:** pure `generator.ts` (`generateCity`: blocks, buildings, skyline, furniture, loops, walk graph, spawn/exit/entrance, landmark anchors, colliders; `windowsOf`, `groundHeight`), `paths.ts` (traffic loops), `random.ts` (FNV + mulberry32), `lighting.ts` (suncalc → `SkyState`, `atLocalHour`), `hub-layout.ts`, `spawns.ts` (`cityEntrySpawn`/`cityExitSpawn`, used by the page), `vehicles.ts` (models, `FLEETS`, `planFleet`). Scene: `CityScene` (city or lazy `global-hub`), `CitySky`, `Ground` (one vertex-coloured mesh + `Colliders`), `Buildings` (instanced; `aLit` night glow), `StreetFurniture`, `building.tsx` (tower, signs, doors, `Trigger`), `traffic`, `pedestrians`, `merge.tsx` (`Merged`: one mesh per colour), `signs.ts` (canvas signage), `landmarks/` (one lazy kit each), `use-city-sky`, `ambience.ts`. `world/Trigger.tsx`, `world/office/spawns.ts` (`lobby_entrance`, placeholder exit).
+- **HUD, `src/components/hud/`:** `hud` (breadcrumb, quota + minimap slots, menu button), `interaction-prompt`, `game-menu` (Esc: settings, controls; dev-only time-of-day slider), `avatar-editor`, `sign-dialog`, `dialogue-panel`, `touch-controls`, `arrival-banner`, `travel-dialog` (hub kiosks). Page: `src/app/dev/sandbox/page.tsx` (`notFound()` in production).
 
 ## Commands
 ```bash
@@ -36,6 +37,8 @@ cd office && pnpm test:e2e       # Playwright on :3200 (starts or reuses `pnpm d
 cd office && node scripts/migrate.mjs [--dry-run]   # documind_office(_dev) schema; re-run = no-op
 cd office && pnpm auth:check     # read-only: DocuMind owns the auth tables
 cd office && node scripts/make-earth-mask.mjs <ne_110m_land.geojson>   # regenerate the globe's land mask
+cd office && node scripts/make-ambience.mjs   # regenerate the city ambience + motif loops (needs ffmpeg)
+cd office && OFFICE_SHOTS=<dir> pnpm test:e2e e2e/city.spec.ts   # + day/night screenshots per city (OFFICE_CITIES=a,b to limit)
 docker build -f office/Dockerfile --build-arg NEXT_PUBLIC_APP_URL=https://documind.zeeshanai.cloud .   # from O10
 ```
 
@@ -111,4 +114,12 @@ The keys are in the root `.env.local`; see README › Environment.
   - **`placeLabels`** hides a label that can't fit cleanly (the hovered/chosen one is always shown); the pin stays.
   - **`next dev` reload loop** (`[Fast Refresh] rebuilding` → full reload on every load, endless `GET /`) hit again: stop dev, delete `.next/dev`.
   - **Playwright helpers:** `createTestUser(name, { admin, orgs })` adds memberships; `officeQuery()` reads office tables.
+- **City gotchas (O4):**
+  - **suncalc 2.1 returns degrees,** with azimuth clockwise from north (0 N, 90 E); `@types/suncalc` still describes radians from south. World axes: x east, z south.
+  - **Next keeps a visited game route mounted but hidden (Activity).** R3F releases the hidden canvas's renderer, but the route shows again (Back, re-picking a city) with stale state while the store singleton holds another game: `GameRoot` re-runs `initGame` on every show (`useReinitOnReveal`). The page keys `GameClient` by place.
+  - **Draw calls:** high tier's post-processing leaves only its last pass in `renderer.info`; measure on medium (shadows on). Cities: ~55–60 low, ~90–115 medium. R3F disposes on an idle callback and a city takes longer: the sandbox memory test waits 3 s per entry (it settles at 44 geometries / 2 textures).
+  - **Kinematic player vs. fixed sensors raise no intersection events;** doorways use `Trigger` (point-in-box per frame).
+  - **React Compiler lint:** `useMemo` needs an inline function and a literal deps array (`Merged` takes a `version` string); no ref reads in render; per-frame sim state lives in refs, not memo values.
+  - **No environment map,** so metalness only darkens glass: keep it ~0. The hub island's rim hides anything >10° below the horizon from the plaza (hence the globe's placement).
+  - **SwiftShader** renders a city at ~15 fps at 1280×720; the walk test runs at 800×450. The player's step clamp is 1/10 s (was 1/20), so slow devices still walk at full speed.
 - **Testing the shared chat limit:** spend the window with DocuMind's own `web/src/lib/rate-limit.ts` (tsx, `--conditions=react-server`, import via `pathToFileURL` on Windows), then POST `orgs/{id}/chat` through :3200 and expect 429. A POST that passes the limit runs a real (billed) chat.

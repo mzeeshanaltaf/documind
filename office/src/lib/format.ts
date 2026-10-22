@@ -45,3 +45,42 @@ export function formatUtcOffset(at: Date | number, timeZone: string): string {
 export function isDaytime(at: Date | number, lat: number, lon: number): boolean {
   return getPosition(new Date(at), lat, lon).altitude > 0;
 }
+
+// Legal-form and generic suffixes dropped from an org name for short mentions.
+const ORG_SUFFIX =
+  /,?\s+(technologies|technology|inc\.?|incorporated|ltd\.?|limited|llc|plc|gmbh|ag|s\.?a\.?|corp\.?|corporation|co\.?|company|group|holdings)$/i;
+
+/** "Simtora Technologies, Inc." → "Simtora" (the arrival banner's short mention). */
+export function shortOrgName(name: string): string {
+  let short = name.trim();
+  for (let i = 0; i < 3; i++) {
+    const next = short.replace(ORG_SUFFIX, "").trim();
+    if (!next || next === short) break;
+    short = next;
+  }
+  return short;
+}
+
+/** "Headquarters" → "headquarters", while "R&D centre" keeps its capitals. */
+function lowerFirst(label: string): string {
+  return /^[A-Z][a-z]/.test(label) ? label[0].toLowerCase() + label.slice(1) : label;
+}
+
+export type Arrival = { title: string; details: string[] };
+
+/**
+ * The arrival banner (O4): "Lahore · 7:42 pm local time · Simtora R&D centre". The Global Hub
+ * keeps a fixed golden hour, so it gets no clock.
+ */
+export function arrivalLines(
+  place: { name: string; role: string; roleLabel: string; timezone: string },
+  orgName: string,
+  at: Date | number,
+): Arrival {
+  const org = shortOrgName(orgName);
+  if (place.role === "hub") return { title: place.name, details: [`Kiosks lead to every ${org} office`] };
+  return {
+    title: place.name,
+    details: [`${formatLocalTime(at, place.timezone)} local time`, `${org} ${lowerFirst(place.roleLabel)}`],
+  };
+}

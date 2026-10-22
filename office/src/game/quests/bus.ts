@@ -7,6 +7,10 @@ import type { SceneId } from "@/game/store/game-store";
  */
 export type GameEvent =
   | { type: "scene_entered"; scene: SceneId }
+  /** A city (or the Global Hub) came into view; `isNight` feeds "Night owl" (O9). */
+  | { type: "city_entered"; location: string; isNight: boolean }
+  | { type: "office_entered"; location: string }
+  | { type: "travelled"; from: string; to: string }
   | { type: "room_entered"; room: string }
   | { type: "interacted"; id: string; kind: InteractKind }
   | { type: "interact_blocked"; id: string; requires?: string }

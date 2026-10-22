@@ -26,6 +26,21 @@ browsers without Ogg Vorbis. Added 2026-10-22 (phase O2).
 Each pack's `License.txt` reads "License: (Creative Commons Zero, CC0) …
 http://creativecommons.org/publicdomain/zero/1.0/". Credit is optional; we give it here anyway.
 
+## Ambience and motifs (`audio/ambience/`, `audio/music/`)
+
+Made for this project on 2026-10-22 (phase O4) by `scripts/make-ambience.mjs`, which
+synthesizes every sound from seeded noise and additive sine voices (no recordings or samples),
+then encodes `.ogg` (libvorbis q2) and `.mp3` (LAME VBR q7) with ffmpeg. Dedicated to the public
+domain under CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/). Re-run the script to
+regenerate them; the output is deterministic.
+
+| Files | What it is | Source | Licence |
+|---|---|---|---|
+| `ambience/city-traffic` | 24 s loop: low traffic rumble with passing cars | Generated (this repo) | CC0 1.0 |
+| `ambience/hub-wind` | 24 s loop: soft wind for the Global Hub | Generated (this repo) | CC0 1.0 |
+| `music/motif-golden-gate`, `-minar`, `-brandenburg`, `-eiffel`, `-opera-house`, `-generic`, `-global-hub` | 16–24 s loops: original melodies, one per landmark kit | Generated (this repo) | CC0 1.0 |
+| `music/motif-elizabeth-tower` | 24 s loop: the Westminster Quarters (the hour's four changes) on synthesized bells | Melody: Westminster Quarters (1793), public domain; rendering generated (this repo) | Public domain / CC0 1.0 |
+
 ## Textures (`textures/`)
 
 | File | Derived from | Author | Licence | Source |

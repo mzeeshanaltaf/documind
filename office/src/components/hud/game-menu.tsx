@@ -90,6 +90,7 @@ function MainView({ onResume, onNavigate }: { onResume: () => void; onNavigate: 
           Settings
           <ChevronRightIcon className="ml-auto text-muted-foreground" />
         </button>
+        {process.env.NODE_ENV !== "production" && <TimeOfDay />}
         <ButtonLink href={orgSlug ? `/${orgSlug}` : "/"} variant="ghost" className={rowClass}>
           <MapPinIcon className="text-muted-foreground" />
           Change location
@@ -106,6 +107,36 @@ function MainView({ onResume, onNavigate }: { onResume: () => void; onNavigate: 
         </button>
       </div>
     </>
+  );
+}
+
+/** "7:45 pm" for a decimal hour (24 wraps to midnight). */
+function hourLabel(hour: number) {
+  const minutes = Math.round(hour * 60) % (24 * 60);
+  const h = Math.floor(minutes / 60);
+  return `${h % 12 === 0 ? 12 : h % 12}:${String(minutes % 60).padStart(2, "0")} ${h < 12 ? "am" : "pm"}`;
+}
+
+/** Development only: set the city's local hour to check day, dusk and night lighting. */
+function TimeOfDay() {
+  const hour = useGame((s) => s.clockHour);
+  const inCity = useGame((s) => s.world.scene === "city" && s.office?.place.role !== "hub");
+  const setHour = useGame((s) => s.setClockHour);
+  const labelId = useId();
+  if (!inCity) return null;
+  return (
+    <Field className="gap-2 rounded-lg border border-dashed px-3 py-2.5">
+      <div className="flex items-baseline justify-between gap-3">
+        <FieldLabel id={labelId}>Time of day (dev)</FieldLabel>
+        <span className="font-mono text-xs text-muted-foreground tabular-nums">{hour === null ? "Real time" : hourLabel(hour)}</span>
+      </div>
+      <Slider aria-labelledby={labelId} min={0} max={24} step={0.25} value={hour ?? 12} onValueChange={(value) => setHour(value as number)} />
+      {hour !== null && (
+        <Button variant="ghost" size="sm" className="self-start" onClick={() => setHour(null)}>
+          Use real time
+        </Button>
+      )}
+    </Field>
   );
 }
 

@@ -85,7 +85,7 @@ export function Player() {
   });
 
   useEffect(() => {
-    resetRig(spawn.position, spawn.yaw);
+    resetRig(spawn.position, spawn.yaw, spawn.pitch);
     rig.body = body.current;
     return () => {
       rig.body = null;
@@ -113,7 +113,9 @@ export function Player() {
     const group = visual.current;
     const kcc = controller.current;
     if (!rb || !col || !group || !kcc) return;
-    const delta = Math.min(rawDelta, 1 / 20);
+    // Capped at 10 fps worth of time: slower frames walk slower, but a slow device still walks
+    // at full speed down to 10 fps (the controller sweeps each step, so nothing tunnels).
+    const delta = Math.min(rawDelta, 1 / 10);
     const s = useGame.getState();
     const state = local.current;
     const at = rb.translation();

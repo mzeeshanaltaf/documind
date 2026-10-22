@@ -6,6 +6,8 @@ import { Avatar } from "@/game/player/Avatar";
 import type { AvatarColors } from "@/game/player/avatar-style";
 import { emit } from "@/game/quests/bus";
 import { useGame } from "@/game/store/game-store";
+import { cityEntrySpawn } from "../city/spawns";
+import { SAMPLE_CITY } from "../city/sample";
 import { Block, useSignTexture } from "../kit";
 
 /**
@@ -246,7 +248,7 @@ function Mirror() {
 function Lift() {
   const ride = () => {
     audio.play("door-close");
-    useGame.getState().transitionTo("city", { position: [0, 0, 4], yaw: Math.PI });
+    useGame.getState().transitionTo("city", cityEntrySpawn(SAMPLE_CITY));
   };
   return (
     <group position={[-9, 0, 9]}>

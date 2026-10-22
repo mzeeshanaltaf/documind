@@ -5,19 +5,21 @@ import { Kbd } from "@/components/ui/kbd";
 import { audio } from "@/game/audio/audio";
 import { useGame } from "@/game/store/game-store";
 import { cn } from "@/lib/utils";
+import { ArrivalBanner } from "./arrival-banner";
 import { AvatarEditor } from "./avatar-editor";
 import { DialoguePanel } from "./dialogue-panel";
 import { GameMenu } from "./game-menu";
 import { InteractionPrompt } from "./interaction-prompt";
 import { SignDialog } from "./sign-dialog";
 import { TouchControls } from "./touch-controls";
+import { TravelDialog } from "./travel-dialog";
 
 const panel = "rounded-lg bg-background/92 shadow-sm ring-1 ring-foreground/10";
 
 /**
  * The DOM HUD over the canvas. Corners: location (top left), quota slot + menu (top right,
  * quota arrives in O5), minimap slot (bottom right, O5); the interaction prompt sits bottom
- * centre. The layer itself ignores the pointer so the canvas still gets drags and wheel events.
+ * centre, with the arrival banner (O4) under the top row. The layer itself ignores the pointer so the canvas still gets drags and wheel events.
  */
 export function Hud() {
   const location = useGame((s) => s.world.location);
@@ -72,11 +74,13 @@ export function Hud() {
         </div>
       </div>
 
+      <ArrivalBanner />
       <TouchControls />
       <GameMenu />
       <AvatarEditor />
       <SignDialog />
       <DialoguePanel />
+      <TravelDialog />
     </>
   );
 }

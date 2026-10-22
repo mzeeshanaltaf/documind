@@ -121,7 +121,8 @@ test("five scene transitions don't grow GPU memory", async ({ page, context }) =
   for (const scene of ["city", "sandbox", "city", "sandbox", "city", "sandbox"] as const) {
     await page.evaluate((target) => window.__office!.getState().transitionTo(target, { position: [0, 0, 4], yaw: Math.PI }), scene);
     await waitReady(page, scene);
-    await page.waitForTimeout(1000);
+    // The city (O4) is much bigger than the placeholder it replaced: give its idle-time disposal longer.
+    await page.waitForTimeout(3000);
     if (scene === "sandbox") sandboxReadings.push(await memory());
   }
 

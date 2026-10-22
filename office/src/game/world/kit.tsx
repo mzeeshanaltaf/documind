@@ -43,7 +43,7 @@ export function Block({ size, color, surface, ghost = false, castShadow = true, 
 const SIGN_WIDTH = 512;
 const SIGN_HEIGHT = 320;
 
-function cssFont(variable: string, fallback: string) {
+export function cssFont(variable: string, fallback: string) {
   const family = getComputedStyle(document.documentElement).getPropertyValue(variable).trim();
   return family ? `${family}, ${fallback}` : fallback;
 }

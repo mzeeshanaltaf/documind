@@ -22,16 +22,19 @@ export const rig = {
   body: null as RapierRigidBody | null,
 };
 
+/** The orbit's usual tilt; a spawn can start lower (city arrivals look up at the skyline). */
+export const DEFAULT_PITCH = 0.36;
+
 export const CAMERA_LIMITS = { minDistance: 2.4, maxDistance: 9, minPitch: 0.06, maxPitch: 1.15 } as const;
 
 /**
  * Resets the orbit for a new spawn. `facing` is the avatar's heading (rotation about y; 0 faces
- * +z); the camera starts behind it, half a turn round.
+ * +z); the camera starts behind it, half a turn round, tilted by `pitch`.
  */
-export function resetRig(position: readonly [number, number, number], facing: number) {
+export function resetRig(position: readonly [number, number, number], facing: number, pitch = DEFAULT_PITCH) {
   rig.position.set(position[0], position[1], position[2]);
   rig.yaw = facing + Math.PI;
-  rig.pitch = 0.36;
+  rig.pitch = pitch;
   rig.speed = 0;
   rig.running = false;
   rig.cameraTooClose = false;

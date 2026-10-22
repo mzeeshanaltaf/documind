@@ -53,5 +53,7 @@ export function initGame({ player, scene, spawn, location, office }: GameEntry) 
       settled: false,
     },
     osReducedMotion: media("(prefers-reduced-motion: reduce)"),
+    clockHour: null,
+    sky: null,
   });
 }

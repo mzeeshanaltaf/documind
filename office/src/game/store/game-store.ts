@@ -15,7 +15,8 @@ import type { Location as Place } from "@/lib/locations";
  */
 export type SceneId = "city" | "office" | "rooftop" | "sandbox";
 export type Vec3 = [number, number, number];
-export type Spawn = { position: Vec3; yaw: number };
+/** `yaw` is the avatar's heading (0 faces +z); `pitch` optionally starts the camera lower or higher. */
+export type Spawn = { position: Vec3; yaw: number; pitch?: number };
 export type Seat = { id: string; position: Vec3; yaw: number };
 
 /**
@@ -42,7 +43,9 @@ export type Modal =
   | { type: "menu" }
   | { type: "avatar"; first?: boolean }
   | { type: "sign"; title: string; lines: string[] }
-  | { type: "dialogue"; npc: string; name: string; role: string; lines: string[] };
+  | { type: "dialogue"; npc: string; name: string; role: string; lines: string[] }
+  /** A Global Hub kiosk asking to travel to another office (O4). */
+  | { type: "travel"; locationId: string; name: string; detail: string };
 
 export type InteractableEntry = {
   id: string;
@@ -88,6 +91,10 @@ export type GameState = {
   settings: Settings;
   quality: { auto: Tier; settled: boolean };
   osReducedMotion: boolean;
+  /** Development only: the city's local hour (0–24) instead of the real time; null = real. */
+  clockHour: number | null;
+  /** The current city sky, published when it changes (HUD, tests); null outside the city. */
+  sky: { phase: string; isNight: boolean } | null;
 
   transitionTo: (scene: SceneId, spawn: Spawn) => void;
   swapScene: () => void;
@@ -110,6 +117,8 @@ export type GameState = {
   updateSettings: (patch: Partial<Settings>) => void;
   setAutoTier: (tier: Tier, settled?: boolean) => void;
   setOsReducedMotion: (reduced: boolean) => void;
+  setClockHour: (hour: number | null) => void;
+  setSky: (sky: GameState["sky"]) => void;
 };
 
 const ORIGIN_SPAWN: Spawn = { position: [0, 0, 0], yaw: 0 };
@@ -141,6 +150,8 @@ export const useGame = create<GameState>()((set, get) => ({
   settings: DEFAULT_SETTINGS,
   quality: { auto: "medium", settled: false },
   osReducedMotion: false,
+  clockHour: null,
+  sky: null,
 
   transitionTo: (scene, spawn) => {
     if (get().world.phase === "out") return;
@@ -182,6 +193,11 @@ export const useGame = create<GameState>()((set, get) => ({
   updateSettings: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),
   setAutoTier: (auto, settled = false) => set({ quality: { auto, settled } }),
   setOsReducedMotion: (osReducedMotion) => set({ osReducedMotion }),
+  setClockHour: (clockHour) => set({ clockHour }),
+  setSky: (sky) => {
+    const current = get().sky;
+    if (current?.phase !== sky?.phase || current?.isNight !== sky?.isNight) set({ sky });
+  },
 }));
 
 /** The rendering tier in effect. */

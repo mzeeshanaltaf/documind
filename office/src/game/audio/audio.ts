@@ -15,6 +15,8 @@ const FOOTSTEP_VARIANTS = 5;
 const volumes: Record<Bus, number> = { music: 0.4, ambience: 0.7, sfx: 0.7 };
 const sounds = new Map<string, Howl>();
 const looping = new Map<Bus, Howl>();
+/** Loops asked for before audio was unlocked; they start on the first gesture. */
+const wanted = new Map<"music" | "ambience", string[]>();
 let unlocked = false;
 let lastStep = -1;
 
@@ -40,6 +42,7 @@ export const audio = {
     const context = Howler.ctx;
     if (context?.state === "suspended") void context.resume();
     for (const name of ["ui-click", "ui-open", "ui-close"]) sound(name);
+    for (const [bus, src] of wanted) startLoop(bus, src);
   },
 
   setVolumes({ sound: soundVolume, music }: { sound: number; music: number }) {
@@ -69,16 +72,26 @@ export const audio = {
     howl.rate(0.92 + Math.random() * 0.16, id);
   },
 
-  /** A looping track on the music or ambience bus (O4+); `null` stops it. */
+  /**
+   * A looping track on the music or ambience bus (O4+); `null` stops it. Asked for before the
+   * first gesture, it starts once audio unlocks.
+   */
   loop(bus: "music" | "ambience", src: string[] | null) {
+    if (src) wanted.set(bus, src);
+    else wanted.delete(bus);
     looping.get(bus)?.unload();
     looping.delete(bus);
-    if (!src || !unlocked) return;
-    const howl = new Howl({ src, loop: true, volume: volumes[bus], html5: bus === "music" });
-    looping.set(bus, howl);
-    howl.play();
+    if (src && unlocked) startLoop(bus, src);
   },
 };
+
+function startLoop(bus: "music" | "ambience", src: string[]) {
+  looping.get(bus)?.unload();
+  // Web Audio (not HTML5 audio) so the short loops repeat without a gap.
+  const howl = new Howl({ src, loop: true, volume: volumes[bus] });
+  looping.set(bus, howl);
+  howl.play();
+}
 
 /** Ground colliders say what they're made of with RigidBody `userData={{ surface }}`. */
 export function surfaceOf(userData: unknown): Surface {

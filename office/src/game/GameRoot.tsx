@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Hud } from "@/components/hud/hud";
 import type { Player } from "@/lib/player";
 import { audio } from "./audio/audio";
@@ -10,6 +10,7 @@ import { type GameEntry, initGame } from "./init";
 import { useKeyboardInput } from "./input/use-keyboard";
 import { flushSettings, queueSettingsSave } from "./persist";
 import { isFirstLook } from "./player/avatar-style";
+import { rig } from "./player/rig";
 import { changedSettings } from "./settings";
 import { selectReducedMotion, useGame } from "./store/game-store";
 
@@ -21,6 +22,7 @@ import { selectReducedMotion, useGame } from "./store/game-store";
 export default function GameRoot(entry: GameEntry) {
   // Before the first render of anything that reads the store.
   useState(() => initGame(entry));
+  useReinitOnReveal(entry);
 
   useKeyboardInput();
   useMotionPreference();
@@ -37,6 +39,25 @@ export default function GameRoot(entry: GameEntry) {
       <Loading />
     </div>
   );
+}
+
+/**
+ * Next keeps a visited route mounted but hidden (Activity) and shows it again on a later visit
+ * (Back, or picking the same office again) with its state intact. The store is a module
+ * singleton that another visit has since reset, so a shown-again game starts over from its own
+ * entry. Layout effects re-run on every show; the first mount already initialized in render.
+ */
+function useReinitOnReveal(entry: GameEntry) {
+  const shown = useRef(false);
+  const latest = useRef(entry);
+  useLayoutEffect(() => {
+    latest.current = entry;
+  });
+  // Mount and show only: a re-render with new props must not restart a game in progress.
+  useLayoutEffect(() => {
+    if (shown.current) initGame(latest.current);
+    shown.current = true;
+  }, []);
 }
 
 /** Follows the OS setting, and marks the document so CSS motion stops when motion is reduced. */
@@ -123,6 +144,8 @@ declare global {
       setState: typeof useGame.setState;
       memory: () => { geometries: number; textures: number } | null;
       render: () => { calls: number; triangles: number; pixelRatio: number; shadows: boolean } | null;
+      /** The camera orbit and the player's feet (screenshots aim the camera through it). */
+      rig: typeof rig;
     };
   }
 }
@@ -140,6 +163,7 @@ function useDevHandle() {
         const { calls, triangles } = gl.info.render;
         return { calls, triangles, pixelRatio: gl.getPixelRatio(), shadows: gl.shadowMap.enabled };
       },
+      rig,
     };
     return () => {
       delete window.__office;

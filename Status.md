@@ -11,7 +11,7 @@
 ## Current phase
 Phases 1–10 are built, deployed and owner-checked. The evaluation harness (below) is **code-complete with E9 — Human review & judge calibration** (2026-10-21, deployed `efbdc8e`); the judged parts of E4/E7/E8 and the first calibration grades wait for the Anthropic spend limit (access back 2026-11-01).
 
-**DocuMind Office** (3D virtual office, `office/`) was planned 2026-10-22; **O1–O3 are done** (2026-10-22, local only) and **O4 is next** (see the *DocuMind Office* section below).
+**DocuMind Office** (3D virtual office, `office/`) was planned 2026-10-22; **O1–O4 are done** (2026-10-22, committed, local only) and **O5 is next** (see the *DocuMind Office* section below).
 
 > ✅ The Privacy Policy (`/privacy`) has been legally reviewed (owner-confirmed 2026-10-20). Re-review it if the app's data handling changes.
 
@@ -101,7 +101,7 @@ Docs: overview in [docs/plan/office/README.md](docs/plan/office/README.md), guid
 | O1 | Scaffold, auth, BFF & DB | [phase-O1](docs/plan/office/phase-O1-scaffold-auth-bff-db.md) | ✅ Done (local; deploy is O10) |
 | O2 | Engine core | [phase-O2](docs/plan/office/phase-O2-engine-core.md) | ✅ Done (local; low-tier 60 fps on an iGPU still to check by hand) |
 | O3 | Org & location selection | [phase-O3](docs/plan/office/phase-O3-org-and-location-selection.md) | ✅ Done (local) |
-| O4 | City scenes | [phase-O4](docs/plan/office/phase-O4-city-scenes.md) | ⬜ Not started |
+| O4 | City scenes | [phase-O4](docs/plan/office/phase-O4-city-scenes.md) | ✅ Done (local, not deployed; real-phone 30 fps and a listen to the loops still to check by hand) |
 | O5 | Lobby, reception, cards & NPC chat | [phase-O5](docs/plan/office/phase-O5-lobby-reception-cards-chat.md) | ⬜ Not started |
 | O6 | Department rooms & citations | [phase-O6](docs/plan/office/phase-O6-department-rooms-and-citations.md) | ⬜ Not started |
 | O7 | Presentation room | [phase-O7](docs/plan/office/phase-O7-presentation-room.md) | ⬜ Not started |
@@ -328,6 +328,10 @@ Docs: overview in [docs/plan/office/README.md](docs/plan/office/README.md), guid
 - **Eval env:** eval-web build-time = `NEXT_PUBLIC_APP_URL` (DocuMind's URL) only; runtime `DATABASE_URL` (prod, schema `documind`), `EVAL_AUTH_SCHEMA=documind`, `EVAL_BETTER_AUTH_SECRET`, `EVAL_BETTER_AUTH_URL`/`EVAL_PUBLIC_URL`, `EVAL_API_URL=http://documind-eval-api:8100`, `EVAL_API_KEY`, `GOOGLE_*` (the prod client). eval-api runtime: `EVAL_DATABASE_URL` (schema `documind_eval`), `EVAL_AUTH_SCHEMA`, `EVAL_API_KEY`, `DOCUMIND_API_URL=http://documind-api:8000`, `DOCUMIND_API_KEY` (prod), `ANTHROPIC_API_KEY`, `EVAL_SERVICE_USER_ID`/`EVAL_PROBE_USER_ID`, concurrency defaults. The new prod `EVAL_API_KEY`/`EVAL_BETTER_AUTH_SECRET` and the prod ids/app uuids are also in `.env.production.local`.
 
 ## Pending user actions
+- **Office O4:**
+  1. Look at the city screenshots (day and night, plus the hub) in the session scratchpad `shots/` folder, or walk `/simtora/<city>` on :3200. Say if any landmark doesn't read as its city.
+  2. On a mid-range phone (or Chrome devtools with a real GPU and CPU 4×), check a city holds ≥ 30 fps on Low. Headless runs only prove the main thread keeps up (SwiftShader limits them at ~25 fps).
+  3. Listen to the generated ambience and motifs (Esc menu → Settings → sound and music volumes). They're synthesized, so they're easy to retune in `office/scripts/make-ambience.mjs`.
 - **Eval E9:**
   1. Deployed 2026-10-21 (`efbdc8e`; prod `alembic current` = `0007_review`, both eval containers healthy). A prod browser look at `/review` and `/calibration` with your account is still yours.
   2. First calibration numbers (acceptance): from 2026-11-01 (Anthropic limit), a Haiku-judged full run on a dataset **with references** (`synthetic-v1` v2, or golden v2), then `/review/new` → metric Correctness, stratified, 30 cases, blind → grade all 30 (keys 1–5, `n`). `/calibration` then shows κw, ρ, bias and the confusion matrix; record them here. Correctness needs references: golden v1 has none, so its runs only offer the other metrics.
@@ -344,14 +348,23 @@ Docs: overview in [docs/plan/office/README.md](docs/plan/office/README.md), guid
 ## Session log
 <!-- Newest first. Keep entries short: what was built, deviations, gotchas, next. Decisions that outlive a phase go in the sections above. -->
 
-### 2026-10-22 — [office] O3: org & location selection (local, not committed)
+### 2026-10-22 — [office] O4: city scenes (committed)
+- **Built:** `world/city/`: a seeded, pure `generateCity` (3×3 blocks round the office and plaza, a vista park NE with the landmark, skyline ring, furniture, traffic loops with left-hand driving for GB/AU/PK…, walk graph, spawn/exit/entrance, colliders) rendered with instanced buildings, windows and furniture and one merged ground mesh. Seven landmark kits (Golden Gate + cable car, Minar-e-Pakistan, Brandenburg Gate + Fernsehturm, Eiffel + café terrace, Opera House + Harbour Bridge, Elizabeth Tower + Tower Bridge, generic monument + towers), one lazy chunk each. suncalc sky (drei `Sky` by day on medium/high, gradient dome on low and at night; moon, lit windows and shops, lamp pools, stars), refreshed each minute, dev clock slider in the Esc menu, `city_entered`/`office_entered` events. Instanced traffic (city fleets: rickshaws, red buses, black cabs, taxis) braking for the player; instanced pedestrians that stop within 1 m. Office tower with "{Org} · {City}" signs, the DocuMind mark on the lobby glass, sliding doors and an entrance trigger into the office placeholder, whose street doors walk you back out. Global Hub: floating island over the O3 Earth, cloud layer, fixed golden hour, a portal kiosk per office ("Travel to Berlin?"). Arrival banner; synthesized ambience + motif loops (`scripts/make-ambience.mjs`, CC0, in LICENSES.md).
+- **Verified:** typecheck, lint, build clean; Vitest 110 (26 new: determinism, no building on a street/plaza/office, collider counts, spawn reaches the entrance on the walk graph, loops, fleets, hub, Lahore noon day / Sydney 02:00 night, debug clock, arrival copy); Playwright 15/15 (4 new: all six cities + hub load under 300 draw calls; Berlin ArrowUp enters the office in < 10 s and ArrowDown walks back out to the exit; real-time day/night and the clock flip; hub kiosk → Berlin, then Back restarts the hub). Draw calls ~55–60 low, ~90–115 medium. City chunk 11.9 KB gz, hub 5.4 KB. Screenshots of every city and the hub (day/night) in the session scratchpad.
+- **Deviations:** signage is painted on canvas textures (no Text3D font JSON). Ambience is synthesized here, not downloaded. `building.tsx`/`traffic.tsx`/`pedestrians.tsx` are components (the doc says .ts). Palettes gained `floors`. Spawns carry an optional camera `pitch` (arrivals look lower). Night uses the gradient dome on every tier. The hub's Earth sits beyond the south rail (the island's rim hides anything lower).
+- **Fixes beyond the phase:** `GameRoot` re-initializes when Next shows a hidden, kept game route again (Back after travel ran the old store; latent since O3). The player's step clamp went from 1/20 to 1/10 s (slow frames walked slowly). The sandbox memory test waits 3 s per entry (idle-time disposal of the bigger city).
+- **Not verified here:** ≥ 30 fps on a real phone at Low (SwiftShader is raster-bound at ~25 fps; a 4× CPU throttle didn't change it, so JS isn't the limit). MP3 loops (Safari fallback) may have a tiny encoder gap; Ogg loops are gapless.
+- **Gotchas:** see `office/CLAUDE.md` › City gotchas (suncalc degrees, hidden routes, draw-call measuring, sensors, compiler lint, glass metalness, SwiftShader).
+- **Next:** O5 (lobby, reception, cards, NPC chat).
+
+### 2026-10-22 — [office] O3: org & location selection (committed `4159398`)
 - **Built:** `lib/locations.ts` (`deriveLocations`: distinct non-GLOBAL jurisdictions of indexed docs → override or `COUNTRY_DEFAULTS` capital; HQ first, then name; Worldwide last) + `content/orgs/simtora.ts` (6 offices, kits, palettes); `lib/format.ts` (local time, UTC offset, day/night via suncalc). Org picker (single org → its globe unless `?pick`; logo or monogram + role; "Resume in …"; low-poly office diorama backdrop). `/[orgSlug]`: globe (icosphere coloured from a Natural Earth land mask, pins, DOM label cards with live local time, HQ arcs, Worldwide ring, drag, list focus turns the globe, fly-in then navigate; reduced motion = no auto-turn, no arcs, fade) beside the list (primary keyboard/screen-reader path, real links). `/[orgSlug]/[location]`: validates (unknown → 404), hands `{org, place, documents, me}` to the game store, `recordVisit` writes `cities_visited` + `last_org`/`last_location`. Esc menu "Change location" → the org's globe.
 - **Verified:** typecheck, lint, build clean; Vitest 84 (23 new: locations, DST formatting for Berlin and Sydney, globe maths, label placement, earth geometry); Playwright 11/11 (5 new: single-org member lands on the globe and picks Lahore by keyboard → `/simtora/lahore`, visit recorded; resume offered; `/simtora/atlantis` and a non-member get not found; admin sees Simtora, not `eval-canary`; reduced motion keeps the globe still and fades). Picker entry JS 150 KB gz, three not in it. Screenshots checked in light, dark and Pixel 7. No throwaway users left.
 - **Deviations:** `Location` adds `roleLabel` ("R&D centre"); `lat`/`lon` are null for Worldwide and for countries missing from the defaults table (listed, not pinned). The top bar moved from `(game)/layout.tsx` to the pickers, so the game route has no hidden focusable header. Labels are DOM over the canvas, placed by a greedy `placeLabels` that hides a crowded label (hover shows it) instead of overlapping. `withoutEvalOrgs` also returns logos; `requireOrgAccess` returns the logo. No SWR yet. Globe pins are mouse/touch only; keyboard users use the list (focusing a row turns the globe).
 - **Gotchas:** see `office/CLAUDE.md` › Globe/picker gotchas (bundle boundary, R3F raycast occlusion, ACES vs. pale colours, `react-hooks/purity` on `Date.now()`, the dev reload loop hit again).
 - **Next:** O4 (city scenes).
 
-### 2026-10-22 — [office] O2: engine core (local, not committed)
+### 2026-10-22 — [office] O2: engine core (committed `0b2e8e8`)
 - **Built:** the client-only game root (`src/game/`) on R3F 9 + drei 10 + rapier 2 + zustand 5 + Howler, proven in the dev-only `/dev/sandbox` (production `notFound()`).
   - Engine: quality tiers (low/medium/high, `auto` moved by PerformanceMonitor, the settings override, live switching), a scene manager (lazy scene chunks, each in its own keyed `<Physics>`), a transition curtain with a loading screen and tips.
   - Player: KCC on a capsule (camera-relative walk/run, 0.32 m autostep, 48° slopes, gravity, 10 Hz position publish), a spring-damped follow camera (right/touch-drag orbit, wheel zoom, ray pull-in, dialogue framing), surface footsteps.
@@ -368,7 +381,7 @@ Docs: overview in [docs/plan/office/README.md](docs/plan/office/README.md), guid
 - **Gotchas:** see `office/CLAUDE.md` › 3D gotchas (rapier objects in effects; Esc reopening the menu; React Compiler lint vs. R3F mutation; r186 shadow type; disposal; yaw convention; SwiftShader). The O1 `next dev` orphan on :3200 served stale module factories after the installs; restart dev after adding packages. Two throwaway users from timed-out exploratory runs were deleted by hand.
 - **Next:** O3 (org & location selection).
 
-### 2026-10-22 — [office] O1: scaffold, auth, BFF & DB (local, not committed)
+### 2026-10-22 — [office] O1: scaffold, auth, BFF & DB (committed `c1ad103`)
 - **Built:** `office/` (Next 16.4, :3200), with Better Auth on `documind_dev` (cookie prefix `documind-office`, ban gate, no admin requirement) and a BFF proxying DocuMind's `/v1` that shares DocuMind's Upstash chat window. `documind_office_dev` was migrated (`players`, `progress`, `game_scores`). The placeholder home lists orgs, with a user menu. Vitest has 19 tests (node + jsdom projects). `.env.example` has the Office block; `.env.local` has the `OFFICE_*` keys and a new secret.
 - **Verified:** typecheck, lint, build, test and `auth:check` are clean, and a migrate re-run is a no-op. With throwaway `test-office-*` users (since deleted):
   - **Sign-in:** a non-admin Simtora member signs in and sees "Simtora Technologies". An unverified user gets 403 `EMAIL_NOT_VERIFIED`.

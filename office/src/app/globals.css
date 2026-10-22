@@ -213,6 +213,20 @@
   }
 }
 
+/* Cited passage over a PDF page (react-pdf text layer, see components/pdf; copied from web). The
+   text layer's glyphs are transparent; multiplying the whole layer over the canvas tints the paper
+   under a mark while the printed glyphs stay at full contrast. */
+.pdf-page .textLayer {
+  mix-blend-mode: multiply;
+}
+.pdf-page .textLayer mark {
+  background: var(--pdf-highlight);
+  color: transparent;
+  border-radius: 2px;
+  padding: 0;
+  margin: 0;
+}
+
 /* Rendered answers: a document's reading rhythm inside a chat thread. */
 .answer-prose {
   font-size: 0.9375rem;

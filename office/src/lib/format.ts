@@ -61,6 +61,17 @@ export function shortOrgName(name: string): string {
   return short;
 }
 
+/** "§5.2 Annual leave" (web/src/lib/format.ts). */
+export function sectionLabel(number: string | null | undefined, title: string | null | undefined): string {
+  return [number ? `§${number}` : null, title].filter(Boolean).join(" ");
+}
+
+/** "p. 7" or "pp. 7–8" (web/src/lib/format.ts). */
+export function pageLabel(start: number | null | undefined, end?: number | null): string {
+  if (!start) return "";
+  return end && end !== start ? `pp. ${start}–${end}` : `p. ${start}`;
+}
+
 /** "Headquarters" → "headquarters", while "R&D centre" keeps its capitals. */
 function lowerFirst(label: string): string {
   return /^[A-Z][a-z]/.test(label) ? label[0].toLowerCase() + label.slice(1) : label;

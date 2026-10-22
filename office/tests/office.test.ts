@@ -3,12 +3,10 @@ import { receptionCallout, receptionGreeting, receptionistFor, receptionSuggesti
 import { themeFor } from "@/content/room-themes";
 import { buildFloorplan, insideRect, reachableRooms, rectEdges, roomAt, roomsOverlap } from "@/game/world/office/floorplan";
 import { OFFICE_SPAWNS } from "@/game/world/office/spawns";
-import type { DocumentOut } from "@/lib/api-types";
 import { orderDepartments, roomDepartments } from "@/lib/departments";
 import { quotaLevel } from "@/lib/quota";
-import { MAX_SCOPE, type ScopeDocument, scopeFor } from "@/lib/scope";
 
-// Phase O5 › Tests: the floor plan, the departments, reception's scope, personas and the quota.
+// Phase O5 › Tests: the floor plan, the departments, personas and the quota (scope: scope.test.ts).
 
 const SIMTORA_DEPARTMENTS = ["HR", "IT", "Finance", "Procurement", "Facilities", "Compliance", "Corporate", "International"];
 
@@ -132,70 +130,6 @@ describe("buildFloorplan", () => {
   });
 });
 
-function doc(code: string, department: string, jurisdiction: string, doc_type: string, indexed = true): ScopeDocument {
-  return { id: `id-${code}`, title: code, doc_code: code, department, jurisdiction, doc_type, indexed_at: indexed ? "2026-10-01T00:00:00Z" : null };
-}
-
-// Simtora's corpus (the dev DB, 2026-10-22).
-const SIMTORA: ScopeDocument[] = [
-  doc("SIM-CMP-001", "Compliance", "GLOBAL", "policy_manual"),
-  doc("SIM-FAC-001", "Facilities", "GLOBAL", "policy_manual"),
-  doc("SIM-FIN-001", "Finance", "GLOBAL", "policy_manual"),
-  doc("SIM-GLB-001", "International", "GLOBAL", "global_supplement"),
-  doc("SIM-HR-001", "HR", "US", "policy_manual"),
-  doc("SIM-HR-002", "HR", "GLOBAL", "global_supplement"),
-  doc("SIM-HR-101", "HR", "PK", "country_supplement"),
-  doc("SIM-HR-102", "HR", "DE", "country_supplement"),
-  doc("SIM-HR-103", "HR", "FR", "country_supplement"),
-  doc("SIM-HR-104", "HR", "AU", "country_supplement"),
-  doc("SIM-HR-105", "HR", "GB", "country_supplement"),
-  doc("SIM-IT-001", "IT", "GLOBAL", "policy_manual"),
-  doc("SIM-OVR-001", "Corporate", "GLOBAL", "overview"),
-  doc("SIM-PRC-001", "Procurement", "GLOBAL", "policy_manual"),
-];
-const codes = (ids: string[] | null) => (ids ?? []).map((id) => id.replace("id-", "")).sort();
-
-describe("scopeFor (reception, rule 4)", () => {
-  it("Lahore reception gets every GLOBAL, base and PK document, and no other country's", () => {
-    const scope = scopeFor(SIMTORA, { country: "PK", placeName: "Lahore" });
-    expect(codes(scope.documentIds)).toEqual(
-      ["SIM-CMP-001", "SIM-FAC-001", "SIM-FIN-001", "SIM-GLB-001", "SIM-HR-001", "SIM-HR-002", "SIM-HR-101", "SIM-IT-001", "SIM-OVR-001", "SIM-PRC-001"].sort(),
-    );
-    expect(scope.label).toBe("Answers from 10 Lahore documents");
-    expect(scope.fallback).toBe(false);
-    // Local first: what survives the 50-document cap.
-    expect(scope.documents[0].doc_code).toBe("SIM-HR-101");
-  });
-
-  it("Worldwide reception is unscoped (DocuMind routes)", () => {
-    const scope = scopeFor(SIMTORA, { country: null, placeName: "Global Hub" });
-    expect(scope.documentIds).toBeNull();
-    expect(scope.documents).toHaveLength(14);
-    expect(scope.label).toBe("Answers from all 14 documents");
-  });
-
-  it("leaves out unindexed documents", () => {
-    const scope = scopeFor([...SIMTORA, doc("SIM-HR-106", "HR", "PK", "country_supplement", false)], { country: "PK" });
-    expect(codes(scope.documentIds)).not.toContain("SIM-HR-106");
-  });
-
-  it("caps at 50 documents, local ones first", () => {
-    const many = Array.from({ length: 60 }, (_, i) => doc(`G-${i}`, "IT", "GLOBAL", "procedure"));
-    const scope = scopeFor([...many, doc("L-1", "IT", "PK", "country_supplement")], { country: "PK" });
-    expect(scope.documentIds).toHaveLength(MAX_SCOPE);
-    expect(scope.documentIds?.[0]).toBe("id-L-1");
-  });
-
-  it("department rooms (rules 2, 3 and 6) for O6", () => {
-    expect(codes(scopeFor(SIMTORA, { department: "HR", country: "PK" }).documentIds)).toEqual(["SIM-HR-001", "SIM-HR-002", "SIM-HR-101"]);
-    expect(scopeFor(SIMTORA, { department: "HR", country: null }).documentIds).toHaveLength(7);
-    expect(codes(scopeFor(SIMTORA, { department: "Finance", country: "PK" }).documentIds)).toEqual(["SIM-FIN-001"]);
-    const fallback = scopeFor([doc("X-1", "Legal", "DE", "country_supplement")], { department: "Legal", country: "PK" });
-    expect(fallback).toMatchObject({ fallback: true, documentIds: ["id-X-1"] });
-    expect(codes(scopeFor(SIMTORA, { country: "PK", overviewOnly: true }).documentIds)).toEqual(["SIM-OVR-001"]);
-  });
-});
-
 describe("personas and themes", () => {
   const lahore = { id: "lahore", name: "Lahore", role: "office" as const, country: "PK" };
   const hub = { id: "worldwide", name: "Global Hub", role: "hub" as const, country: null };
@@ -243,7 +177,3 @@ describe("quotaLevel", () => {
     expect(quotaLevel({ ...quota(25, 0, "messages"), unlimited: true })).toBe("ok");
   });
 });
-
-// A DocumentOut's other fields don't matter to scoping; this keeps the fixture honest.
-const _typecheck: Pick<DocumentOut, keyof ScopeDocument> = SIMTORA[0];
-void _typecheck;

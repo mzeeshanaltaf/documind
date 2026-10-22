@@ -58,6 +58,8 @@ export function initGame({ player, scene, spawn, location, office, cards }: Game
     clockHour: null,
     sky: null,
     chat: {},
+    scopeCountry: {},
+    viewer: { open: false, request: null },
     calledOut: {},
   });
 }

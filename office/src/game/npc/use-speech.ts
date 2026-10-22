@@ -41,3 +41,27 @@ export function useNpcSpeech(key: string, idle: string | null): Speech {
   if (lingering) return { kind: "line", text: lingering };
   return idle ? { kind: "line", text: idle } : null;
 }
+
+/** How long the "present" gesture plays once an answer completes. */
+const GESTURE_MS = 2400;
+
+/** True for a moment after one of this NPC's answers completes: they gesture as they finish. */
+export function useAnswerGesture(key: string): boolean {
+  const [gesturing, setGesturing] = useState(false);
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const unsubscribe = useGame.subscribe((state, previous) => {
+      const turn = state.chat[key]?.turns.at(-1);
+      const before = previous.chat[key]?.turns.find((t) => t === turn || (turn && t.id === turn.id));
+      if (!turn || turn.status !== "complete" || before?.status === "complete") return;
+      clearTimeout(timer);
+      setGesturing(true);
+      timer = setTimeout(() => setGesturing(false), GESTURE_MS);
+    });
+    return () => {
+      unsubscribe();
+      clearTimeout(timer);
+    };
+  }, [key]);
+  return gesturing;
+}

@@ -17,6 +17,8 @@ export type GameEvent =
   | { type: "question_asked"; npc: string; department: string | null; location: string }
   /** A cited document appeared under an answer. */
   | { type: "citation_shown"; doc_code: string | null; department: string | null }
+  /** A citation chip or a sources row opened the PDF (O6; "Check the source", "Bookworm"). */
+  | { type: "citation_opened"; doc_code: string | null; department: string | null }
   | { type: "badge_issued"; departments: string[] }
   | { type: "interacted"; id: string; kind: InteractKind }
   | { type: "interact_blocked"; id: string; requires?: string }

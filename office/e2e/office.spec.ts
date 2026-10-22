@@ -148,7 +148,7 @@ test("locked door, cards at Reception, a real answer, the quota, then the corrid
   // 3. Ask a real question: it streams, a conversation exists, the quota goes down by one.
   const before = await quotaUsed(page);
   await dialog.getByRole("button", { name: /Ask a question/ }).click();
-  await expect(dialog).toContainText("Answers from 10 Lahore documents");
+  await expect(dialog).toContainText("Lahore · 10 documents");
   const composer = dialog.getByRole("textbox", { name: "Your question" });
   await expect(composer).toBeFocused();
   // Movement keys typed into the composer never move the avatar.

@@ -11,6 +11,7 @@ import { useKeyboardInput } from "./input/use-keyboard";
 import { flushSettings, queueSettingsSave } from "./persist";
 import { isFirstLook } from "./player/avatar-style";
 import { rig } from "./player/rig";
+import { startStats } from "./progress/stats";
 import { changedSettings } from "./settings";
 import { selectReducedMotion, useGame } from "./store/game-store";
 
@@ -28,6 +29,7 @@ export default function GameRoot(entry: GameEntry) {
   useMotionPreference();
   useAudio();
   useSettingsPersistence();
+  useEffect(startStats, []);
   useFirstLook(entry.player);
   useDevHandle();
 

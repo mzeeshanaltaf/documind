@@ -7,7 +7,10 @@ import { Interactable } from "@/game/interact/Interactable";
 import { meetsRequirement } from "@/game/interact/select";
 import { rig } from "@/game/player/rig";
 import { useGame } from "@/game/store/game-store";
+import { expertFor } from "@/content/personas";
 import { themeFor } from "@/content/room-themes";
+import type { OfficeContext } from "@/game/store/game-store";
+import { SAMPLE_CITY } from "../city/sample";
 import { INK, useCanvasTexture } from "../city/signs";
 import type { Door } from "./floorplan";
 import { OFFICE } from "./palette";
@@ -27,10 +30,12 @@ const NOOP = () => undefined;
 
 type Sign = { title: string; line: string; accent: string; label: string };
 
-function signFor(door: Door): Sign {
+/** `office` names the department room's expert on its plate (O6). */
+function signFor(door: Door, office: Pick<OfficeContext, "org" | "place"> | null): Sign {
   if (door.kind === "department") {
     const department = door.to.slice("dept:".length);
-    return { title: department, line: themeFor(department).blurb, accent: themeFor(department).accent, label: `${department} room` };
+    const expert = expertFor(office?.org.slug ?? "", office?.place ?? SAMPLE_CITY, department);
+    return { title: department, line: `Expert: ${expert.name}`, accent: themeFor(department).accent, label: `${department} room` };
   }
   if (door.kind === "security") return { title: "Departments", line: "Access card required", accent: INK.green, label: "Department wing" };
   if (door.kind === "lift") return { title: "Rooftop", line: "Closed for now", accent: OFFICE.metal, label: "Rooftop lift" };
@@ -56,7 +61,8 @@ function SlidingDoor({ door }: { door: Door }) {
   const left = useRef<Mesh>(null);
   const right = useRef<Mesh>(null);
   const motion = useRef({ amount: 0, wanted: false, beeped: false });
-  const sign = signFor(door);
+  const office = useGame((s) => s.office);
+  const sign = signFor(door, office);
   const plate = useCanvasTexture(PLATE.width, PLATE.height, platePainter(sign.title, sign.line, sign.accent), `${sign.title}|${sign.line}|${sign.accent}`);
   const { rotation, side } = frame(door);
   const leaf = door.width / 2;
@@ -150,7 +156,7 @@ function Reader({ x, side, granted }: { x: number; side: number; granted: boolea
 
 /** The rooftop lift at the corridor's end: brushed doors and a dark call panel, locked until O9. */
 function LiftDoor({ door }: { door: Door }) {
-  const sign = signFor(door);
+  const sign = signFor(door, null);
   const plate = useCanvasTexture(PLATE.width, PLATE.height, platePainter(sign.title, sign.line, sign.accent), `${sign.title}|${sign.line}`);
   const { rotation, side } = frame(door);
   const leaf = door.width / 2;

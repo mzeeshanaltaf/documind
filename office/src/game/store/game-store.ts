@@ -60,6 +60,25 @@ export type ChatThread = { conversationId: string | null; turns: NpcTurn[] };
 export const EMPTY_THREAD: ChatThread = { conversationId: null, turns: [] };
 export const threadKey = (location: string, npc: string) => `${location}:${npc}`;
 
+/**
+ * A cited PDF in the viewer sheet (phase O6 › Citations). `npc` is whose answer cited it: that
+ * room's wall screen shows the document and page while the sheet is open.
+ */
+export type ViewerRequest = {
+  documentId: string;
+  title: string;
+  docCode: string | null;
+  /** 1-based page to open at. */
+  page: number | null;
+  /** Last page of the cited passage (highlighting stays within page..pageEnd). */
+  pageEnd: number | null;
+  /** The cited chunk text; null when just viewing a document. */
+  highlightText: string | null;
+  npc: string | null;
+  department: string | null;
+};
+export type Viewer = { open: boolean; request: (ViewerRequest & { nonce: number }) | null };
+
 export type InteractableEntry = {
   id: string;
   kind: InteractKind;
@@ -105,6 +124,12 @@ export type GameState = {
   quality: { auto: Tier; settled: boolean };
   osReducedMotion: boolean;
   chat: Record<string, ChatThread>;
+  /**
+   * Worldwide department rooms: the country chip per thread (`{location}:{npc}`), null = "All".
+   * A scoped conversation keeps its scope, so changing it starts a new thread.
+   */
+  scopeCountry: Record<string, string | null>;
+  viewer: Viewer;
   /** NPCs that have called out to the player this visit (`{location}:{npcId}`). */
   calledOut: Record<string, true>;
   /** Development only: the city's local hour (0–24) instead of the real time; null = real. */
@@ -134,6 +159,10 @@ export type GameState = {
   setCards: (cards: string[]) => void;
   setDocuments: (documents: DocumentOut[]) => void;
   updateThread: (key: string, update: (thread: ChatThread) => ChatThread) => void;
+  /** Switches a Worldwide room's country chip and starts a new conversation there. */
+  setScopeCountry: (key: string, country: string | null) => void;
+  openViewer: (request: ViewerRequest) => void;
+  setViewerOpen: (open: boolean) => void;
   markCalledOut: (key: string) => void;
   closeModal: () => void;
   updateSettings: (patch: Partial<Settings>) => void;
@@ -175,6 +204,8 @@ export const useGame = create<GameState>()((set, get) => ({
   clockHour: null,
   sky: null,
   chat: {},
+  scopeCountry: {},
+  viewer: { open: false, request: null },
   calledOut: {},
 
   transitionTo: (scene, spawn) => {
@@ -212,7 +243,7 @@ export const useGame = create<GameState>()((set, get) => ({
   deny: () => set({ deniedAt: Date.now() }),
   openModal: (modal) => set({ modal }),
   startDialogue: (dialogue, focus) => set({ modal: dialogue, cameraFocus: focus }),
-  closeModal: () => set({ modal: null, cameraFocus: null }),
+  closeModal: () => set((s) => ({ modal: null, cameraFocus: null, viewer: { ...s.viewer, open: false } })),
   setNpcView: (view) => {
     const { modal } = get();
     if (modal?.type === "npc" && modal.view !== view) set({ modal: { ...modal, view } });
@@ -220,6 +251,10 @@ export const useGame = create<GameState>()((set, get) => ({
   setCards: (cards) => set((s) => ({ player: { ...s.player, cards } })),
   setDocuments: (documents) => set((s) => (s.office ? { office: { ...s.office, documents } } : {})),
   updateThread: (key, update) => set((s) => ({ chat: { ...s.chat, [key]: update(s.chat[key] ?? EMPTY_THREAD) } })),
+  setScopeCountry: (key, country) =>
+    set((s) => ({ scopeCountry: { ...s.scopeCountry, [key]: country }, chat: { ...s.chat, [key]: EMPTY_THREAD } })),
+  openViewer: (request) => set((s) => ({ viewer: { open: true, request: { ...request, nonce: (s.viewer.request?.nonce ?? 0) + 1 } } })),
+  setViewerOpen: (open) => set((s) => (s.viewer.open === open ? {} : { viewer: { ...s.viewer, open } })),
   markCalledOut: (key) => set((s) => ({ calledOut: { ...s.calledOut, [key]: true } })),
 
   updateSettings: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),

@@ -26,17 +26,25 @@ type NpcProps = {
   interactId: string;
   onTalk: () => void;
   talking: boolean;
+  /** Just finished an answer: the "present" gesture (O6). */
+  gesturing?: boolean;
   speech: Speech;
   /** Reach for E, from the NPC (a desk between them needs more). */
   radius?: number;
+  /**
+   * The rooms (breadcrumb names) the tag and bubble show from. DOM overlays aren't hidden by
+   * walls, so an expert's only show from their room and the glass-walled corridor. Omit = always.
+   */
+  seenFrom?: string[];
 };
 
 const TURN_RATE = 6;
 const angleDelta = (a: number, b: number) => Math.atan2(Math.sin(b - a), Math.cos(b - a));
 
-export function Npc({ persona, spot, interactId, onTalk, talking, speech, radius = 1.8 }: NpcProps) {
+export function Npc({ persona, spot, interactId, onTalk, talking, gesturing = false, speech, radius = 1.8, seenFrom }: NpcProps) {
   const body = useRef<Group>(null);
-  const showTag = useGame((s) => TIERS[selectTier(s)].nameTags && s.settings.show_name_tags);
+  const inView = useGame((s) => !seenFrom || seenFrom.includes(s.world.location.room ?? ""));
+  const showTag = useGame((s) => TIERS[selectTier(s)].nameTags && s.settings.show_name_tags) && inView;
   const [x, , z] = spot.position;
 
   useFrame((_, delta) => {
@@ -54,12 +62,12 @@ export function Npc({ persona, spot, interactId, onTalk, talking, speech, radius
         <CuboidCollider args={[0.28, 0.88, 0.28]} position={[0, 0.88, 0]} />
       </RigidBody>
       <group ref={body} rotation={[0, spot.yaw, 0]}>
-        <Avatar colors={persona.colors} clip={talking ? "talk" : "idle"} />
+        <Avatar colors={persona.colors} prop={persona.prop} clip={talking ? "talk" : gesturing ? "present" : "idle"} />
       </group>
       <Interactable id={interactId} kind="talk" label={`Talk to ${firstName(persona)}`} radius={radius} onInteract={onTalk} />
       <Html position={[0, 2.05, 0]} center distanceFactor={6} zIndexRange={[19, 0]}>
         <div className="pointer-events-none flex flex-col items-center gap-1.5 select-none">
-          {speech && <Bubble speech={speech} />}
+          {speech && inView && <Bubble speech={speech} />}
           {showTag && (
             <span className="rounded-md bg-background/90 px-1.5 py-0.5 text-xs font-medium whitespace-nowrap text-foreground shadow-sm ring-1 ring-foreground/10">
               {firstName(persona)} <span className="text-muted-foreground">· {persona.role}</span>

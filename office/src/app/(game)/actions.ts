@@ -114,6 +114,47 @@ export async function recordVisit(orgId: string, locationId: string): Promise<{ 
   return { ok: true };
 }
 
+/** `{location}/{room}`: `lahore/dept:HR`, `worldwide/lobby`. */
+const ROOM_VISIT = /^[a-z0-9-]{1,40}\/[^/\s][^/]{0,80}$/;
+const statsSchema = z.object({
+  rooms_visited: z.array(z.string().regex(ROOM_VISIT)).max(50).default([]),
+  citations_opened: z.number().int().min(0).max(100).default(0),
+});
+export type StatsPatch = z.input<typeof statsSchema>;
+
+/**
+ * Game stats, batched by the client (phase O6 › Room visits; O9 adds quests): rooms visited
+ * merge into `progress.stats.rooms_visited` (a set, kept in first-visit order) and
+ * `citations_opened` is added to the counter. Counters never go down. The client is trusted for
+ * game progress (it's a game); the values are only bounded.
+ */
+export async function recordStats(orgId: string, patch: StatsPatch): Promise<{ ok: boolean }> {
+  const { user } = await requireOrgAccess(orgId);
+  const parsed = statsSchema.safeParse(patch);
+  if (!parsed.success) return { ok: false };
+  const { rooms_visited: rooms, citations_opened: citations } = parsed.data;
+  if (rooms.length === 0 && citations === 0) return { ok: true };
+  await query(
+    `insert into {office}.progress as p (user_id, org_id, stats)
+     values ($1, $2, jsonb_build_object('rooms_visited', $3::jsonb, 'citations_opened', $4::int))
+     on conflict (user_id, org_id) do update
+       set stats = p.stats || jsonb_build_object(
+             'rooms_visited',
+             (select coalesce(jsonb_agg(room order by first), '[]'::jsonb)
+                from (select room, min(ord) as first
+                        from (select value as room, ordinality as ord
+                                from jsonb_array_elements(coalesce(p.stats -> 'rooms_visited', '[]'::jsonb)) with ordinality
+                              union all
+                              select value, 1000000 + ordinality
+                                from jsonb_array_elements($3::jsonb) with ordinality) as visits
+                       group by room) as rooms),
+             'citations_opened', coalesce((p.stats ->> 'citations_opened')::int, 0) + $4::int),
+           updated_at = now()`,
+    [user.id, orgId, JSON.stringify([...new Set(rooms)]), citations],
+  );
+  return { ok: true };
+}
+
 /**
  * The access cards the user holds for an org (`progress.cards`), in room order. Called by the
  * location page, which has already checked access (the cached guard makes this check free).

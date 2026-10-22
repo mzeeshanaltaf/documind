@@ -1,9 +1,10 @@
 "use client";
 
 import { ArrowUpIcon, ExternalLinkIcon, RotateCcwIcon, SquareIcon } from "lucide-react";
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { type CitationTarget, citationTargets, openCitation } from "@/game/chat/citations";
 import { quotaLine, refusalLine } from "@/game/chat/lines";
 import { isStreaming, type NpcTurn, statusLine } from "@/game/chat/sse";
 import { useNpcChat } from "@/game/chat/use-npc-chat";
@@ -14,6 +15,7 @@ import { fetchJson, quotaLevel, useQuota } from "@/lib/quota";
 import { DOCUMIND_URL } from "@/lib/site";
 import { cn } from "@/lib/utils";
 import { AnswerMarkdown } from "./answer-markdown";
+import { CitationContext, SourcesList } from "./citation-chip";
 
 /**
  * The conversation with a DocuMind-backed NPC (phase O5 › Dialogue panel): the static greeting,
@@ -27,8 +29,8 @@ export function NpcChat({ npc, profile, office }: { npc: string; profile: NpcPro
     const { documents } = await fetchJson<DocumentList>(`/api/backend/orgs/${encodeURIComponent(office.org.id)}/documents`);
     const state = useGame.getState();
     state.setDocuments(documents);
-    return npcProfile(npc, state.office)?.scope.documentIds ?? null;
-  }, [npc, office.org.id]);
+    return npcProfile(npc, state.office, state.scopeCountry[threadKey(office.place.id, npc)] ?? null)?.scope.documentIds ?? null;
+  }, [npc, office.org.id, office.place.id]);
 
   const { thread, streaming, send, stop } = useNpcChat({
     orgId: office.org.id,
@@ -67,7 +69,7 @@ export function NpcChat({ npc, profile, office }: { npc: string; profile: NpcPro
       <div ref={transcript} className="-mx-4 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-1">
         <NpcLine>{profile.greeting}</NpcLine>
         {thread.turns.map((turn, index) => (
-          <Turn key={turn.id} turn={turn} showQuestion={!turn.retry} onRetry={index === thread.turns.length - 1 ? () => send(turn.question) : undefined} />
+          <Turn key={turn.id} npc={npc} turn={turn}showQuestion={!turn.retry} onRetry={index === thread.turns.length - 1 ? () => send(turn.question) : undefined} />
         ))}
         {exhausted && !refusedForQuota && <NpcLine>{quotaLine(quota?.resets_on ?? null)}</NpcLine>}
       </div>
@@ -102,9 +104,11 @@ function NpcLine({ children }: { children: React.ReactNode }) {
   return <p className="max-w-[65ch] text-[0.9375rem] leading-relaxed">{children}</p>;
 }
 
-function Turn({ turn, showQuestion, onRetry }: { turn: NpcTurn; showQuestion: boolean; onRetry?: () => void }) {
+function Turn({ npc, turn, showQuestion, onRetry }: { npc: string; turn: NpcTurn; showQuestion: boolean; onRetry?: () => void }) {
   const streaming = isStreaming(turn);
   const status = statusLine(turn);
+  const { byNumber, cited } = useMemo(() => citationTargets(turn), [turn]);
+  const citations = useMemo(() => ({ lookup: (n: number) => byNumber.get(n), open: (target: CitationTarget) => openCitation(target, npc) }), [byNumber, npc]);
   return (
     <div className="flex flex-col gap-2.5">
       {showQuestion && (
@@ -114,13 +118,18 @@ function Turn({ turn, showQuestion, onRetry }: { turn: NpcTurn; showQuestion: bo
         <NpcLine>{refusalLine(turn.refusal)}</NpcLine>
       ) : (
         <div aria-live="polite" aria-busy={streaming} className="flex flex-col gap-2">
-          {turn.content && <AnswerMarkdown content={turn.content} sources={turn.sources} />}
+          {turn.content && (
+            <CitationContext value={citations}>
+              <AnswerMarkdown content={turn.content} />
+            </CitationContext>
+          )}
           {status && (
             <p className="flex items-center gap-2 text-xs text-muted-foreground">
               <Spinner className="size-3.5" />
               {status}
             </p>
           )}
+          {!streaming && cited.length > 0 && <SourcesList sources={cited} onOpen={citations.open} />}
           {turn.status === "stopped" && <p className="text-xs text-muted-foreground">Stopped.</p>}
           {turn.status === "error" && (
             <p className="flex flex-wrap items-center gap-2 text-sm text-destructive">

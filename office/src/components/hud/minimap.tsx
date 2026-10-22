@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 
 /**
  * The office minimap, bottom right (phase O5 › Minimap): room outlines from the floor plan, the
- * NPCs, a lock on every room the player has no card for, and the player's arrow (moved by a
+ * NPCs (reception and every room's expert), a lock on every room the player has no card for, and the player's arrow (moved by a
  * frame loop, not React). M toggles between small and large. Only inside the office.
  */
 export function Minimap() {
@@ -68,11 +68,10 @@ function OfficeMap() {
       >
         <svg viewBox={viewBox} className="block h-auto w-full" role="img" aria-hidden>
           <MapRooms plan={plan} locked={locked} large={large} />
-          {Object.entries(plan.npcSpots)
-            .filter(([id]) => id === "reception")
-            .map(([id, spot]) => (
-              <circle key={id} cx={spot.position[0]} cy={spot.position[2]} r={0.7} className="fill-info" />
-            ))}
+          {/* The receptionist and the department experts. */}
+          {Object.entries(plan.npcSpots).map(([id, spot]) => (
+            <circle key={id} cx={spot.position[0]} cy={spot.position[2]} r={0.7} className="fill-info" />
+          ))}
           <g ref={arrow}>
             <path d="M0 1.6 L1.1 -1 L0 -0.45 L-1.1 -1 Z" className="fill-primary stroke-background" strokeWidth={0.3} />
           </g>

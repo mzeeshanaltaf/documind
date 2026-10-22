@@ -18,8 +18,9 @@ import { useOfficeDepartments, floorplanFor } from "./use-floorplan";
 
 /**
  * The office interior (phase O5): the floor plan built from the org's departments, with the
- * lobby, reception, the card-gated corridor of department rooms, the presentation room and the
- * play area. Walking out through the street doors returns to the city.
+ * lobby, reception, the card-gated corridor of furnished department rooms and their experts
+ * (O6), the presentation room and the play area. Walking out through the street doors returns
+ * to the city.
  */
 export default function OfficeScene() {
   const departments = useOfficeDepartments();
@@ -41,7 +42,7 @@ export default function OfficeScene() {
       <Doors doors={plan.doors} />
       <Lobby plan={plan} />
       <Reception desk={plan.props.desk} spot={plan.npcSpots.reception} />
-      <Rooms plan={plan} version={version} />
+      <Rooms plan={plan} />
       <RoomTracker plan={plan} location={place.id} />
       <Trigger box={plan.exit} onEnter={leave} />
     </>

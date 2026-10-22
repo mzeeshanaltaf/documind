@@ -13,6 +13,7 @@ import {
   MeshStandardMaterial,
   SphereGeometry,
 } from "three";
+import type { IdleProp } from "@/content/personas";
 import { avatarClips, type ClipName, HIPS_HEIGHT } from "./avatar-clips";
 import type { AvatarColors, AvatarSlot } from "./avatar-style";
 
@@ -73,14 +74,54 @@ function Leg({ side, m, shadow }: LegProps) {
   );
 }
 
-function Arm({ side, m, shadow }: LegProps) {
+function Arm({ side, m, shadow, children }: LegProps & { children?: React.ReactNode }) {
   return (
     <group name={`arm${side}`} position={[side === "L" ? 0.235 : -0.235, 0.43, 0]}>
       <Part geometry={GEOMETRY.upperArm} material={m.top} shadow={shadow} position={[0, -0.15, 0]} />
       <group name={`forearm${side}`} position={[0, -0.3, 0]}>
         <Part geometry={GEOMETRY.forearm} material={m.skin} shadow={shadow} position={[0, -0.12, 0]} />
         <Part geometry={GEOMETRY.hand} material={m.skin} shadow={shadow} position={[0, -0.26, 0]} />
+        {children}
       </group>
+    </group>
+  );
+}
+
+// An expert's idle prop (O6), held in the right hand. Shared, like the body geometry.
+const PROP_GEOMETRY = {
+  board: new BoxGeometry(0.014, 0.3, 0.22),
+  paper: new BoxGeometry(0.004, 0.24, 0.18),
+  clip: new BoxGeometry(0.02, 0.03, 0.08),
+  laptop: new BoxGeometry(0.02, 0.25, 0.34),
+  mug: new CylinderGeometry(0.042, 0.038, 0.1, 8),
+  handle: new BoxGeometry(0.012, 0.05, 0.02),
+} satisfies Record<string, BufferGeometry>;
+const PROP_MATERIAL = {
+  wood: new MeshStandardMaterial({ color: "#8a6646", roughness: 0.8, flatShading: true }),
+  paper: new MeshStandardMaterial({ color: "#f3f4f0", roughness: 0.9 }),
+  metal: new MeshStandardMaterial({ color: "#8b9591", roughness: 0.5, flatShading: true }),
+  laptop: new MeshStandardMaterial({ color: "#3a4048", roughness: 0.55, flatShading: true }),
+  mug: new MeshStandardMaterial({ color: "#f3f4f0", roughness: 0.7, flatShading: true }),
+};
+
+function HeldProp({ prop }: { prop: IdleProp }) {
+  // In the forearm's frame: the hand is at y -0.26; the prop hangs beside the leg, edge-on.
+  if (prop === "mug") {
+    return (
+      <group position={[0, -0.3, 0.05]}>
+        <mesh geometry={PROP_GEOMETRY.mug} material={PROP_MATERIAL.mug} castShadow />
+        <mesh geometry={PROP_GEOMETRY.handle} material={PROP_MATERIAL.mug} position={[0.05, 0, 0]} />
+      </group>
+    );
+  }
+  if (prop === "laptop") {
+    return <mesh geometry={PROP_GEOMETRY.laptop} material={PROP_MATERIAL.laptop} position={[-0.045, -0.36, 0.04]} castShadow />;
+  }
+  return (
+    <group position={[-0.045, -0.37, 0.05]}>
+      <mesh geometry={PROP_GEOMETRY.board} material={PROP_MATERIAL.wood} castShadow />
+      <mesh geometry={PROP_GEOMETRY.paper} material={PROP_MATERIAL.paper} position={[-0.01, -0.01, 0]} />
+      <mesh geometry={PROP_GEOMETRY.clip} material={PROP_MATERIAL.metal} position={[-0.012, 0.14, 0]} />
     </group>
   );
 }
@@ -90,10 +131,12 @@ type AvatarProps = {
   /** The clip to play (declarative); players drive clips through the handle instead. */
   clip?: ClipName;
   castShadow?: boolean;
+  /** NPCs: what they hold in the right hand. */
+  prop?: IdleProp;
   ref?: Ref<AvatarHandle>;
 } & Pick<ThreeElements["group"], "position" | "rotation" | "scale">;
 
-export function Avatar({ colors, clip = "idle", castShadow = true, ref, ...transform }: AvatarProps) {
+export function Avatar({ colors, clip = "idle", castShadow = true, prop, ref, ...transform }: AvatarProps) {
   const root = useRef<Group>(null);
   const { actions } = useAnimations(avatarClips(), root);
   const current = useRef<AnimationAction | null>(null);
@@ -158,7 +201,9 @@ export function Avatar({ colors, clip = "idle", castShadow = true, ref, ...trans
             <Part geometry={GEOMETRY.eye} material={EYE_MATERIAL} shadow={false} position={[-0.055, 0.155, 0.136]} />
           </group>
           <Arm side="L" m={m} shadow={castShadow} />
-          <Arm side="R" m={m} shadow={castShadow} />
+          <Arm side="R" m={m} shadow={castShadow}>
+            {prop && <HeldProp prop={prop} />}
+          </Arm>
         </group>
       </group>
     </group>

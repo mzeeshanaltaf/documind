@@ -2,13 +2,16 @@
 
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { ArrowLeftIcon, CameraIcon, ChevronRightIcon, IdCardIcon, LibraryIcon, MessageCircleQuestionIcon, XIcon } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { PdfViewer } from "@/components/pdf/pdf-viewer";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { audio } from "@/game/audio/audio";
 import { npcProfile, type NpcProfile } from "@/game/npc/profiles";
-import { type NpcView, type OfficeContext, useGame } from "@/game/store/game-store";
+import { type NpcView, type OfficeContext, threadKey, useGame } from "@/game/store/game-store";
 import { useOfficeDepartments } from "@/game/world/office/use-floorplan";
+import { countryName } from "@/lib/locations";
+import { cn } from "@/lib/utils";
 import { CardPicker } from "./card-picker";
 import { NpcChat } from "./npc-chat";
 
@@ -22,7 +25,9 @@ export function NpcDialogue() {
   const modal = useGame((s) => (s.modal?.type === "npc" ? s.modal : null));
   const office = useGame((s) => s.office);
   const npc = modal?.npc ?? null;
-  const profile = useMemo(() => (npc ? npcProfile(npc, office) : null), [npc, office]);
+  const country = useGame((s) => (npc && s.office ? (s.scopeCountry[threadKey(s.office.place.id, npc)] ?? null) : null));
+  const viewerOpen = useGame((s) => s.viewer.open);
+  const profile = useMemo(() => (npc ? npcProfile(npc, office, country) : null), [npc, office, country]);
   const open = modal !== null && profile !== null && office !== null;
 
   function close() {
@@ -35,9 +40,15 @@ export function NpcDialogue() {
       <DialogPrimitive.Portal>
         <DialogPrimitive.Popup
           data-npc-dialogue=""
-          className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-50 mx-auto flex max-h-[min(72dvh,40rem)] max-w-2xl flex-col gap-3 rounded-xl bg-popover p-4 text-popover-foreground shadow-lg ring-1 ring-foreground/10 duration-150 outline-none data-open:animate-in data-open:fade-in-0 data-open:slide-in-from-bottom-2 data-closed:animate-out data-closed:fade-out-0"
+          className={cn(
+            "fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-50 mx-auto flex max-h-[min(72dvh,40rem)] max-w-2xl flex-col gap-3 rounded-xl bg-popover p-4 text-popover-foreground shadow-lg ring-1 ring-foreground/10 duration-150 outline-none data-open:animate-in data-open:fade-in-0 data-open:slide-in-from-bottom-2 data-closed:animate-out data-closed:fade-out-0",
+            // With the PDF open on the right, a wide screen keeps the conversation beside it.
+            viewerOpen && "lg:right-[calc(min(46rem,62vw)+0.75rem)]",
+          )}
         >
           {open && modal && profile && office && <Panel npc={modal.npc} view={modal.view} profile={profile} office={office} onClose={close} />}
+          {/* Nested in the dialogue: Esc and outside clicks close the sheet first. */}
+          <PdfViewer />
         </DialogPrimitive.Popup>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>
@@ -72,6 +83,13 @@ function Panel({ npc, view, profile, office, onClose }: PanelProps) {
         </Button>
       </header>
 
+      {view === "chat" && profile.countries.length > 0 && <CountryChips npc={npc} profile={profile} office={office} />}
+      {view === "chat" && profile.scope.fallback && (
+        <p className="text-xs text-muted-foreground">
+          No local documents for this office, so I&apos;m answering from every {profile.department ? `${profile.department} ` : ""}document.
+        </p>
+      )}
+
       {view === "menu" && <ReceptionMenu profile={profile} onPick={setView} />}
       {view === "chat" && <NpcChat npc={npc} profile={profile} office={office} />}
       {view === "cards" && <CardPicker onDone={() => setView("menu")} />}
@@ -79,7 +97,77 @@ function Panel({ npc, view, profile, office, onClose }: PanelProps) {
   );
 }
 
-/** "Answers from 10 Lahore documents": the full list in a popover. */
+/**
+ * Worldwide rooms with country supplements (phase O6 › Experts): "All", PK, DE… A scoped
+ * conversation keeps its scope, so a new country starts a new conversation; with one in progress
+ * the change waits for a confirmation.
+ */
+function CountryChips({ npc, profile, office }: { npc: string; profile: NpcProfile; office: OfficeContext }) {
+  const key = threadKey(office.place.id, npc);
+  const inProgress = useGame((s) => (s.chat[key]?.turns.length ?? 0) > 0);
+  const streaming = useGame((s) => s.chat[key]?.turns.some((turn) => turn.status === "streaming") ?? false);
+  const [pending, setPending] = useState<string | null | undefined>(undefined);
+  const options = [null, ...profile.countries];
+
+  function pick(country: string | null) {
+    if (country === profile.country) return;
+    if (inProgress) {
+      setPending(country);
+      return;
+    }
+    apply(country);
+  }
+
+  function apply(country: string | null) {
+    setPending(undefined);
+    audio.play("ui-click", { volume: 0.4 });
+    useGame.getState().setScopeCountry(key, country);
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div role="radiogroup" aria-label="Country" className="flex flex-wrap gap-1.5">
+        {options.map((country) => {
+          const checked = country === profile.country;
+          return (
+            <button
+              key={country ?? "all"}
+              type="button"
+              role="radio"
+              aria-checked={checked}
+              disabled={streaming}
+              title={country ? countryName(country) : "Every country's documents"}
+              onClick={() => pick(country)}
+              className={cn(
+                "h-7 rounded-md px-2.5 font-mono text-[0.75rem] outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50",
+                checked ? "bg-primary text-primary-foreground" : "bg-muted text-foreground hover:bg-accent",
+              )}
+            >
+              {country ?? <span className="font-sans">All</span>}
+            </button>
+          );
+        })}
+      </div>
+      {pending !== undefined && (
+        <div role="alert" className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg bg-muted px-3 py-2 text-sm">
+          <span className="flex-1">
+            Start a new conversation for {pending ? countryName(pending) : "every country"}? This one stays in your DocuMind history.
+          </span>
+          <span className="flex gap-1.5">
+            <Button size="sm" variant="ghost" onClick={() => setPending(undefined)}>
+              Keep this one
+            </Button>
+            <Button size="sm" autoFocus onClick={() => apply(pending)}>
+              Start new
+            </Button>
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** "HR · Lahore · 3 documents": the full list in a popover. */
 function ScopeButton({ profile }: { profile: NpcProfile }) {
   const { scope } = profile;
   return (

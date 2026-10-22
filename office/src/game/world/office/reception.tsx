@@ -4,7 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { RECEPTION_NPC, receptionCallout, receptionistFor } from "@/content/personas";
 import { audio } from "@/game/audio/audio";
 import { Npc } from "@/game/npc/Npc";
-import { useNpcSpeech } from "@/game/npc/use-speech";
+import { useAnswerGesture, useNpcSpeech } from "@/game/npc/use-speech";
 import { rig } from "@/game/player/rig";
 import { emit } from "@/game/quests/bus";
 import { threadKey, useGame } from "@/game/store/game-store";
@@ -20,6 +20,8 @@ import { OFFICE } from "./palette";
  */
 const CALLOUT_RANGE = 6;
 const CALLOUT_MS = 7000;
+/** Her tag and bubble: from the lobby, and through the security door's glass. */
+const SEEN_FROM = ["Lobby", "Corridor"];
 
 function deskParts(): Part[] {
   const parts: Part[] = [];
@@ -47,6 +49,7 @@ export function Reception({ desk, spot }: { desk: Spot; spot: Spot }) {
   const talking = useGame((s) => s.modal?.type === "npc" && s.modal.npc === RECEPTION_NPC && s.chat[key]?.turns.at(-1)?.status === "streaming");
   const [callout, setCallout] = useState<string | null>(null);
   const speech = useNpcSpeech(key, callout);
+  const gesturing = useAnswerGesture(key);
   const wait = useRef(0);
 
   // First visit: a call-out once the player is within 6 m (and holds no card yet).
@@ -93,8 +96,10 @@ export function Reception({ desk, spot }: { desk: Spot; spot: Spot }) {
         interactId="npc:reception"
         onTalk={talk}
         talking={talking}
+        gesturing={gesturing}
         speech={speech}
         radius={2.6}
+        seenFrom={SEEN_FROM}
       />
     </>
   );

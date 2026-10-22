@@ -24,7 +24,7 @@ export type ScopeOptions = {
   /** ISO country of the office; null for Worldwide. */
   country: string | null;
   overviewOnly?: boolean;
-  /** For the label: "Lahore", "Global Hub". */
+  /** For the label: "Lahore", "Global Hub", or the Worldwide chip's country ("Germany"). */
   placeName?: string;
 };
 
@@ -33,7 +33,7 @@ export type Scope = {
   documentIds: string[] | null;
   /** The documents the NPC can see (every searchable document when unscoped). */
   documents: ScopeDocument[];
-  /** "Answers from 10 Lahore documents". */
+  /** "HR · Lahore · 3 documents", "Lahore · 10 documents", "Global Hub · all 14 documents". */
   label: string;
   /** No document matched the rule, so the unfiltered department set is used. */
   fallback: boolean;
@@ -54,38 +54,34 @@ function plural(count: number, noun: string) {
   return `${count} ${noun}${count === 1 ? "" : "s"}`;
 }
 
+/** "HR · Lahore · 3 documents" (the dialogue header). */
+function labelOf(parts: (string | null | undefined)[], count: number, all = false) {
+  return [...parts.filter(Boolean), `${all ? "all " : ""}${plural(count, "document")}`].join(" · ");
+}
+
 export function scopeFor(documents: ScopeDocument[], { department, country, overviewOnly, placeName }: ScopeOptions): Scope {
   const searchable = documents.filter(isSearchable);
-  const where = placeName ? `${placeName} ` : "";
 
   if (overviewOnly) {
     const picked = searchable.filter((d) => d.doc_type === "overview");
-    return finish(picked, country, `Answers from ${plural(picked.length, "overview document")}`, false);
+    return finish(picked, country, labelOf(["Overview"], picked.length), false);
   }
 
   if (!department && !country) {
-    return {
-      documentIds: null,
-      documents: searchable,
-      label: `Answers from all ${plural(searchable.length, "document")}`,
-      fallback: false,
-    };
+    return { documentIds: null, documents: searchable, label: labelOf([placeName], searchable.length, true), fallback: false };
   }
 
   const pool = department ? searchable.filter((d) => d.department === department) : searchable;
   const local = country ? pool.filter((d) => d.jurisdiction === country || d.jurisdiction === GLOBAL || d.doc_type === BASE) : pool;
   const fallback = local.length === 0 && pool.length > 0;
   const picked = fallback ? pool : local;
-  const label = department
-    ? `Answers from ${plural(picked.length, `${where}${department} document`)}`
-    : `Answers from ${plural(picked.length, `${where}document`)}`;
-  return finish(picked, country, label, fallback);
+  return finish(picked, country, labelOf([department, placeName], Math.min(picked.length, MAX_SCOPE)), fallback);
 }
 
 function finish(picked: ScopeDocument[], country: string | null, label: string, fallback: boolean): Scope {
   const sorted = picked
     .map((doc, index) => ({ doc, index }))
-    .sort((a, b) => rank(a.doc, country) - rank(b.doc, country) || a.index - b.index)
+    .toSorted((a, b) => rank(a.doc, country) - rank(b.doc, country) || a.index - b.index)
     .slice(0, MAX_SCOPE)
     .map(({ doc }) => doc);
   return { documentIds: sorted.map((d) => d.id), documents: sorted, label, fallback };

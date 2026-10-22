@@ -190,8 +190,9 @@ export function buildFloorplan(departments: string[], options: FloorplanOptions 
       requires: `card:${department}`,
       facing: [-sign, 0, 0],
     });
-    // The expert (O6) stands at the far end of the room, facing the door.
-    npcSpots[`expert:${department}`] = { position: [far - sign * 1.6, 0, rect.z - 1.2], yaw: side === "west" ? Math.PI / 2 : -Math.PI / 2 };
+    // The expert (O6) stands towards the far end of the room, in front of their desk, facing the door.
+    const frame = roomFrame({ id, kind: "department", name: department, rect, side });
+    npcSpots[`expert:${department}`] = { position: toWorld(frame, expertLocal(frame)), yaw: -Math.PI / 2 + frame.yaw };
   });
 
   const desk: Spot = { position: [-4.2, 0, LOBBY.z - 2.4], yaw: 0 };
@@ -305,6 +306,26 @@ function wallBox(orient: Orient, c: number, from: number, to: number, y: number,
   return orient === "h"
     ? { center: [mid, y, c], half: [length, halfY, t / 2], kind, orient }
     : { center: [c, y, mid], half: [t / 2, halfY, length], kind, orient };
+}
+
+/**
+ * A department room's own frame (O6): the origin at its centre, local +x from its door (on the
+ * corridor) towards the far wall, so the decor is authored once and turned half round for the
+ * west side. `yaw` is the rotation about +y from local to world.
+ */
+export type RoomFrame = { x: number; z: number; yaw: number; width: number; depth: number };
+
+/** Where the expert stands, in room-local coordinates (in front of their desk, off-centre). */
+export const expertLocal = (frame: Pick<RoomFrame, "width">): Vec3 => [frame.width / 2 - 1.6, 0, -1.2];
+
+export function roomFrame(room: Room): RoomFrame {
+  return { x: room.rect.x, z: room.rect.z, yaw: room.side === "west" ? Math.PI : 0, width: room.rect.w, depth: room.rect.d };
+}
+
+export function toWorld(frame: RoomFrame, [x, y, z]: Vec3): Vec3 {
+  const cos = Math.cos(frame.yaw);
+  const sin = Math.sin(frame.yaw);
+  return [round(frame.x + cos * x + sin * z), y, round(frame.z - sin * x + cos * z)];
 }
 
 /** The room containing a point (the first match; doorways sit on shared edges). */

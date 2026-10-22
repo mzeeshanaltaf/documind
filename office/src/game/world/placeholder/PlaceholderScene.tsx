@@ -10,7 +10,9 @@ const SIGN_LINES = ["The city scenes arrive in phase O4.", "Take the lift back t
 /** Stands in for the city, office and rooftop scenes until O4/O5 build them. */
 export default function PlaceholderScene() {
   const scene = useGame((s) => s.world.scene);
-  const texture = useSignTexture(`The ${scene} goes here`, SIGN_LINES);
+  const place = useGame((s) => s.office?.place);
+  const title = place && scene === "city" ? `${place.name} · ${place.roleLabel}` : `The ${scene} goes here`;
+  const texture = useSignTexture(title, SIGN_LINES);
   const ride = () => {
     audio.play("door-close");
     useGame.getState().transitionTo("sandbox", SANDBOX_SPAWNS.lift);

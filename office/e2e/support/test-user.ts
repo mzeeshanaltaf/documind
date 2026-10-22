@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { parseEnv } from "node:util";
 import { Pool } from "pg";
-import { authSchema, parseDatabaseUrl } from "../../src/lib/db-url";
+import { authSchema, officeSchema, parseDatabaseUrl } from "../../src/lib/db-url";
 
 /**
  * A throwaway signed-in user for browser tests: a verified `test-office-e2e-*` row in DocuMind's
@@ -20,9 +20,23 @@ if (fs.existsSync(rootEnv)) {
 
 export const SESSION_COOKIE = "documind-office.session_token";
 
-export type TestUser = { id: string; email: string; cookie: string; remove: () => Promise<void> };
+export type TestUser = {
+  id: string;
+  email: string;
+  cookie: string;
+  /** A query on the office's tables (`{office}` becomes OFFICE_DB_SCHEMA). */
+  officeQuery: <T>(sql: string, params?: unknown[]) => Promise<T[]>;
+  remove: () => Promise<void>;
+};
 
-export async function createTestUser(name = "Test Office E2E"): Promise<TestUser> {
+export type TestUserOptions = {
+  /** Better Auth's platform-admin role. */
+  admin?: boolean;
+  /** Org slugs to add the user to as a plain member. */
+  orgs?: string[];
+};
+
+export async function createTestUser(name = "Test Office E2E", options: TestUserOptions = {}): Promise<TestUser> {
   const secret = process.env.OFFICE_BETTER_AUTH_SECRET;
   if (!secret) throw new Error("OFFICE_BETTER_AUTH_SECRET is not set (root .env.local).");
   const parsed = parseDatabaseUrl(process.env.DATABASE_URL);
@@ -37,9 +51,16 @@ export async function createTestUser(name = "Test Office E2E"): Promise<TestUser
   const expires = new Date(now.getTime() + 60 * 60 * 1000);
 
   await pool.query(
-    `insert into "user" (id, name, email, "emailVerified", "createdAt", "updatedAt") values ($1, $2, $3, true, $4, $4)`,
-    [id, name, email, now],
+    `insert into "user" (id, name, email, "emailVerified", role, "createdAt", "updatedAt") values ($1, $2, $3, true, $4, $5, $5)`,
+    [id, name, email, options.admin ? "admin" : "user", now],
   );
+  for (const slug of options.orgs ?? []) {
+    await pool.query(
+      `insert into member (id, "organizationId", "userId", role, "createdAt")
+       select $1, o.id, $2, 'member', $3 from organization o where o.slug = $4`,
+      [`${id}-member-${slug}`, id, now, slug],
+    );
+  }
   await pool.query(
     `insert into session (id, token, "userId", "expiresAt", "createdAt", "updatedAt") values ($1, $2, $3, $4, $5, $5)`,
     [`${id}-session`, token, id, expires, now],
@@ -50,8 +71,13 @@ export async function createTestUser(name = "Test Office E2E"): Promise<TestUser
     id,
     email,
     cookie: encodeURIComponent(`${token}.${signature}`),
+    async officeQuery<T>(sql: string, params: unknown[] = []) {
+      const { rows } = await pool.query(sql.replaceAll("{office}", officeSchema()), params);
+      return rows as T[];
+    },
     async remove() {
       try {
+        await pool.query(`delete from member where "userId" = $1`, [id]);
         await pool.query(`delete from "user" where id = $1`, [id]);
       } finally {
         await pool.end();

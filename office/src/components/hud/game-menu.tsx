@@ -64,6 +64,7 @@ const rowClass = cn(buttonVariants({ variant: "ghost" }), "h-10 w-full justify-s
 function MainView({ onResume, onNavigate }: { onResume: () => void; onNavigate: (view: View) => void }) {
   const router = useRouter();
   const location = useGame((s) => s.world.location);
+  const orgSlug = useGame((s) => s.office?.org.slug);
   const [signingOut, setSigningOut] = useState(false);
 
   async function signOut() {
@@ -89,7 +90,7 @@ function MainView({ onResume, onNavigate }: { onResume: () => void; onNavigate: 
           Settings
           <ChevronRightIcon className="ml-auto text-muted-foreground" />
         </button>
-        <ButtonLink href="/" variant="ghost" className={rowClass}>
+        <ButtonLink href={orgSlug ? `/${orgSlug}` : "/"} variant="ghost" className={rowClass}>
           <MapPinIcon className="text-muted-foreground" />
           Change location
         </ButtonLink>

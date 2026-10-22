@@ -1,6 +1,7 @@
 "use server";
 
-import { requireSession } from "@/lib/auth-guards";
+import { requireOrgAccess, requireSession } from "@/lib/auth-guards";
+import { LOCATION_ID } from "@/lib/locations";
 import { query } from "@/lib/office-db";
 import { defaultDisplayName, type Player, type SavePlayerInput, savePlayerSchema } from "@/lib/player";
 
@@ -74,4 +75,37 @@ export async function savePlayer(input: SavePlayerInput): Promise<SavePlayerResu
     ],
   );
   return { ok: true, player: toPlayer(rows[0]) };
+}
+
+/**
+ * Called when a location page opens: adds the location to `progress.stats.cities_visited` (a
+ * set, kept in first-visit order) and remembers it as the last choice (`players.settings`
+ * `last_org`/`last_location`, the home's "Resume in …"). One round trip. The page has already
+ * checked that the location exists; here the id only has to look like one, since a made-up id
+ * could only touch the caller's own progress.
+ */
+export async function recordVisit(orgId: string, locationId: string): Promise<{ ok: boolean }> {
+  const { user } = await requireOrgAccess(orgId);
+  if (typeof locationId !== "string" || !LOCATION_ID.test(locationId)) return { ok: false };
+  await query(
+    `with visit as (
+       insert into {office}.progress as p (user_id, org_id, stats)
+       values ($1, $2, jsonb_build_object('cities_visited', jsonb_build_array($3::text)))
+       on conflict (user_id, org_id) do update
+         set stats = p.stats || jsonb_build_object(
+               'cities_visited',
+               case when coalesce(p.stats -> 'cities_visited', '[]'::jsonb) ? $3::text
+                    then p.stats -> 'cities_visited'
+                    else coalesce(p.stats -> 'cities_visited', '[]'::jsonb) || jsonb_build_array($3::text)
+               end),
+             updated_at = now()
+       returning 1
+     )
+     update {office}.players
+        set settings = settings || jsonb_build_object('last_org', $2::text, 'last_location', $3::text),
+            updated_at = now()
+      where user_id = $1`,
+    [user.id, orgId, locationId],
+  );
+  return { ok: true };
 }

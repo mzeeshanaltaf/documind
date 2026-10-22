@@ -26,6 +26,16 @@ browsers without Ogg Vorbis. Added 2026-10-22 (phase O2).
 Each pack's `License.txt` reads "License: (Creative Commons Zero, CC0) …
 http://creativecommons.org/publicdomain/zero/1.0/". Credit is optional; we give it here anyway.
 
+## Textures (`textures/`)
+
+| File | Derived from | Author | Licence | Source |
+|---|---|---|---|---|
+| `earth-mask.png` (1024×512 land/sea mask for the globe) | `ne_110m_land.geojson` (1:110m physical land) | Natural Earth | Public domain | https://github.com/nvkelso/natural-earth-vector (geojson/), https://www.naturalearthdata.com/about/terms-of-use/ |
+
+Rasterized with `scripts/make-earth-mask.mjs` (added 2026-10-22, phase O3); the comment at its
+top has the exact commands. Natural Earth: "All versions of Natural Earth raster + vector map
+data found on this website are in the public domain."
+
 ## Models
 
 None downloaded yet. The avatar (`src/game/player/Avatar.tsx`) is built in code from primitives,

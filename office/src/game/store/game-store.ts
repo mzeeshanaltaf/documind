@@ -5,6 +5,8 @@ import { type Move, NO_MOVE } from "@/game/input/bindings";
 import type { Focus, InteractKind } from "@/game/interact/select";
 import { type AvatarColors, DEFAULT_AVATAR } from "@/game/player/avatar-style";
 import { DEFAULT_SETTINGS, reducedMotion, type Settings } from "@/game/settings";
+import type { DocumentOut, Me } from "@/lib/api-types";
+import type { Location as Place } from "@/lib/locations";
 
 /**
  * The game store (zustand). React components subscribe with selectors to things that change
@@ -22,7 +24,19 @@ export type Seat = { id: string; position: Vec3; yaw: number };
  */
 export type Phase = "loading" | "in" | "ready" | "out";
 
+/** The breadcrumb (HUD, menu). */
 export type Location = { org: string; city: string; room: string | null };
+
+/**
+ * Where the player is, as data (O3): the org, the office location (`lib/locations`), the org's
+ * documents (for chat scoping, O5) and the DocuMind user. Null in the dev sandbox.
+ */
+export type OfficeContext = {
+  org: { id: string; name: string; slug: string };
+  place: Place;
+  documents: DocumentOut[];
+  me: Me["user"];
+};
 
 export type Modal =
   | { type: "menu" }
@@ -51,6 +65,7 @@ export type GameState = {
     pending: { scene: SceneId; spawn: Spawn } | null;
     location: Location;
   };
+  office: OfficeContext | null;
   input: { keyboard: Move; keyboardRun: boolean; touch: Move; touchRun: boolean };
   player: {
     displayName: string;
@@ -108,6 +123,7 @@ export const useGame = create<GameState>()((set, get) => ({
     pending: null,
     location: { org: "", city: "", room: null },
   },
+  office: null,
   input: { keyboard: NO_MOVE, keyboardRun: false, touch: NO_MOVE, touchRun: false },
   player: {
     displayName: "",

@@ -27,39 +27,58 @@ export const requireSession = cache(async (): Promise<Session> => {
 
 export type OrgAccess = {
   user: SessionUser;
-  org: { id: string; name: string; slug: string };
+  org: { id: string; name: string; slug: string; logo: string | null };
   /** `member.role`; null when a platform admin isn't a member. */
   role: string | null;
   isAdmin: boolean;
 };
 
+async function orgAccess(column: "id" | "slug", value: string): Promise<OrgAccess> {
+  const session = await requireSession();
+  const isAdmin = hasAdminRole(session.user.role);
+  const { rows } = await pool.query<{
+    id: string;
+    name: string;
+    slug: string;
+    logo: string | null;
+    metadata: string | null;
+    role: string | null;
+  }>(
+    `select o.id, o.name, o.slug, o.logo, o.metadata, m.role
+       from organization o
+       left join member m on m."organizationId" = o.id and m."userId" = $2
+      where o.${column} = $1
+      limit 1`,
+    [value, session.user.id],
+  );
+  const row = rows[0];
+  if (!row || isEvalOrgMetadata(row.metadata) || (!isAdmin && !row.role)) notFound();
+  const org = { id: row.id, name: row.name, slug: row.slug, logo: row.logo || null };
+  return { user: session.user, org, role: row.role, isAdmin };
+}
+
 /**
  * Org-scoped pages and Server Actions call this: a platform admin, or a `member` row. Anything
  * else (no such org, an eval org, not a member) is `notFound()`, so org ids don't leak.
  */
-export const requireOrgAccess = cache(async (orgId: string): Promise<OrgAccess> => {
-  const session = await requireSession();
-  const isAdmin = hasAdminRole(session.user.role);
-  const { rows } = await pool.query<{ id: string; name: string; slug: string; metadata: string | null; role: string | null }>(
-    `select o.id, o.name, o.slug, o.metadata, m.role
-       from organization o
-       left join member m on m."organizationId" = o.id and m."userId" = $2
-      where o.id = $1
-      limit 1`,
-    [orgId, session.user.id],
-  );
-  const row = rows[0];
-  if (!row || isEvalOrgMetadata(row.metadata) || (!isAdmin && !row.role)) notFound();
-  return { user: session.user, org: { id: row.id, name: row.name, slug: row.slug }, role: row.role, isAdmin };
-});
+export const requireOrgAccess = cache((orgId: string) => orgAccess("id", orgId));
 
-/** Drops eval orgs from a list DocuMind returned (`/v1/me` lists every org to platform admins). */
-export async function withoutEvalOrgs<T extends { id: string }>(orgs: T[]): Promise<T[]> {
-  if (orgs.length === 0) return orgs;
-  const { rows } = await pool.query<{ id: string; metadata: string | null }>(
-    `select id, metadata from organization where id = any($1::text[])`,
+/** The same check for the org pages, which have the slug from the URL (`/[orgSlug]`). */
+export const requireOrgAccessBySlug = cache((slug: string) => orgAccess("slug", slug));
+
+/**
+ * Drops eval orgs from a list DocuMind returned (`/v1/me` lists every org to platform admins,
+ * and carries no metadata), and adds each org's logo URL (null when it has none).
+ */
+export async function withoutEvalOrgs<T extends { id: string }>(orgs: T[]): Promise<(T & { logo: string | null })[]> {
+  if (orgs.length === 0) return [];
+  const { rows } = await pool.query<{ id: string; metadata: string | null; logo: string | null }>(
+    `select id, metadata, logo from organization where id = any($1::text[])`,
     [orgs.map((org) => org.id)],
   );
-  const hidden = new Set(rows.filter((row) => isEvalOrgMetadata(row.metadata)).map((row) => row.id));
-  return orgs.filter((org) => !hidden.has(org.id));
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  return orgs.flatMap((org) => {
+    const row = byId.get(org.id);
+    return row && !isEvalOrgMetadata(row.metadata) ? [{ ...org, logo: row.logo || null }] : [];
+  });
 }

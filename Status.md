@@ -11,7 +11,7 @@
 ## Current phase
 Phases 1–10 are built, deployed and owner-checked. The evaluation harness (below) is **code-complete with E9 — Human review & judge calibration** (2026-10-21, deployed `efbdc8e`); the judged parts of E4/E7/E8 and the first calibration grades wait for the Anthropic spend limit (access back 2026-11-01).
 
-**DocuMind Office** (3D virtual office, `office/`) was planned 2026-10-22; **O1 and O2 are done** (2026-10-22, local only) and **O3 is next** (see the *DocuMind Office* section below).
+**DocuMind Office** (3D virtual office, `office/`) was planned 2026-10-22; **O1–O3 are done** (2026-10-22, local only) and **O4 is next** (see the *DocuMind Office* section below).
 
 > ✅ The Privacy Policy (`/privacy`) has been legally reviewed (owner-confirmed 2026-10-20). Re-review it if the app's data handling changes.
 
@@ -100,7 +100,7 @@ Docs: overview in [docs/plan/office/README.md](docs/plan/office/README.md), guid
 |---|---|---|---|
 | O1 | Scaffold, auth, BFF & DB | [phase-O1](docs/plan/office/phase-O1-scaffold-auth-bff-db.md) | ✅ Done (local; deploy is O10) |
 | O2 | Engine core | [phase-O2](docs/plan/office/phase-O2-engine-core.md) | ✅ Done (local; low-tier 60 fps on an iGPU still to check by hand) |
-| O3 | Org & location selection | [phase-O3](docs/plan/office/phase-O3-org-and-location-selection.md) | ⬜ Not started |
+| O3 | Org & location selection | [phase-O3](docs/plan/office/phase-O3-org-and-location-selection.md) | ✅ Done (local) |
 | O4 | City scenes | [phase-O4](docs/plan/office/phase-O4-city-scenes.md) | ⬜ Not started |
 | O5 | Lobby, reception, cards & NPC chat | [phase-O5](docs/plan/office/phase-O5-lobby-reception-cards-chat.md) | ⬜ Not started |
 | O6 | Department rooms & citations | [phase-O6](docs/plan/office/phase-O6-department-rooms-and-citations.md) | ⬜ Not started |
@@ -343,6 +343,13 @@ Docs: overview in [docs/plan/office/README.md](docs/plan/office/README.md), guid
 
 ## Session log
 <!-- Newest first. Keep entries short: what was built, deviations, gotchas, next. Decisions that outlive a phase go in the sections above. -->
+
+### 2026-10-22 — [office] O3: org & location selection (local, not committed)
+- **Built:** `lib/locations.ts` (`deriveLocations`: distinct non-GLOBAL jurisdictions of indexed docs → override or `COUNTRY_DEFAULTS` capital; HQ first, then name; Worldwide last) + `content/orgs/simtora.ts` (6 offices, kits, palettes); `lib/format.ts` (local time, UTC offset, day/night via suncalc). Org picker (single org → its globe unless `?pick`; logo or monogram + role; "Resume in …"; low-poly office diorama backdrop). `/[orgSlug]`: globe (icosphere coloured from a Natural Earth land mask, pins, DOM label cards with live local time, HQ arcs, Worldwide ring, drag, list focus turns the globe, fly-in then navigate; reduced motion = no auto-turn, no arcs, fade) beside the list (primary keyboard/screen-reader path, real links). `/[orgSlug]/[location]`: validates (unknown → 404), hands `{org, place, documents, me}` to the game store, `recordVisit` writes `cities_visited` + `last_org`/`last_location`. Esc menu "Change location" → the org's globe.
+- **Verified:** typecheck, lint, build clean; Vitest 84 (23 new: locations, DST formatting for Berlin and Sydney, globe maths, label placement, earth geometry); Playwright 11/11 (5 new: single-org member lands on the globe and picks Lahore by keyboard → `/simtora/lahore`, visit recorded; resume offered; `/simtora/atlantis` and a non-member get not found; admin sees Simtora, not `eval-canary`; reduced motion keeps the globe still and fades). Picker entry JS 150 KB gz, three not in it. Screenshots checked in light, dark and Pixel 7. No throwaway users left.
+- **Deviations:** `Location` adds `roleLabel` ("R&D centre"); `lat`/`lon` are null for Worldwide and for countries missing from the defaults table (listed, not pinned). The top bar moved from `(game)/layout.tsx` to the pickers, so the game route has no hidden focusable header. Labels are DOM over the canvas, placed by a greedy `placeLabels` that hides a crowded label (hover shows it) instead of overlapping. `withoutEvalOrgs` also returns logos; `requireOrgAccess` returns the logo. No SWR yet. Globe pins are mouse/touch only; keyboard users use the list (focusing a row turns the globe).
+- **Gotchas:** see `office/CLAUDE.md` › Globe/picker gotchas (bundle boundary, R3F raycast occlusion, ACES vs. pale colours, `react-hooks/purity` on `Date.now()`, the dev reload loop hit again).
+- **Next:** O4 (city scenes).
 
 ### 2026-10-22 — [office] O2: engine core (local, not committed)
 - **Built:** the client-only game root (`src/game/`) on R3F 9 + drei 10 + rapier 2 + zustand 5 + Howler, proven in the dev-only `/dev/sandbox` (production `notFound()`).

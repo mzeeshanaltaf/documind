@@ -4,9 +4,16 @@ import { NO_MOVE } from "./input/bindings";
 import { readMirror } from "./persist";
 import { resolveAvatar } from "./player/avatar-style";
 import { bootSettings, parseMirror } from "./settings";
-import { type Location, type SceneId, type Spawn, useGame } from "./store/game-store";
+import { type Location, type OfficeContext, type SceneId, type Spawn, useGame } from "./store/game-store";
 
-export type GameEntry = { player: Player; scene: SceneId; spawn: Spawn; location: Location };
+export type GameEntry = {
+  player: Player;
+  scene: SceneId;
+  spawn: Spawn;
+  location: Location;
+  /** The org and office location; omitted by the dev sandbox. */
+  office?: OfficeContext;
+};
 
 function media(query: string): boolean {
   return typeof window.matchMedia === "function" && window.matchMedia(query).matches;
@@ -17,10 +24,11 @@ function media(query: string): boolean {
  * visit in the same tab must not inherit the first one's state). Browser-only: it reads
  * localStorage, media queries and device hints.
  */
-export function initGame({ player, scene, spawn, location }: GameEntry) {
+export function initGame({ player, scene, spawn, location, office }: GameEntry) {
   const nav = navigator as Navigator & { deviceMemory?: number };
   useGame.setState({
     world: { scene, spawn, epoch: 0, phase: "loading", pending: null, location },
+    office: office ?? null,
     input: { keyboard: NO_MOVE, keyboardRun: false, touch: NO_MOVE, touchRun: false },
     player: {
       displayName: player.displayName,

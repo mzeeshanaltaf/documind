@@ -13,12 +13,13 @@
 5. At the end, update Status.md › Office (phase table, plus an `[office]` session-log entry) and this file (commands, versions, gotchas), keeping it ≤ 150 lines.
 
 ## Status
-**O2 done (2026-10-22):** engine core, proven in the dev-only `/dev/sandbox`. **O3 is next** (org & location selection). O1: scaffold, sign-in, BFF, `documind_office_dev` schema, placeholder home (org list).
+**O3 done (2026-10-22):** org picker, globe location picker, `/[orgSlug]/[location]` opens the game (placeholder city). **O4 is next** (city scenes). O2: engine core (dev-only `/dev/sandbox`). O1: scaffold, sign-in, BFF, `documind_office_dev` schema.
 
 ## Layout (as built)
-- `src/lib/`: `auth` (Better Auth), `auth-guards` (`requireSession`, `requireOrgAccess`, `withoutEvalOrgs`), `account` (ban/admin rules, client-safe), `db` (one pool: auth `search_path`, max 3), `db-url`, `office-db` (`query()` with `{office}`), `api` (`apiFetch`/`apiJson`; `userId` optional in Server Components), `api-types`, `rate-limit`, `backend-path` (BFF path rules), `player` (zod schemas, `defaultDisplayName`), `org-meta`, `site`.
-- `src/app/(game)/actions.ts`: `getPlayer()` (upsert on first read, one round trip) and `savePlayer({avatar, settings})` (zod; **shallow-merges** both jsonb objects).
-- `src/app/(game)/page.tsx`: placeholder home (org list, empty state → DocuMind `/app/join`); `(game)/layout.tsx` top bar + user menu.
+- `src/lib/`: `auth` (Better Auth), `auth-guards` (`requireSession`, `requireOrgAccess`/`requireOrgAccessBySlug`, `withoutEvalOrgs` (+ logos)), `locations` (`deriveLocations`, pure) + `country-defaults`, `format` (local time, UTC offset, day/night), `account` (ban/admin rules, client-safe), `db` (one pool: auth `search_path`, max 3), `db-url`, `office-db` (`query()` with `{office}`), `api` (`apiFetch`/`apiJson`; `userId` optional in Server Components), `api-types`, `rate-limit`, `backend-path` (BFF path rules), `player` (zod schemas, `defaultDisplayName`), `org-meta`, `site`.
+- `src/app/(game)/actions.ts`: `getPlayer()` (upsert on first read, one round trip), `savePlayer({avatar, settings})` (zod; **shallow-merges** both jsonb objects), `recordVisit(orgId, locationId)` (`progress.stats.cities_visited` set + `last_org`/`last_location`, one CTE).
+- **Pickers (O3):** `(game)/page.tsx` org list (one org → `redirect` to its globe unless `?pick`; "Resume in …"; diorama backdrop), `(game)/[orgSlug]/page.tsx` → `components/locations/location-picker.tsx` (list + globe, fly/fade then `router.push`), `(game)/[orgSlug]/[location]/page.tsx` (validates, then `GameClient` with `office` = `{org, place, documents, me}` in the store + `RecordVisit`). `components/home/top-bar.tsx` is on the pickers only (the game has none). `src/content/orgs/` = per-org location overrides (Simtora).
+- **Globe, `src/game/world/globe/`:** `GlobeCanvas` (dynamic, ssr:false; `flat`, demand frameloop on low/reduced), `GlobeRig` (turn/drag/focus/fly; lays out labels), `Earth` + `earth-geometry` (icosphere coloured from `public/assets/textures/earth-mask.png`, made by `scripts/make-earth-mask.mjs`), `Pins`, `Arcs`, `WorldwideRing`, `GlobeLabels` (DOM) + `labels.ts`, `geo.ts` (pure maths, `placeLabels`), `globe-store` (hover/selected/clock, `FLY_MS`). `world/diorama/OfficeDiorama` (home backdrop), `engine/preview.ts` (tier + reduced motion outside the game), `engine/PreviewBoundary`.
 - `src/app/(auth)/sign-in` + `components/auth/directory-panel.tsx` (the lobby directory companion panel). `src/proxy.ts`: optimistic cookie redirects.
 - `db/migrations/0001_init.sql`, `scripts/migrate.mjs` (advisory lock; one transaction per file), `scripts/auth-check.ts`, `tests/` (Vitest), `e2e/` (Playwright; `support/test-user.ts` makes a signed-in throwaway user).
 - **Game (O2), `src/game/`:** `GameRoot` (client root: store init, keyboard, motion, audio unlock, settings persistence, first-look editor, dev handle) loaded by `components/game/game-client.tsx` (`dynamic`, `ssr: false`).
@@ -34,6 +35,7 @@ cd office && pnpm typecheck | pnpm lint | pnpm test | pnpm build
 cd office && pnpm test:e2e       # Playwright on :3200 (starts or reuses `pnpm dev`; needs the dev DB)
 cd office && node scripts/migrate.mjs [--dry-run]   # documind_office(_dev) schema; re-run = no-op
 cd office && pnpm auth:check     # read-only: DocuMind owns the auth tables
+cd office && node scripts/make-earth-mask.mjs <ne_110m_land.geojson>   # regenerate the globe's land mask
 docker build -f office/Dockerfile --build-arg NEXT_PUBLIC_APP_URL=https://documind.zeeshanai.cloud .   # from O10
 ```
 
@@ -80,7 +82,7 @@ The keys are in the root `.env.local`; see README › Environment.
 ## Pinned versions
 - Same as `web/` (O1): `next` 16.4.0, `react`/`react-dom` 19.3.0, `better-auth` 1.7.7 (exact, as in eval), `pg` 8.23.1, `zod` 4.6.5, `@upstash/ratelimit` 2.2.0, `@upstash/redis` 1.39.0, `@base-ui/react` 1.8.0, `tailwindcss` 4.3.3, `typescript` 5.9.3.
 - Tests: `vitest` 5.0.5, `jsdom` 30.1.3, `@testing-library/react` 16.3.3.
-- 3D, exact (O2): `three` 0.186.1, `@react-three/fiber` 9.8.2, `@react-three/drei` 10.7.9, `@react-three/rapier` 2.2.0 (rapier3d-compat 0.19.2), `@react-three/postprocessing` 3.1.3 + `postprocessing` 6.39.5, `zustand` 5.0.16, `howler` 2.2.4, `suncalc` 2.1.1; types `@types/three` 0.186.0, `@types/howler` 2.2.13, `@types/suncalc` 1.9.2; `@playwright/test` 1.64.1 (Chromium 1248). `swr` arrives with O3.
+- 3D, exact (O2): `three` 0.186.1, `@react-three/fiber` 9.8.2, `@react-three/drei` 10.7.9, `@react-three/rapier` 2.2.0 (rapier3d-compat 0.19.2), `@react-three/postprocessing` 3.1.3 + `postprocessing` 6.39.5, `zustand` 5.0.16, `howler` 2.2.4, `suncalc` 2.1.1; types `@types/three` 0.186.0, `@types/howler` 2.2.13, `@types/suncalc` 1.9.2; `@playwright/test` 1.64.1 (Chromium 1248). `swr` not added yet (O3's pickers fetch on the server).
 - **Game route JS (O2, sandbox):** 443 KB gz excluding rapier's chunk (budget 1.5 MB); rapier-compat's chunk with its base64 wasm is 810 KB gz on its own.
 
 ## Gotchas already known
@@ -101,4 +103,12 @@ The keys are in the root `.env.local`; see README › Environment.
   - **Disposal:** R3F disposes only JSX-created geometries/materials. Shared module-level ones (avatar parts) are kept on purpose; per-instance materials and canvas textures are disposed in effects. Over 6 transitions, `renderer.info.memory` stayed at 45 geometries / 4 textures.
   - **`spawn.yaw` is the avatar's heading** (0 faces +z); the camera starts half a turn behind it. Seats use the same convention.
   - **Playwright WebGL** runs on SwiftShader (`--enable-unsafe-swiftshader`), so the auto tier drops to low there and frame rates mean nothing. The dev-only `window.__office` exposes `getState`/`setState`, `memory()` and `render()`. A test that hits its timeout can skip `finally`: clean up throwaway users in `afterAll`.
+- **Globe/picker gotchas (O3):**
+  - **Bundles:** the picker page must not import from `GlobeRig` or other canvas modules (that pulls three into its 150 KB entry); shared constants live in `globe-store.ts`.
+  - **R3F raycasts only objects with handlers,** so the Earth mesh carries no-op `stopPropagation` handlers to hide back-side pins from the pointer.
+  - **Light-mode contrast:** ACES tone mapping washed the pale land into the pale sea; the globe canvas is `flat`, with lights tuned to it.
+  - **Clock reads in Server Components** trip `react-hooks/purity`; read it in an async helper after `await connection()`.
+  - **`placeLabels`** hides a label that can't fit cleanly (the hovered/chosen one is always shown); the pin stays.
+  - **`next dev` reload loop** (`[Fast Refresh] rebuilding` → full reload on every load, endless `GET /`) hit again: stop dev, delete `.next/dev`.
+  - **Playwright helpers:** `createTestUser(name, { admin, orgs })` adds memberships; `officeQuery()` reads office tables.
 - **Testing the shared chat limit:** spend the window with DocuMind's own `web/src/lib/rate-limit.ts` (tsx, `--conditions=react-server`, import via `pathToFileURL` on Windows), then POST `orgs/{id}/chat` through :3200 and expect 429. A POST that passes the limit runs a real (billed) chat.

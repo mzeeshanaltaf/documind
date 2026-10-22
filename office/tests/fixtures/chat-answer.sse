@@ -1,0 +1,68 @@
+event: meta
+data: {"conversation_id": "d629fe96-3e2f-45d6-9ce0-f1ffb9d61d80", "user_message_id": "a009c791-ab37-49b0-aeea-b4170b0cff3d", "assistant_message_id": "689a0204-32d7-4cd8-93e2-9403269df956"}
+
+event: routing
+data: {"departments": [], "jurisdiction": null, "standalone_query": "How many days of annual leave do I get in Pakistan?", "sub_queries": [], "parts": [], "bypassed": true, "document_ids": ["ca0c2e7c-9ddf-4240-81f3-7762102f8665", "f97a01b3-275d-43c0-bc01-bdb80d52d79b", "11942de0-5c9e-40fe-a403-34ada68f9059", "6c6e0916-0ea8-49a3-b98f-fa8e6017018a", "e036d9ba-81a8-43f6-b894-4e1ada5a1ea3", "17da76be-83a4-443b-9b85-c23c1dbb166b", "338502cf-0b94-43cb-ab74-e23975ed2c1d", "66ae48c1-9a62-41f9-8137-29311208e117", "33ee33b7-af13-49a3-867e-7fee2c8b9da4", "de0ce2e0-804d-458d-b5b1-9156f22fd44a"]}
+
+event: sources
+data: [{"n": 1, "document_id": "338502cf-0b94-43cb-ab74-e23975ed2c1d", "doc_code": "SIM-HR-101", "title": "Pakistan HR Manual (Lahore)", "section_number": "5.6", "section_title": "Bereavement, Marriage and Other Leave", "page_start": 19, "page_end": 19, "jurisdiction": "PK"}, {"n": 2, "document_id": "338502cf-0b94-43cb-ab74-e23975ed2c1d", "doc_code": "SIM-HR-101", "title": "Pakistan HR Manual (Lahore)", "section_number": "5.2", "section_title": "Annual Leave", "page_start": 16, "page_end": 16, "jurisdiction": "PK"}, {"n": 3, "document_id": "338502cf-0b94-43cb-ab74-e23975ed2c1d", "doc_code": "SIM-HR-101", "title": "Pakistan HR Manual (Lahore)", "section_number": "5.4", "section_title": "Sick Leave", "page_start": 17, "page_end": 17, "jurisdiction": "PK"}, {"n": 4, "document_id": "338502cf-0b94-43cb-ab74-e23975ed2c1d", "doc_code": "SIM-HR-101", "title": "Pakistan HR Manual (Lahore)", "section_number": "5.3", "section_title": "Casual Leave", "page_start": 17, "page_end": 17, "jurisdiction": "PK"}, {"n": 5, "document_id": "338502cf-0b94-43cb-ab74-e23975ed2c1d", "doc_code": "SIM-HR-101", "title": "Pakistan HR Manual (Lahore)", "section_number": "5.1", "section_title": "Public Holidays", "page_start": 16, "page_end": 16, "jurisdiction": "PK"}, {"n": 6, "document_id": "338502cf-0b94-43cb-ab74-e23975ed2c1d", "doc_code": "SIM-HR-101", "title": "Pakistan HR Manual (Lahore)", "section_number": "A", "section_title": "Key Terms Summary and Acknowledgement", "page_start": 30, "page_end": 30, "jurisdiction": "PK"}, {"n": 7, "document_id": "338502cf-0b94-43cb-ab74-e23975ed2c1d", "doc_code": "SIM-HR-101", "title": "Pakistan HR Manual (Lahore)", "section_number": "5.5", "section_title": "Maternity, Parental and Adoption Leave", "page_start": 18, "page_end": 18, "jurisdiction": "PK"}, {"n": 8, "document_id": "e036d9ba-81a8-43f6-b894-4e1ada5a1ea3", "doc_code": "SIM-HR-002", "title": "Global People Supplement to the Human Resources Policy Manual", "section_number": "3.2", "section_title": "Key Entitlements Compared", "page_start": 33, "page_end": 34, "jurisdiction": "GLOBAL"}]
+
+: ping - 2026-10-22 12:11:18.820128+00:00
+
+event: delta
+data: {"text": "You"}
+
+event: delta
+data: {"text": " get"}
+
+event: delta
+data: {"text": " "}
+
+event: delta
+data: {"text": "20"}
+
+event: delta
+data: {"text": " days"}
+
+event: delta
+data: {"text": " of"}
+
+event: delta
+data: {"text": " annual"}
+
+event: delta
+data: {"text": " leave"}
+
+event: delta
+data: {"text": " in"}
+
+event: delta
+data: {"text": " Pakistan"}
+
+event: delta
+data: {"text": "."}
+
+event: delta
+data: {"text": " ["}
+
+event: delta
+data: {"text": "6"}
+
+event: delta
+data: {"text": "]["}
+
+event: delta
+data: {"text": "8"}
+
+event: delta
+data: {"text": "]"}
+
+event: citations
+data: [{"n": 6, "document_id": "338502cf-0b94-43cb-ab74-e23975ed2c1d", "chunk_id": "c74d3708-7202-404c-97bf-0bd18ad5f8e2", "doc_code": "SIM-HR-101", "title": "Pakistan HR Manual (Lahore)", "section_number": "A", "section_title": "Key Terms Summary and Acknowledgement", "section_path": ["Appendices", "Appendix A – Key Terms Summary and Acknowledgement"], "page_start": 30, "page_end": 30, "snippet": "Appendix A – Key Terms Summary and Acknowledgement | Item | Summary | | --- | --- | | Employer | Simtora Technologies (Pvt.) Limited | | Hours | Mon–Fri, 8 h/day, core 10:00–15:00 PKT | | Probation | 3 months, extendable once by up to 3 months; 15 days' notice | | Pay | Monthly,…", "highlight_text": "Appendix A – Key Terms Summary and Acknowledgement\n\n| Item | Summary |\n| --- | --- |\n| Employer | Simtora Technologies (Pvt.) Limited |\n| Hours | Mon–Fri, 8 h/day, core 10:00–15:00 PKT |\n| Probation | 3 months, extendable once by up to 3 months; 15 days' notice |\n| Pay | Monthly, last working day, bank transfer, PKR |\n| Annual leave / casual / sick | 20 / 10 / 10 days |\n| Maternity / partner leave | 12 weeks / 6 weeks, full pay |\n| Public holidays | As notified, about 14–16, plus 2 days for other faiths |\n| Notice | 1 month (both sides) after confirmation |\n| Provident fund | 10% employee, 10% employer |\n| Harassment | Inquiry Committee; 30-day inquiry; appeal to Ombudsman |"}, {"n": 8, "document_id": "e036d9ba-81a8-43f6-b894-4e1ada5a1ea3", "chunk_id": "16dd8751-4478-463a-8011-cae5efba0085", "doc_code": "SIM-HR-002", "title": "Global People Supplement to the Human Resources Policy Manual", "section_number": "3.2", "section_title": "Key Entitlements Compared", "section_path": ["Part 3 – Country Manuals and Comparison", "3.2 Key Entitlements Compared"], "page_start": 33, "page_end": 34, "snippet": "3.2 Key Entitlements Compared This table is a summary only. The Country HR Manual and the law govern. Figures are for full-time employees after any qualifying period. 3.2 Key Entitlements Compared | Item | United States | Pakistan | Germany | France | Australia | United Kingdom…", "highlight_text": "3.2 Key Entitlements Compared\n\nThis table is a summary only. The Country HR Manual and the law govern. Figures are for full-time employees after any qualifying period.\n\n3.2 Key Entitlements Compared\n\n| Item | United States | Pakistan | Germany | France | Australia | United Kingdom |\n| --- | --- | --- | --- | --- | --- | --- |\n| Standard week | 40 h (Mon– Fri) | 40 h (legal max 48 h) | 40 h (8 h/day; avg. max 8 h, 10 h peak) | 35 h legal; 38.5 h with extra days off, or annual day-count for eligible autonomous cadres | 38 h |  |\n| Probation | 90 days (+30) | 3 months (+3) | 6 months | 4 months for cadres (3 for technicians), renewable once where allowed | 6 months | 3 months (up to 6) |\n| Annual leave | PTO 15 / 20 / 25 days | 20 days annual + 10 days casual | 30 days | 25 working days + RTT days where applicable | 25 days (20 statutory + 5) |  |\n| Public holidays | 11 + 2 floating | About 14–16 as notified | 10 (Berlin) + Dec 24 and Dec 31 | 10 paid (Whit Monday is the solidarity day) | Up to 11 (NSW) | 8 (England and Wales) |"}]
+
+event: usage
+data: {"input_tokens": 2279, "cached_tokens": 0, "output_tokens": 90, "cost_usd": 0.00027194, "latency_ms": 17690, "ttft_ms": 15120}
+
+event: done
+data: {}
+

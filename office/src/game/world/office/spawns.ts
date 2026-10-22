@@ -1,13 +1,13 @@
 import type { Spawn } from "@/game/store/game-store";
-import type { Box } from "@/game/world/city/generator";
+import { buildFloorplan } from "./floorplan";
 
 /**
- * Office spawn points. Until O5 builds the floor plan, the office is the placeholder room:
- * `lobby_entrance` stands just inside its street doors (south wall), facing into the lobby.
+ * Office spawn points. The lobby doesn't depend on the org's departments, so the city can use a
+ * static entrance spawn: a few metres inside the street doors (south wall), facing into the
+ * lobby, with the camera tilted to look in over the wall behind.
  */
-export const OFFICE_SPAWNS = {
-  lobby_entrance: { position: [0, 0, 4.8], yaw: Math.PI },
-} satisfies Record<string, Spawn>;
+const LOBBY_PLAN = buildFloorplan([]);
 
-/** The placeholder's street doors: walking into this box leaves for the city. */
-export const OFFICE_EXIT: Box = { center: [0, 1, 7.6], half: [1.1, 1, 0.45] };
+export const OFFICE_SPAWNS = {
+  lobby_entrance: { ...LOBBY_PLAN.spawns.lobby_entrance, pitch: 0.5 },
+} satisfies Record<string, Spawn>;

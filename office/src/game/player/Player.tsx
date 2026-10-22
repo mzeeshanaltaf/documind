@@ -50,7 +50,8 @@ export function Player() {
 
   const colors = useGame((s) => s.player.avatar);
   const displayName = useGame((s) => s.player.displayName);
-  const showTag = useGame((s) => TIERS[selectTier(s)].nameTags && s.settings.show_name_tags);
+  // Hidden during a conversation: the camera is close, and the tag would fill the view.
+  const showTag = useGame((s) => TIERS[selectTier(s)].nameTags && s.settings.show_name_tags && !s.cameraFocus);
 
   // Created and freed in one effect, so StrictMode's mount-unmount-mount never leaves a freed
   // controller behind.
@@ -138,6 +139,7 @@ export function Player() {
         emit({ type: "sat", seat: seat.id });
       }
       group.rotation.y = state.facing;
+      rig.facing = state.facing;
       rig.position.set(at.x, at.y - CENTER, at.z);
       rig.speed = 0;
       return;
@@ -183,6 +185,7 @@ export function Player() {
       state.facing += angleDelta(state.facing, target) * (1 - Math.exp(-TURN_RATE * delta));
     }
     group.rotation.y = state.facing;
+    rig.facing = state.facing;
 
     const travelled = Math.hypot(step.x, step.z);
     const actual = delta > 0 ? travelled / delta : 0;

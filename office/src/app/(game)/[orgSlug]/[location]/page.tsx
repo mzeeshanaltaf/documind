@@ -9,7 +9,7 @@ import type { DocumentList, Me } from "@/lib/api-types";
 import { requireOrgAccessBySlug } from "@/lib/auth-guards";
 import { cityEntrySpawn } from "@/game/world/city/spawns";
 import { deriveLocations, LOCATION_ID } from "@/lib/locations";
-import { getPlayer } from "../../actions";
+import { getCards, getPlayer } from "../../actions";
 
 export const metadata: Metadata = { title: "Office" };
 
@@ -31,10 +31,11 @@ async function World({ params }: Pick<PageProps<"/[orgSlug]/[location]">, "param
   const { org, user } = await requireOrgAccessBySlug(orgSlug);
   if (!LOCATION_ID.test(locationId)) notFound();
 
-  const [{ documents }, me, player] = await Promise.all([
+  const [{ documents }, me, player, cards] = await Promise.all([
     apiJson<DocumentList>(`orgs/${org.id}/documents`, { userId: user.id }),
     apiJson<Me>("me", { userId: user.id }),
     getPlayer(),
+    getCards(org.id),
   ]);
   const place = deriveLocations(org, documents).find((location) => location.id === locationId);
   if (!place) notFound();
@@ -49,6 +50,7 @@ async function World({ params }: Pick<PageProps<"/[orgSlug]/[location]">, "param
         spawn={cityEntrySpawn(place)}
         location={{ org: org.name, city: place.name, room: null }}
         office={{ org: { id: org.id, name: org.name, slug: org.slug }, place, documents, me: me.user }}
+        cards={cards}
       />
       <RecordVisit orgId={org.id} locationId={place.id} />
     </>

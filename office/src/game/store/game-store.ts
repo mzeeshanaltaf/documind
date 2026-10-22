@@ -2,6 +2,7 @@ import type { Object3D } from "three";
 import { create } from "zustand";
 import { effectiveTier, type Tier } from "@/game/engine/quality";
 import { type Move, NO_MOVE } from "@/game/input/bindings";
+import type { NpcTurn } from "@/game/chat/sse";
 import type { Focus, InteractKind } from "@/game/interact/select";
 import { type AvatarColors, DEFAULT_AVATAR } from "@/game/player/avatar-style";
 import { DEFAULT_SETTINGS, reducedMotion, type Settings } from "@/game/settings";
@@ -44,8 +45,20 @@ export type Modal =
   | { type: "avatar"; first?: boolean }
   | { type: "sign"; title: string; lines: string[] }
   | { type: "dialogue"; npc: string; name: string; role: string; lines: string[] }
+  /** A conversation with a DocuMind-backed NPC (O5): its menu, the chat, or the card picker. */
+  | { type: "npc"; npc: string; view: NpcView }
   /** A Global Hub kiosk asking to travel to another office (O4). */
   | { type: "travel"; locationId: string; name: string; detail: string };
+
+export type NpcView = "menu" | "chat" | "cards";
+
+/**
+ * One NPC conversation per visit (phase O5 › Dialogue panel), keyed `{location}:{npcId}`. It
+ * survives walking away and scene changes; a page reload (or another office) starts over.
+ */
+export type ChatThread = { conversationId: string | null; turns: NpcTurn[] };
+export const EMPTY_THREAD: ChatThread = { conversationId: null, turns: [] };
+export const threadKey = (location: string, npc: string) => `${location}:${npc}`;
 
 export type InteractableEntry = {
   id: string;
@@ -91,6 +104,9 @@ export type GameState = {
   settings: Settings;
   quality: { auto: Tier; settled: boolean };
   osReducedMotion: boolean;
+  chat: Record<string, ChatThread>;
+  /** NPCs that have called out to the player this visit (`{location}:{npcId}`). */
+  calledOut: Record<string, true>;
   /** Development only: the city's local hour (0–24) instead of the real time; null = real. */
   clockHour: number | null;
   /** The current city sky, published when it changes (HUD, tests); null outside the city. */
@@ -112,7 +128,13 @@ export type GameState = {
   deny: () => void;
   openModal: (modal: Modal) => void;
   /** Opens a conversation and frames the camera on the speaker. */
-  startDialogue: (dialogue: Extract<Modal, { type: "dialogue" }>, focus: Vec3) => void;
+  startDialogue: (dialogue: Extract<Modal, { type: "dialogue" | "npc" }>, focus: Vec3) => void;
+  /** Switches the open NPC conversation between its menu, chat and card picker. */
+  setNpcView: (view: NpcView) => void;
+  setCards: (cards: string[]) => void;
+  setDocuments: (documents: DocumentOut[]) => void;
+  updateThread: (key: string, update: (thread: ChatThread) => ChatThread) => void;
+  markCalledOut: (key: string) => void;
   closeModal: () => void;
   updateSettings: (patch: Partial<Settings>) => void;
   setAutoTier: (tier: Tier, settled?: boolean) => void;
@@ -152,6 +174,8 @@ export const useGame = create<GameState>()((set, get) => ({
   osReducedMotion: false,
   clockHour: null,
   sky: null,
+  chat: {},
+  calledOut: {},
 
   transitionTo: (scene, spawn) => {
     if (get().world.phase === "out") return;
@@ -189,6 +213,14 @@ export const useGame = create<GameState>()((set, get) => ({
   openModal: (modal) => set({ modal }),
   startDialogue: (dialogue, focus) => set({ modal: dialogue, cameraFocus: focus }),
   closeModal: () => set({ modal: null, cameraFocus: null }),
+  setNpcView: (view) => {
+    const { modal } = get();
+    if (modal?.type === "npc" && modal.view !== view) set({ modal: { ...modal, view } });
+  },
+  setCards: (cards) => set((s) => ({ player: { ...s.player, cards } })),
+  setDocuments: (documents) => set((s) => (s.office ? { office: { ...s.office, documents } } : {})),
+  updateThread: (key, update) => set((s) => ({ chat: { ...s.chat, [key]: update(s.chat[key] ?? EMPTY_THREAD) } })),
+  markCalledOut: (key) => set((s) => ({ calledOut: { ...s.calledOut, [key]: true } })),
 
   updateSettings: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),
   setAutoTier: (auto, settled = false) => set({ quality: { auto, settled } }),

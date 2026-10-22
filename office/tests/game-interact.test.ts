@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type Candidate, requirementReason, sameFocus, selectFocused } from "@/game/interact/select";
+import { type Candidate, meetsRequirement, requirementReason, sameFocus, selectFocused } from "@/game/interact/select";
 
 const chair: Candidate = { id: "chair", kind: "sit", label: "Sit", radius: 1.2, position: [2, 0, 0] };
 const npc: Candidate = { id: "hina", kind: "talk", label: "Talk to Hina", radius: 1.8, position: [0, 0, 1.5] };
@@ -35,7 +35,7 @@ describe("selectFocused", () => {
 
   it("focuses a locked candidate with the reason instead of acting", () => {
     const focus = selectFocused([door], [-1, 0, 1], none);
-    expect(focus).toEqual({ id: "hr-door", kind: "open", label: "Open the HR room", locked: true, reason: "Needs the HR access card" });
+    expect(focus).toEqual({ id: "hr-door", kind: "open", label: "Open the HR room", locked: true, reason: "You need an HR card · Visit Reception" });
     expect(selectFocused([door], [-1, 0, 1], all)?.locked).toBe(false);
   });
 
@@ -56,8 +56,21 @@ describe("selectFocused", () => {
 
 describe("requirementReason", () => {
   it("names the card, and falls back to Locked", () => {
-    expect(requirementReason("card:Finance")).toBe("Needs the Finance access card");
+    expect(requirementReason("card:Finance")).toBe("You need a Finance card · Visit Reception");
+    expect(requirementReason("card:HR")).toBe("You need an HR card · Visit Reception");
+    expect(requirementReason("card:International")).toBe("You need an International card · Visit Reception");
+    expect(requirementReason("card:*")).toBe("You need an access card · Visit Reception");
     expect(requirementReason("quest:rooftop")).toBe("Locked");
+  });
+});
+
+describe("meetsRequirement", () => {
+  it("checks one card, any card, and nothing else", () => {
+    expect(meetsRequirement(["HR"], "card:HR")).toBe(true);
+    expect(meetsRequirement(["IT"], "card:HR")).toBe(false);
+    expect(meetsRequirement(["IT"], "card:*")).toBe(true);
+    expect(meetsRequirement([], "card:*")).toBe(false);
+    expect(meetsRequirement(["HR"], "unlock:rooftop")).toBe(false);
   });
 });
 

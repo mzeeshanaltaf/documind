@@ -13,6 +13,8 @@ export const rig = {
   distance: 5.5,
   /** The player's feet, updated every frame. */
   position: new Vector3(),
+  /** The avatar's heading (0 faces +z), updated every frame (the minimap's arrow). */
+  facing: 0,
   /** Horizontal speed in m/s. */
   speed: 0,
   running: false,
@@ -34,6 +36,7 @@ export const CAMERA_LIMITS = { minDistance: 2.4, maxDistance: 9, minPitch: 0.06,
 export function resetRig(position: readonly [number, number, number], facing: number, pitch = DEFAULT_PITCH) {
   rig.position.set(position[0], position[1], position[2]);
   rig.yaw = facing + Math.PI;
+  rig.facing = facing;
   rig.pitch = pitch;
   rig.speed = 0;
   rig.running = false;

@@ -8,7 +8,7 @@ import { AnimationClip, Euler, Quaternion, QuaternionKeyframeTrack, VectorKeyfra
  * Conventions: the avatar faces +z, its left is +x. A positive x rotation swings a hanging limb
  * backwards (and tilts the torso forwards); a positive z rotation lifts the left arm sideways.
  */
-export const CLIP_NAMES = ["idle", "walk", "run", "sit", "wave", "cheer", "dance"] as const;
+export const CLIP_NAMES = ["idle", "walk", "run", "sit", "wave", "talk", "cheer", "dance"] as const;
 export type ClipName = (typeof CLIP_NAMES)[number];
 
 export const JOINTS = [
@@ -113,6 +113,13 @@ function buildClips(): AnimationClip[] {
       { t: 0.35, armR: [0, 0, -2.55], forearmR: [0, 0, 0.4], head: [0, -0.12, 0.04] },
       { t: 0.7, armR: [0, 0, -2.5], forearmR: [0, 0, -0.45], head: [0, -0.12, 0.04] },
       { t: 1.05, armR: [0, 0, -2.55], forearmR: [0, 0, 0.4], head: [0, -0.12, 0.04] },
+    ]),
+
+    // Explaining something: forearms up, hands moving in small beats, a nod (NPCs, O5).
+    clip("talk", 1.8, [
+      { t: 0, armR: [-0.35, 0, -0.15], forearmR: [-1.1, 0, 0], armL: [-0.15, 0, 0.12], forearmL: [-0.7, 0, 0], head: [0.04, 0.08, 0], torso: [0.02, 0.04, 0] },
+      { t: 0.6, armR: [-0.5, 0, -0.25], forearmR: [-1.35, 0.3, 0], armL: [-0.25, 0, 0.16], forearmL: [-0.9, 0, 0], head: [-0.03, -0.06, 0], torso: [0.02, -0.03, 0] },
+      { t: 1.2, armR: [-0.3, 0, -0.1], forearmR: [-1, -0.2, 0], armL: [-0.35, 0, 0.2], forearmL: [-1.15, 0, 0], head: [0.05, 0.04, 0], torso: [0.02, 0, 0] },
     ]),
 
     clip("cheer", 0.9, [

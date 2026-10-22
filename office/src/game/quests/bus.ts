@@ -11,7 +11,13 @@ export type GameEvent =
   | { type: "city_entered"; location: string; isNight: boolean }
   | { type: "office_entered"; location: string }
   | { type: "travelled"; from: string; to: string }
-  | { type: "room_entered"; room: string }
+  /** `room` is the floor plan's id (`lobby`, `dept:HR`…); `department` is set for department rooms. */
+  | { type: "room_entered"; room: string; department?: string; location?: string }
+  /** An NPC answered (on `done`); `department` is null at reception. */
+  | { type: "question_asked"; npc: string; department: string | null; location: string }
+  /** A cited document appeared under an answer. */
+  | { type: "citation_shown"; doc_code: string | null; department: string | null }
+  | { type: "badge_issued"; departments: string[] }
   | { type: "interacted"; id: string; kind: InteractKind }
   | { type: "interact_blocked"; id: string; requires?: string }
   | { type: "npc_talked"; npc: string }

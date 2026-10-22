@@ -325,3 +325,33 @@
   /* ease-out-quart (an @theme inline token, so not a runtime variable). */
   animation: hud-nudge 220ms cubic-bezier(0.25, 1, 0.5, 1) 1;
 }
+
+/* An NPC's speech bubble while the answer is being looked up: three dots taking turns. */
+@keyframes npc-typing {
+  0%,
+  80%,
+  100% {
+    opacity: 0.3;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+
+.npc-typing-dot {
+  animation: npc-typing 1s ease-in-out infinite;
+}
+
+/* Reception's badge printer: each card slides out of the slot in turn (reduced motion: shown). */
+@keyframes badge-print {
+  from {
+    translate: 0 -105%;
+  }
+  to {
+    translate: 0 0;
+  }
+}
+
+.badge-print {
+  animation: badge-print 520ms cubic-bezier(0.25, 1, 0.5, 1) both;
+}

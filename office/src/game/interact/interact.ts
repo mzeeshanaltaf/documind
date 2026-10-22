@@ -3,15 +3,13 @@ import { audio } from "@/game/audio/audio";
 import { rig } from "@/game/player/rig";
 import { emit } from "@/game/quests/bus";
 import { type GameState, useGame } from "@/game/store/game-store";
-import { type Candidate, sameFocus, selectFocused } from "./select";
+import { type Candidate, meetsRequirement, sameFocus, selectFocused } from "./select";
 
 const world = new Vector3();
 
-/** True when the player meets a requirement such as `card:HR`. */
+/** True when the player meets a requirement such as `card:HR` (`card:*` = any card). */
 export function meets(state: GameState, requirement: string): boolean {
-  const [type, value] = requirement.split(":", 2);
-  if (type === "card") return state.player.cards.includes(value);
-  return false;
+  return meetsRequirement(state.player.cards, requirement);
 }
 
 function* candidates(state: GameState): Generator<Candidate> {

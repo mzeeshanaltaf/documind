@@ -5,11 +5,15 @@ import { Kbd } from "@/components/ui/kbd";
 import { audio } from "@/game/audio/audio";
 import { useGame } from "@/game/store/game-store";
 import { cn } from "@/lib/utils";
+import { NpcDialogue } from "@/components/dialogue/npc-dialogue";
 import { ArrivalBanner } from "./arrival-banner";
 import { AvatarEditor } from "./avatar-editor";
+import { CardWallet } from "./card-wallet";
 import { DialoguePanel } from "./dialogue-panel";
 import { GameMenu } from "./game-menu";
 import { InteractionPrompt } from "./interaction-prompt";
+import { Minimap } from "./minimap";
+import { QuotaMeter } from "./quota-meter";
 import { SignDialog } from "./sign-dialog";
 import { TouchControls } from "./touch-controls";
 import { TravelDialog } from "./travel-dialog";
@@ -17,9 +21,10 @@ import { TravelDialog } from "./travel-dialog";
 const panel = "rounded-lg bg-background/92 shadow-sm ring-1 ring-foreground/10";
 
 /**
- * The DOM HUD over the canvas. Corners: location (top left), quota slot + menu (top right,
- * quota arrives in O5), minimap slot (bottom right, O5); the interaction prompt sits bottom
- * centre, with the arrival banner (O4) under the top row. The layer itself ignores the pointer so the canvas still gets drags and wheel events.
+ * The DOM HUD over the canvas. Corners: location (top left), the quota meter + menu (top
+ * right), the card wallet (bottom left), the office minimap (bottom right); the interaction
+ * prompt sits bottom centre, with the arrival banner (O4) under the top row. The layer itself
+ * ignores the pointer so the canvas still gets drags and wheel events.
  */
 export function Hud() {
   const location = useGame((s) => s.world.location);
@@ -49,7 +54,7 @@ export function Hud() {
             </ol>
           </nav>
           <div className="flex shrink-0 items-center gap-2">
-            <div data-hud-slot="quota" />
+            <QuotaMeter />
             <button
               type="button"
               onClick={() => {
@@ -66,11 +71,15 @@ export function Hud() {
         </div>
 
         <div className="flex items-end justify-between gap-3">
-          <div className="size-0" />
+          <div className="flex min-w-0 pointer-coarse:hidden">
+            <CardWallet />
+          </div>
           <div className="flex min-w-0 flex-1 justify-center pb-1 pointer-coarse:pb-36">
             <InteractionPrompt />
           </div>
-          <div data-hud-slot="minimap" />
+          <div className="flex justify-end pointer-coarse:hidden">
+            <Minimap />
+          </div>
         </div>
       </div>
 
@@ -80,6 +89,7 @@ export function Hud() {
       <AvatarEditor />
       <SignDialog />
       <DialoguePanel />
+      <NpcDialogue />
       <TravelDialog />
     </>
   );

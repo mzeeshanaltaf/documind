@@ -16,8 +16,8 @@ export const INK = {
   highlightInk: "#3a3523",
 };
 
-type Fonts = { serif: (size: number, weight?: number) => string; sans: (size: number, weight?: number) => string };
-type Painter = (context: CanvasRenderingContext2D, fonts: Fonts, size: { width: number; height: number }) => void;
+export type Fonts = { serif: (size: number, weight?: number) => string; sans: (size: number, weight?: number) => string };
+export type Painter = (context: CanvasRenderingContext2D, fonts: Fonts, size: { width: number; height: number }) => void;
 
 function createTexture(width: number, height: number, paint: Painter): CanvasTexture {
   const canvas = document.createElement("canvas");
@@ -56,7 +56,7 @@ export function useCanvasTexture(width: number, height: number, paint: Painter, 
 }
 
 /** The largest font size (down from `size`) at which `text` fits in `width`. */
-function fit(context: CanvasRenderingContext2D, text: string, font: (size: number) => string, size: number, width: number) {
+export function fit(context: CanvasRenderingContext2D, text: string, font: (size: number) => string, size: number, width: number) {
   let current = size;
   context.font = font(current);
   while (current > 12 && context.measureText(text).width > width) {

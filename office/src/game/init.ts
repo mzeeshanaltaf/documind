@@ -13,6 +13,8 @@ export type GameEntry = {
   location: Location;
   /** The org and office location; omitted by the dev sandbox. */
   office?: OfficeContext;
+  /** Access cards already held for this org (`progress.cards`). */
+  cards?: string[];
 };
 
 function media(query: string): boolean {
@@ -24,7 +26,7 @@ function media(query: string): boolean {
  * visit in the same tab must not inherit the first one's state). Browser-only: it reads
  * localStorage, media queries and device hints.
  */
-export function initGame({ player, scene, spawn, location, office }: GameEntry) {
+export function initGame({ player, scene, spawn, location, office, cards }: GameEntry) {
   const nav = navigator as Navigator & { deviceMemory?: number };
   useGame.setState({
     world: { scene, spawn, epoch: 0, phase: "loading", pending: null, location },
@@ -36,7 +38,7 @@ export function initGame({ player, scene, spawn, location, office }: GameEntry) 
       position: spawn.position,
       pose: "stand",
       seat: null,
-      cards: [],
+      cards: cards ?? [],
     },
     interactables: new Map(),
     focus: null,
@@ -55,5 +57,7 @@ export function initGame({ player, scene, spawn, location, office }: GameEntry) 
     osReducedMotion: media("(prefers-reduced-motion: reduce)"),
     clockHour: null,
     sky: null,
+    chat: {},
+    calledOut: {},
   });
 }

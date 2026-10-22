@@ -6,6 +6,7 @@ import type { NpcTurn } from "@/game/chat/sse";
 import type { Focus, InteractKind } from "@/game/interact/select";
 import { type AvatarColors, DEFAULT_AVATAR } from "@/game/player/avatar-style";
 import { DEFAULT_SETTINGS, reducedMotion, type Settings } from "@/game/settings";
+import { type SeenSlides, wrapSlide } from "@/game/world/office/presentation/slides";
 import type { DocumentOut, Me } from "@/lib/api-types";
 import type { Location as Place } from "@/lib/locations";
 
@@ -18,7 +19,11 @@ export type SceneId = "city" | "office" | "rooftop" | "sandbox";
 export type Vec3 = [number, number, number];
 /** `yaw` is the avatar's heading (0 faces +z); `pitch` optionally starts the camera lower or higher. */
 export type Spawn = { position: Vec3; yaw: number; pitch?: number };
-export type Seat = { id: string; position: Vec3; yaw: number };
+/**
+ * `view` (auditorium seats, O7): the point the camera frames while seated there (the screen);
+ * sideways input pages the slides instead of standing up.
+ */
+export type Seat = { id: string; position: Vec3; yaw: number; view?: Vec3 };
 
 /**
  * Transition phases: `loading` (curtain closed, the scene suspends) → `in` (curtain fading out)
@@ -48,7 +53,9 @@ export type Modal =
   /** A conversation with a DocuMind-backed NPC (O5): its menu, the chat, or the card picker. */
   | { type: "npc"; npc: string; view: NpcView }
   /** A Global Hub kiosk asking to travel to another office (O4). */
-  | { type: "travel"; locationId: string; name: string; detail: string };
+  | { type: "travel"; locationId: string; name: string; detail: string }
+  /** The presentation room's current slide as a readable DOM page (O7 › "View full screen"). */
+  | { type: "slides" };
 
 export type NpcView = "menu" | "chat" | "cards";
 
@@ -78,6 +85,13 @@ export type ViewerRequest = {
   department: string | null;
 };
 export type Viewer = { open: boolean; request: (ViewerRequest & { nonce: number }) | null };
+
+/**
+ * The presentation room's running loop (O7): the slide on screen (an index into the programme,
+ * `count` long), when it came up, and the slides seen this visit per deck.
+ */
+export type Presentation = { slide: number; count: number; shownAt: number; seen: SeenSlides; muted: boolean };
+export const INITIAL_PRESENTATION: Presentation = { slide: 0, count: 0, shownAt: 0, seen: {}, muted: true };
 
 export type InteractableEntry = {
   id: string;
@@ -130,6 +144,7 @@ export type GameState = {
    */
   scopeCountry: Record<string, string | null>;
   viewer: Viewer;
+  presentation: Presentation;
   /** NPCs that have called out to the player this visit (`{location}:{npcId}`). */
   calledOut: Record<string, true>;
   /** Development only: the city's local hour (0–24) instead of the real time; null = real. */
@@ -164,6 +179,14 @@ export type GameState = {
   openViewer: (request: ViewerRequest) => void;
   setViewerOpen: (open: boolean) => void;
   markCalledOut: (key: string) => void;
+  /** The programme's length (it changes when a generated deck's summary arrives). */
+  setPresentationCount: (count: number) => void;
+  /** Shows a slide (wrapped into the programme). */
+  showSlide: (index: number) => void;
+  /** Pages the programme: +1 next, -1 previous (wraps round). */
+  stepSlide: (delta: number) => void;
+  setSeenSlides: (seen: SeenSlides) => void;
+  setVideoMuted: (muted: boolean) => void;
   closeModal: () => void;
   updateSettings: (patch: Partial<Settings>) => void;
   setAutoTier: (tier: Tier, settled?: boolean) => void;
@@ -206,6 +229,7 @@ export const useGame = create<GameState>()((set, get) => ({
   chat: {},
   scopeCountry: {},
   viewer: { open: false, request: null },
+  presentation: INITIAL_PRESENTATION,
   calledOut: {},
 
   transitionTo: (scene, spawn) => {
@@ -256,6 +280,19 @@ export const useGame = create<GameState>()((set, get) => ({
   openViewer: (request) => set((s) => ({ viewer: { open: true, request: { ...request, nonce: (s.viewer.request?.nonce ?? 0) + 1 } } })),
   setViewerOpen: (open) => set((s) => (s.viewer.open === open ? {} : { viewer: { ...s.viewer, open } })),
   markCalledOut: (key) => set((s) => ({ calledOut: { ...s.calledOut, [key]: true } })),
+  setPresentationCount: (count) => {
+    const { presentation } = get();
+    if (presentation.count === count) return;
+    set({ presentation: { ...presentation, count, slide: wrapSlide(presentation.slide, count) } });
+  },
+  showSlide: (index) => {
+    const { presentation } = get();
+    const slide = wrapSlide(index, presentation.count);
+    if (slide !== presentation.slide) set({ presentation: { ...presentation, slide, shownAt: Date.now() } });
+  },
+  stepSlide: (delta) => get().showSlide(get().presentation.slide + delta),
+  setSeenSlides: (seen) => set((s) => ({ presentation: { ...s.presentation, seen } })),
+  setVideoMuted: (muted) => set((s) => ({ presentation: { ...s.presentation, muted } })),
 
   updateSettings: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),
   setAutoTier: (auto, settled = false) => set({ quality: { auto, settled } }),

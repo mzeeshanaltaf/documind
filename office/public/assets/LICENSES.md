@@ -51,6 +51,15 @@ Rasterized with `scripts/make-earth-mask.mjs` (added 2026-10-22, phase O3); the 
 top has the exact commands. Natural Earth: "All versions of Natural Earth raster + vector map
 data found on this website are in the public domain."
 
+## Video (`public/video/`, outside `assets/`)
+
+| File | Source | Licence |
+|---|---|---|
+| `documind-explainer.mp4`, `documind-explainer-poster.jpg` | DocuMind's own hero explainer, copied from `web/public/` (rendered from `video/src/explainer.html`) | Made for this project |
+| `documind-explainer.vtt` | Captions describing the silent explainer's on-screen text, written for the office (phase O7) | Made for this project |
+
+Copied 2026-10-22 (phase O7); re-copy by hand when the explainer is re-rendered (office/CLAUDE.md).
+
 ## Models
 
 None downloaded yet. The avatar (`src/game/player/Avatar.tsx`) is built in code from primitives,

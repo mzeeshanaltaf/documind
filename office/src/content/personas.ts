@@ -220,6 +220,43 @@ export function expertGreeting(persona: Persona, place: PlaceRef, department: st
   return `Hi, I'm ${firstName(persona)}, I look after ${theme.area} ${team}. Ask me anything about ${theme.topics}.`;
 }
 
+// --- The presenter (O7) ---------------------------------------------------------------------
+
+export const PRESENTER_NPC = "presenter";
+
+const PRESENTERS: Record<string, ReceptionistSeed> = {
+  simtora: {
+    name: "Noor Abbasi",
+    colors: { skin: "#c68a5e", hair: "#1d1a19", top: "#1a5d48", bottom: "#222326", shoes: "#26292c", badge: "#e7c74a" },
+  },
+};
+
+const GENERIC_PRESENTER: ReceptionistSeed = {
+  name: "Sam Okoro",
+  colors: { skin: "#7a4a2c", hair: "#1d1a19", top: "#1a5d48", bottom: "#3a4048", shoes: "#26292c", badge: "#e7c74a" },
+};
+
+/** Whoever runs the presentation room: the org's own, or the generic one. Holds the clicker. */
+export function presenterFor(orgSlug: string): Persona {
+  const seed = PRESENTERS[orgSlug] ?? GENERIC_PRESENTER;
+  return { id: PRESENTER_NPC, name: seed.name, role: "Presenter", colors: seed.colors, prop: "clipboard" };
+}
+
+/** The presenter's static greeting; `hasOverview` = the org has a searchable overview document. */
+export function presenterGreeting(persona: Persona, orgName: string, hasOverview: boolean): string {
+  const org = shortOrgName(orgName);
+  return hasOverview
+    ? `Hi, I'm ${firstName(persona)}, and this is the ${org} presentation. Ask me anything about the company: its story, offices, products or people. I answer from the company overview.`
+    : `Hi, I'm ${firstName(persona)}, and this is the ${org} presentation. There's no company overview document yet, so I answer from all of ${org}'s documents.`;
+}
+
+/** Suggested questions for the presenter (phase O7 › Presenter Q&A). */
+export function presenterSuggestions(orgSlug: string, orgName: string): string[] {
+  if (orgSlug === "simtora") return ["When was Simtora founded?", "Where are the R&D centres?", "What are the company values?"];
+  const org = shortOrgName(orgName);
+  return [`What does ${org} do?`, `Where are ${org}'s offices?`, "What are the company values?"];
+}
+
 /** Suggested first questions at reception, flavoured by the office's country. */
 export function receptionSuggestions(place: PlaceRef): string[] {
   if (!place.country) {

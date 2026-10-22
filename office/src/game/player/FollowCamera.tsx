@@ -3,6 +3,7 @@ import { useRapier } from "@react-three/rapier";
 import { useEffect, useRef } from "react";
 import { Vector3 } from "three";
 import { selectReducedMotion, useGame } from "@/game/store/game-store";
+import { seatCamera } from "@/game/world/office/presentation/layout";
 import { CAMERA_LIMITS, rig } from "./rig";
 
 /** Where the camera looks: about head height. */
@@ -18,7 +19,8 @@ const ease = (rate: number, delta: number) => 1 - Math.exp(-rate * delta);
 /**
  * Third-person follow camera, spring-damped. Right-drag (or a touch drag on the canvas) orbits,
  * the wheel zooms within limits, and a ray from the player's head pulls the camera in front of
- * any wall behind it. While `cameraFocus` is set (a conversation) it eases to frame both.
+ * any wall behind it. While `cameraFocus` is set (a conversation) it eases to frame both; on a
+ * seat with a `view` (the auditorium) it eases to a shot of that point instead.
  */
 export function FollowCamera() {
   const gl = useThree((state) => state.gl);
@@ -26,7 +28,18 @@ export function FollowCamera() {
   const { world, rapier } = useRapier();
   // One ray, re-aimed every frame.
   const ray = useRef<InstanceType<typeof rapier.Ray> | null>(null);
-  const smooth = useRef({ target: new Vector3(), goal: new Vector3(), dir: new Vector3(), distance: rig.distance, ready: false });
+  const smooth = useRef({
+    target: new Vector3(),
+    goal: new Vector3(),
+    dir: new Vector3(),
+    distance: rig.distance,
+    ready: false,
+    /** The seated shot (O7): where the camera sits, what it looks at, and how far it's blended in. */
+    eye: new Vector3(),
+    look: new Vector3(),
+    blend: new Vector3(),
+    seated: 0,
+  });
 
   useEffect(() => {
     const element = gl.domElement;
@@ -126,7 +139,24 @@ export function FollowCamera() {
     camera.position.copy(view.target).addScaledVector(view.dir, view.distance);
     // A small bob while running, unless motion is reduced.
     if (rig.running && !selectReducedMotion(s)) camera.position.y += Math.sin(state.clock.elapsedTime * 13) * 0.03;
-    camera.lookAt(view.target);
+
+    // An auditorium seat (O7): ease to a shot framing the screen, and back out on standing up.
+    const seat = s.player.pose === "sit" ? s.player.seat : null;
+    if (seat?.view) {
+      const [ex, ey, ez] = seatCamera(seat, seat.view);
+      view.eye.set(ex, ey, ez);
+      view.look.set(seat.view[0], seat.view[1], seat.view[2]);
+    }
+    view.seated += ((seat?.view ? 1 : 0) - view.seated) * ease(selectReducedMotion(s) ? 30 : 3.5, delta);
+    if (view.seated > 0.002) {
+      camera.position.lerp(view.eye, view.seated);
+      view.blend.copy(view.target).lerp(view.look, view.seated);
+      camera.lookAt(view.blend);
+      // The camera passes through the seated avatar's head on its way in.
+      if (view.seated > 0.3) rig.cameraTooClose = true;
+    } else {
+      camera.lookAt(view.target);
+    }
   });
 
   return null;

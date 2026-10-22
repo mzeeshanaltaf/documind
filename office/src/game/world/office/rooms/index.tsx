@@ -10,7 +10,8 @@ import { DepartmentRoom } from "./DepartmentRoom";
 
 /**
  * The rooms beyond the lobby: a furnished department room with its expert per department
- * (phase O6), and notices in the presentation room (O7) and the play area (O8) until they open.
+ * (phase O6), and a notice in the play area until it opens (O8). The presentation room is its own
+ * module (`../presentation`, O7).
  */
 export function Rooms({ plan }: { plan: Floorplan }) {
   const orgSlug = useGame((s) => s.office?.org.slug ?? "");
@@ -39,15 +40,14 @@ export function Rooms({ plan }: { plan: Floorplan }) {
 type Notice = { title: string; lines: string[]; accent: string };
 
 function noticeFor(room: Room): Notice | null {
-  if (room.kind === "presentation") return { title: "Presentation room", lines: ["Talks about the company,", "opening soon."], accent: INK.green };
   if (room.kind === "play") return { title: "Play area", lines: ["Games and a leaderboard,", "opening soon."], accent: INK.green };
   return null;
 }
 
-/** The far wall of a side room (away from its door on the lobby). */
+/** The far wall of the play area (away from its door on the lobby). */
 function farWall(room: Room): { x: number; z: number; yaw: number } {
-  const { x0, x1 } = rectEdges(room.rect);
-  return room.kind === "presentation" ? { x: x0 + 0.12, z: room.rect.z, yaw: Math.PI / 2 } : { x: x1 - 0.12, z: room.rect.z, yaw: -Math.PI / 2 };
+  const { x1 } = rectEdges(room.rect);
+  return { x: x1 - 0.12, z: room.rect.z, yaw: -Math.PI / 2 };
 }
 
 function RoomNotice({ room, notice }: { room: Room; notice: Notice }) {

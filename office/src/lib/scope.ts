@@ -11,7 +11,7 @@ import { type DocumentOut, isSearchable } from "./api-types";
  * 3. A department in Worldwide: all of that department's documents.
  * 4. Reception: rule 2 without the department filter; Worldwide reception sends `null`, so
  *    DocuMind's router picks departments and jurisdictions itself.
- * 5. The presenter (O7): the `overview` documents.
+ * 5. The presenter (O7): the `overview` documents (none: reception's set, as a fallback).
  * 6. A rule that matches nothing falls back to the unfiltered department set.
  */
 export const MAX_SCOPE = 50;
@@ -64,7 +64,9 @@ export function scopeFor(documents: ScopeDocument[], { department, country, over
 
   if (overviewOnly) {
     const picked = searchable.filter((d) => d.doc_type === "overview");
-    return finish(picked, country, labelOf(["Overview"], picked.length), false);
+    if (picked.length > 0) return finish(picked, country, labelOf(["Overview"], picked.length), false);
+    // No overview: what reception would see in this office (Worldwide: unscoped).
+    return { ...scopeFor(documents, { country, placeName }), fallback: true };
   }
 
   if (!department && !country) {

@@ -39,7 +39,7 @@ function signFor(door: Door, office: Pick<OfficeContext, "org" | "place"> | null
   }
   if (door.kind === "security") return { title: "Departments", line: "Access card required", accent: INK.green, label: "Department wing" };
   if (door.kind === "lift") return { title: "Rooftop", line: "Closed for now", accent: OFFICE.metal, label: "Rooftop lift" };
-  if (door.to === "presentation") return { title: "Presentation room", line: "Opening soon", accent: INK.green, label: "Presentation room" };
+  if (door.to === "presentation") return { title: "Presentation room", line: "Now showing · Take a seat", accent: INK.green, label: "Presentation room" };
   if (door.to === "play") return { title: "Play area", line: "Opening soon", accent: INK.green, label: "Play area" };
   return { title: "Street", line: "Exit", accent: INK.green, label: "Street" };
 }

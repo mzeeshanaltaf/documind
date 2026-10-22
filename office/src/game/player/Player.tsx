@@ -127,9 +127,11 @@ export function Player() {
     const run = !blocked && (s.input.keyboardRun || s.input.touchRun);
     const moving = move.x !== 0 || move.y !== 0;
 
-    // Seated: snap onto the seat once; any movement stands up in front of it.
+    // Seated: snap onto the seat once; any movement stands up in front of it (on an auditorium
+    // seat only forward/back does: sideways is the slide changer, and touch may drift sideways).
     const seat = s.player.pose === "sit" ? s.player.seat : null;
-    if (seat && !moving) {
+    const leaving = seat?.view ? move.y !== 0 : moving;
+    if (seat && !leaving) {
       if (state.seated?.id !== seat.id) {
         state.seated = seat;
         state.vy = 0;

@@ -1,5 +1,6 @@
 import type { InteractKind } from "@/game/interact/select";
 import type { SceneId } from "@/game/store/game-store";
+import type { DeckId } from "@/game/world/office/presentation/slides";
 
 /**
  * The game's typed event bus. Interactions and scenes emit here; the quest engine (O9) and
@@ -24,6 +25,8 @@ export type GameEvent =
   | { type: "interact_blocked"; id: string; requires?: string }
   | { type: "npc_talked"; npc: string }
   | { type: "sat"; seat: string }
+  /** Every slide of a presentation-room deck has been seen this visit (O7; "Orientation", O9). */
+  | { type: "presentation_watched"; deck: DeckId; location?: string }
   | { type: "sign_read"; sign: string }
   | { type: "avatar_saved" }
   | { type: "hotkey"; action: "journal" | "map" };

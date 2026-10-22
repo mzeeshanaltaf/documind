@@ -7,7 +7,8 @@ import { type Action, actionForCode, HELD_ACTIONS, moveFromActions, shouldIgnore
 /**
  * The game's keyboard listener. Movement keys are held state (written to the store only when the
  * set of held keys changes); E, J, M and Esc fire once per press. Everything is ignored while a
- * text field has focus or a dialog is open; the dialog handles its own Esc.
+ * text field has focus or a dialog is open; the dialog handles its own Esc. While seated, E and
+ * Esc stand up, and on an auditorium seat ←/→ (A/D) change the slide instead of moving.
  */
 export function useKeyboardInput() {
   useEffect(() => {
@@ -24,6 +25,19 @@ export function useKeyboardInput() {
       if (!action || event.ctrlKey || event.metaKey || event.altKey) return;
       const state = useGame.getState();
       if (shouldIgnoreKeys(document.activeElement, state.modal !== null)) return;
+
+      // Seated: E or Esc stands up; on an auditorium seat ←/→ page the slides (O7).
+      const seat = state.player.pose === "sit" ? state.player.seat : null;
+      if (seat && (action === "interact" || action === "menu")) {
+        event.preventDefault();
+        if (!event.repeat) state.stand();
+        return;
+      }
+      if (seat?.view && (action === "left" || action === "right")) {
+        event.preventDefault();
+        if (!event.repeat) state.stepSlide(action === "right" ? 1 : -1);
+        return;
+      }
 
       if (HELD_ACTIONS.has(action)) {
         // Arrow keys would otherwise scroll or move focus.

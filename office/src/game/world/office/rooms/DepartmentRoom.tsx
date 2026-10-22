@@ -1,17 +1,16 @@
-import { useFrame } from "@react-three/fiber";
 import { CuboidCollider, RigidBody } from "@react-three/rapier";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { firstName, type Persona } from "@/content/personas";
 import type { RoomTheme } from "@/content/room-themes";
 import { Npc } from "@/game/npc/Npc";
 import { useAnswerGesture, useNpcSpeech } from "@/game/npc/use-speech";
-import { rig } from "@/game/player/rig";
 import { emit } from "@/game/quests/bus";
 import { threadKey, useGame } from "@/game/store/game-store";
 import { deriveLocations, type Location } from "@/lib/locations";
 import { mergeVertexColored } from "../../city/merge";
 import { SAMPLE_CITY } from "../../city/sample";
 import { type Floorplan, type Room, roomFrame, type Spot, toWorld } from "../floorplan";
+import { useNear } from "../use-near";
 import { ServerLeds, ZoneClocks } from "./animated";
 import { roomDecor } from "./decor";
 import { clockOffices, type PanelContext, RoomPanels } from "./panels";
@@ -27,25 +26,6 @@ type Props = { room: Room; theme: RoomTheme; persona: Persona; plan: Floorplan; 
 /** Decor in view within this distance of the room's centre (hidden again past `+2`). */
 const DECOR_RANGE = 14;
 const NPC_RANGE = 11;
-
-/** True while the player is within `range` of (x, z), with 2 m of hysteresis. Checked at 4 Hz. */
-function useNear(x: number, z: number, range: number): boolean {
-  const [near, setNear] = useState(false);
-  const state = useRef({ near: false, wait: 0 });
-  useFrame((_, delta) => {
-    const s = state.current;
-    s.wait -= delta;
-    if (s.wait > 0) return;
-    s.wait = 0.25;
-    const distance = Math.hypot(rig.position.x - x, rig.position.z - z);
-    const next = s.near ? distance < range + 2 : distance < range;
-    if (next !== s.near) {
-      s.near = next;
-      setNear(next);
-    }
-  });
-  return near;
-}
 
 export function DepartmentRoom({ room, theme, persona, plan, spot }: Props) {
   const office = useGame((s) => s.office);

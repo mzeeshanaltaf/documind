@@ -84,11 +84,7 @@ function Panel({ npc, view, profile, office, onClose }: PanelProps) {
       </header>
 
       {view === "chat" && profile.countries.length > 0 && <CountryChips npc={npc} profile={profile} office={office} />}
-      {view === "chat" && profile.scope.fallback && (
-        <p className="text-xs text-muted-foreground">
-          No local documents for this office, so I&apos;m answering from every {profile.department ? `${profile.department} ` : ""}document.
-        </p>
-      )}
+      {view === "chat" && profile.scope.fallback && <p className="text-xs text-muted-foreground">{profile.fallbackNote}</p>}
 
       {view === "menu" && <ReceptionMenu profile={profile} onPick={setView} />}
       {view === "chat" && <NpcChat npc={npc} profile={profile} office={office} />}

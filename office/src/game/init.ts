@@ -4,7 +4,7 @@ import { NO_MOVE } from "./input/bindings";
 import { readMirror } from "./persist";
 import { resolveAvatar } from "./player/avatar-style";
 import { bootSettings, parseMirror } from "./settings";
-import { type Location, type OfficeContext, type SceneId, type Spawn, useGame } from "./store/game-store";
+import { INITIAL_PRESENTATION, type Location, type OfficeContext, type SceneId, type Spawn, useGame } from "./store/game-store";
 
 export type GameEntry = {
   player: Player;
@@ -60,6 +60,7 @@ export function initGame({ player, scene, spawn, location, office, cards }: Game
     chat: {},
     scopeCountry: {},
     viewer: { open: false, request: null },
+    presentation: INITIAL_PRESENTATION,
     calledOut: {},
   });
 }

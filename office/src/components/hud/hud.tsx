@@ -13,8 +13,10 @@ import { DialoguePanel } from "./dialogue-panel";
 import { GameMenu } from "./game-menu";
 import { InteractionPrompt } from "./interaction-prompt";
 import { Minimap } from "./minimap";
+import { PresentationBar } from "./presentation-bar";
 import { QuotaMeter } from "./quota-meter";
 import { SignDialog } from "./sign-dialog";
+import { SlidesDialog } from "./slides-dialog";
 import { TouchControls } from "./touch-controls";
 import { TravelDialog } from "./travel-dialog";
 
@@ -74,8 +76,9 @@ export function Hud() {
           <div className="flex min-w-0 pointer-coarse:hidden">
             <CardWallet />
           </div>
-          <div className="flex min-w-0 flex-1 justify-center pb-1 pointer-coarse:pb-36">
+          <div className="flex min-w-0 flex-1 flex-col items-center gap-2 pb-1 pointer-coarse:pb-36">
             <InteractionPrompt />
+            <PresentationBar />
           </div>
           <div className="flex justify-end pointer-coarse:hidden">
             <Minimap />
@@ -91,6 +94,7 @@ export function Hud() {
       <DialoguePanel />
       <NpcDialogue />
       <TravelDialog />
+      <SlidesDialog />
     </>
   );
 }

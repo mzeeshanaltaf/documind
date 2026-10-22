@@ -1,0 +1,28 @@
+WEBVTT
+
+NOTE
+The explainer has no sound. These cues describe its on-screen text, so the
+full-screen slide (a <video controls>) can show them as captions. Timings
+follow web/public/documind-explainer.mp4 (18 s); re-check them if the video
+is re-rendered.
+
+00:00.000 --> 00:03.000
+Upload: a policy PDF is added to the organization's documents.
+
+00:03.000 --> 00:06.000
+Indexing: DocuMind reads every page.
+
+00:06.000 --> 00:08.500
+Parsed (sections and pages kept), embedded (meaning, not just keywords), ready for keyword and vector search.
+
+00:08.500 --> 00:11.500
+Ask: "Can I carry over unused leave in Germany?"
+
+00:11.500 --> 00:13.500
+The HR agent answers for Germany: yes, until 31 March of the following year, with two sources.
+
+00:13.500 --> 00:15.500
+Source: the Germany HR manual opens at page 16, with the passage highlighted.
+
+00:15.500 --> 00:18.000
+Upload, index, ask, cite.

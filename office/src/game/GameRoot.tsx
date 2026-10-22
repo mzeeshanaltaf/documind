@@ -12,6 +12,7 @@ import { flushSettings, queueSettingsSave } from "./persist";
 import { isFirstLook } from "./player/avatar-style";
 import { rig } from "./player/rig";
 import { startStats } from "./progress/stats";
+import { bus, type GameEvent } from "./quests/bus";
 import { changedSettings } from "./settings";
 import { selectReducedMotion, useGame } from "./store/game-store";
 
@@ -145,9 +146,11 @@ declare global {
       getState: typeof useGame.getState;
       setState: typeof useGame.setState;
       memory: () => { geometries: number; textures: number } | null;
-      render: () => { calls: number; triangles: number; pixelRatio: number; shadows: boolean } | null;
+      render: () => { calls: number; triangles: number; pixelRatio: number; shadows: boolean; exposure: number } | null;
       /** The camera orbit and the player's feet (screenshots aim the camera through it). */
       rig: typeof rig;
+      /** Every bus event since the game mounted (the last 200), oldest first. */
+      events: GameEvent[];
     };
   }
 }
@@ -155,7 +158,13 @@ declare global {
 function useDevHandle() {
   useEffect(() => {
     if (process.env.NODE_ENV === "production") return;
+    const events: GameEvent[] = [];
+    const unsubscribe = bus.onAny((event) => {
+      events.push(event);
+      if (events.length > 200) events.shift();
+    });
     window.__office = {
+      events,
       getState: useGame.getState,
       setState: useGame.setState,
       memory: () => (renderer.gl ? { ...renderer.gl.info.memory } : null),
@@ -163,11 +172,12 @@ function useDevHandle() {
         const gl = renderer.gl;
         if (!gl) return null;
         const { calls, triangles } = gl.info.render;
-        return { calls, triangles, pixelRatio: gl.getPixelRatio(), shadows: gl.shadowMap.enabled };
+        return { calls, triangles, pixelRatio: gl.getPixelRatio(), shadows: gl.shadowMap.enabled, exposure: gl.toneMappingExposure };
       },
       rig,
     };
     return () => {
+      unsubscribe();
       delete window.__office;
     };
   }, []);

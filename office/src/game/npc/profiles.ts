@@ -3,6 +3,10 @@ import {
   expertFor,
   expertGreeting,
   type Persona,
+  PRESENTER_NPC,
+  presenterFor,
+  presenterGreeting,
+  presenterSuggestions,
   RECEPTION_NPC,
   receptionGreeting,
   receptionistFor,
@@ -34,6 +38,8 @@ export type NpcProfile = {
    */
   countries: string[];
   country: string | null;
+  /** What the dialogue says when `scope.fallback` is set. */
+  fallbackNote: string;
 };
 
 /**
@@ -51,6 +57,8 @@ export function scopeCountries(documents: ScopeDocument[], department: string): 
   return [...new Set([...supplements, ...others].map((d) => d.jurisdiction as string))];
 }
 
+const NO_LOCAL = "No local documents for this office, so I'm answering from every document.";
+
 /** `country` is the Worldwide chip for this NPC's thread (ignored in a country office). */
 export function npcProfile(npc: string, office: OfficeContext | null, country: string | null = null): NpcProfile | null {
   if (!office) return null;
@@ -66,6 +74,22 @@ export function npcProfile(npc: string, office: OfficeContext | null, country: s
       menu: true,
       countries: [],
       country: null,
+      fallbackNote: NO_LOCAL,
+    };
+  }
+  if (npc === PRESENTER_NPC) {
+    const persona = presenterFor(org.slug);
+    const scope = scopeFor(documents, { country: place.country, overviewOnly: true, placeName: place.name });
+    return {
+      persona,
+      department: null,
+      greeting: presenterGreeting(persona, org.name, !scope.fallback),
+      suggestions: presenterSuggestions(org.slug, org.name),
+      scope,
+      menu: false,
+      countries: [],
+      country: null,
+      fallbackNote: "There's no company overview document, so I'm answering from this office's documents.",
     };
   }
   if (npc.startsWith(EXPERT_PREFIX)) {
@@ -84,6 +108,7 @@ export function npcProfile(npc: string, office: OfficeContext | null, country: s
       menu: false,
       countries,
       country: chip,
+      fallbackNote: `No local documents for this office, so I'm answering from every ${department} document.`,
     };
   }
   return null;

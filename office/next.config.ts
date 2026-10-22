@@ -19,6 +19,8 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["pg"],
   cacheComponents: true,
   partialPrefetching: true,
+  // Set by `next upgrade --agent=security` (16.4.0 → 16.4.2, 2026-10-22).
+  experimental: { agentUpgrade: "security" },
   turbopack: {
     rules: {
       "*.css": {

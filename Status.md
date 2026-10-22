@@ -11,7 +11,7 @@
 ## Current phase
 Phases 1–10 are built, deployed and owner-checked. The evaluation harness (below) is **code-complete with E9 — Human review & judge calibration** (2026-10-21, deployed `efbdc8e`); the judged parts of E4/E7/E8 and the first calibration grades wait for the Anthropic spend limit (access back 2026-11-01).
 
-**DocuMind Office** (3D virtual office, `office/`) was planned 2026-10-22; **O1 is done** (2026-10-22, local only) and **O2 is next** (see the *DocuMind Office* section below).
+**DocuMind Office** (3D virtual office, `office/`) was planned 2026-10-22; **O1 and O2 are done** (2026-10-22, local only) and **O3 is next** (see the *DocuMind Office* section below).
 
 > ✅ The Privacy Policy (`/privacy`) has been legally reviewed (owner-confirmed 2026-10-20). Re-review it if the app's data handling changes.
 
@@ -99,7 +99,7 @@ Docs: overview in [docs/plan/office/README.md](docs/plan/office/README.md), guid
 | # | Phase | Doc | Status |
 |---|---|---|---|
 | O1 | Scaffold, auth, BFF & DB | [phase-O1](docs/plan/office/phase-O1-scaffold-auth-bff-db.md) | ✅ Done (local; deploy is O10) |
-| O2 | Engine core | [phase-O2](docs/plan/office/phase-O2-engine-core.md) | ⬜ Not started |
+| O2 | Engine core | [phase-O2](docs/plan/office/phase-O2-engine-core.md) | ✅ Done (local; low-tier 60 fps on an iGPU still to check by hand) |
 | O3 | Org & location selection | [phase-O3](docs/plan/office/phase-O3-org-and-location-selection.md) | ⬜ Not started |
 | O4 | City scenes | [phase-O4](docs/plan/office/phase-O4-city-scenes.md) | ⬜ Not started |
 | O5 | Lobby, reception, cards & NPC chat | [phase-O5](docs/plan/office/phase-O5-lobby-reception-cards-chat.md) | ⬜ Not started |
@@ -328,7 +328,6 @@ Docs: overview in [docs/plan/office/README.md](docs/plan/office/README.md), guid
 - **Eval env:** eval-web build-time = `NEXT_PUBLIC_APP_URL` (DocuMind's URL) only; runtime `DATABASE_URL` (prod, schema `documind`), `EVAL_AUTH_SCHEMA=documind`, `EVAL_BETTER_AUTH_SECRET`, `EVAL_BETTER_AUTH_URL`/`EVAL_PUBLIC_URL`, `EVAL_API_URL=http://documind-eval-api:8100`, `EVAL_API_KEY`, `GOOGLE_*` (the prod client). eval-api runtime: `EVAL_DATABASE_URL` (schema `documind_eval`), `EVAL_AUTH_SCHEMA`, `EVAL_API_KEY`, `DOCUMIND_API_URL=http://documind-api:8000`, `DOCUMIND_API_KEY` (prod), `ANTHROPIC_API_KEY`, `EVAL_SERVICE_USER_ID`/`EVAL_PROBE_USER_ID`, concurrency defaults. The new prod `EVAL_API_KEY`/`EVAL_BETTER_AUTH_SECRET` and the prod ids/app uuids are also in `.env.production.local`.
 
 ## Pending user actions
-- **Office O1:** the local Google redirect URI was added (2026-10-22; the prod one comes in O10). Sign in at http://localhost:3200 with Google once to confirm.
 - **Eval E9:**
   1. Deployed 2026-10-21 (`efbdc8e`; prod `alembic current` = `0007_review`, both eval containers healthy). A prod browser look at `/review` and `/calibration` with your account is still yours.
   2. First calibration numbers (acceptance): from 2026-11-01 (Anthropic limit), a Haiku-judged full run on a dataset **with references** (`synthetic-v1` v2, or golden v2), then `/review/new` → metric Correctness, stratified, 30 cases, blind → grade all 30 (keys 1–5, `n`). `/calibration` then shows κw, ρ, bias and the confusion matrix; record them here. Correctness needs references: golden v1 has none, so its runs only offer the other metrics.
@@ -344,6 +343,23 @@ Docs: overview in [docs/plan/office/README.md](docs/plan/office/README.md), guid
 
 ## Session log
 <!-- Newest first. Keep entries short: what was built, deviations, gotchas, next. Decisions that outlive a phase go in the sections above. -->
+
+### 2026-10-22 — [office] O2: engine core (local, not committed)
+- **Built:** the client-only game root (`src/game/`) on R3F 9 + drei 10 + rapier 2 + zustand 5 + Howler, proven in the dev-only `/dev/sandbox` (production `notFound()`).
+  - Engine: quality tiers (low/medium/high, `auto` moved by PerformanceMonitor, the settings override, live switching), a scene manager (lazy scene chunks, each in its own keyed `<Physics>`), a transition curtain with a loading screen and tips.
+  - Player: KCC on a capsule (camera-relative walk/run, 0.32 m autostep, 48° slopes, gravity, 10 Hz position publish), a spring-damped follow camera (right/touch-drag orbit, wheel zoom, ray pull-in, dialogue framing), surface footsteps.
+  - Interaction (`Interactable`, nearest-in-range focus, `requires` gating), the typed event bus, DOM HUD (breadcrumb, quota/minimap slots, prompt, Esc menu with settings + controls, avatar editor, sign and dialogue panels, touch joystick), settings persistence (localStorage mirror + debounced `savePlayer`).
+  - 14 Kenney CC0 sounds (ogg + mp3), recorded in `office/public/assets/LICENSES.md`.
+  - Tests: Vitest now 61 (42 new); Playwright `e2e/sandbox.spec.ts` (6) signs in a throwaway user by signing a Better Auth session cookie.
+- **Verified:** typecheck, lint, test and build clean; Playwright 6/6 (walk with ArrowUp; movement ignored with the menu open; E sits on the chair; 6 transitions keep `renderer.info.memory` at 45 geometries / 4 textures; Low/High switch shadows and DPR live, and "low" survives a reload; a saved look survives a reload; the touch joystick walks on a Pixel 7 profile). Screenshots checked: ramp and steps reach the 1.2 m platform, and the camera stays in front of walls (the avatar hides when the camera is pushed into it).
+- **Game route JS:** 443 KB gz excluding rapier's chunk (budget 1.5 MB); rapier-compat's chunk, with its wasm inlined as base64, is 810 KB gz on its own. A non-compat build that serves the `.wasm` separately is an O10 option.
+- **Deviations:**
+  - **Avatar:** built in code (flat-shaded primitives under named joints) with procedural clips (idle, walk, run, sit, wave, cheer, dance) played through drei `useAnimations`, instead of a downloaded CC0 GLB. The six colour slots map one-to-one onto materials, and nothing has to be downloaded, compressed or licensed. Swap in a rigged GLB later if the look needs it.
+  - **Keyboard:** drei's `KeyboardControls` map shape, but our own listener (drei's has no editable-focus or modal guard).
+  - **Additions:** antialiasing is fixed at context creation, since a live tier change keeps it. `Player.updatedAt` decides whether the localStorage mirror is newer than the DB row. A placeholder scene stands in for city/office/rooftop. The sandbox adds a locked HR door, a mirror (avatar editor) and a lift (scene transitions). The menu also offers "Controls".
+  - **Not verified here:** "low tier holds 60 fps on a laptop iGPU". Headless runs use SwiftShader, so it needs a manual check on real hardware.
+- **Gotchas:** see `office/CLAUDE.md` › 3D gotchas (rapier objects in effects; Esc reopening the menu; React Compiler lint vs. R3F mutation; r186 shadow type; disposal; yaw convention; SwiftShader). The O1 `next dev` orphan on :3200 served stale module factories after the installs; restart dev after adding packages. Two throwaway users from timed-out exploratory runs were deleted by hand.
+- **Next:** O3 (org & location selection).
 
 ### 2026-10-22 — [office] O1: scaffold, auth, BFF & DB (local, not committed)
 - **Built:** `office/` (Next 16.4, :3200), with Better Auth on `documind_dev` (cookie prefix `documind-office`, ban gate, no admin requirement) and a BFF proxying DocuMind's `/v1` that shares DocuMind's Upstash chat window. `documind_office_dev` was migrated (`players`, `progress`, `game_scores`). The placeholder home lists orgs, with a user menu. Vitest has 19 tests (node + jsdom projects). `.env.example` has the Office block; `.env.local` has the `OFFICE_*` keys and a new secret.
@@ -362,6 +378,7 @@ Docs: overview in [docs/plan/office/README.md](docs/plan/office/README.md), guid
   - No Dockerfile yet (O10).
   - `.env.local` was filled by a Node script, not the Edit tool, so the secret never appeared in output.
 - **Gotchas:** see `office/CLAUDE.md` (eval orgs in `/v1/me` for admins, orphaned `next dev` on :3200, how to test the shared limit). One accidental real chat on the test user cost ≈ $0.0005; its 4 `llm_usage` rows stay by design.
+- **Owner check:** the local Google redirect URI was added, and Google sign-in on :3200 works (owner-confirmed 2026-10-22). The prod URI comes in O10.
 - **Next:** O2 (engine core).
 
 ### 2026-10-22 — [office] Planning: DocuMind Office (3D virtual office)

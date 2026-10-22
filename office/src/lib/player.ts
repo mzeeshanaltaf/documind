@@ -48,6 +48,8 @@ export type Player = {
   displayName: string;
   avatar: Avatar;
   settings: PlayerSettings;
+  /** ISO time of the last save; decides whether this device's settings mirror is newer. */
+  updatedAt: string;
 };
 
 const DISPLAY_NAME_MAX = 40;

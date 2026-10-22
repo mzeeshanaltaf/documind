@@ -13,19 +13,25 @@
 5. At the end, update Status.md › Office (phase table, plus an `[office]` session-log entry) and this file (commands, versions, gotchas), keeping it ≤ 150 lines.
 
 ## Status
-**O1 done (2026-10-22):** scaffold, sign-in, BFF, `documind_office_dev` schema, placeholder home (org list). **O2 is next.** No 3D yet.
+**O2 done (2026-10-22):** engine core, proven in the dev-only `/dev/sandbox`. **O3 is next** (org & location selection). O1: scaffold, sign-in, BFF, `documind_office_dev` schema, placeholder home (org list).
 
 ## Layout (as built)
 - `src/lib/`: `auth` (Better Auth), `auth-guards` (`requireSession`, `requireOrgAccess`, `withoutEvalOrgs`), `account` (ban/admin rules, client-safe), `db` (one pool: auth `search_path`, max 3), `db-url`, `office-db` (`query()` with `{office}`), `api` (`apiFetch`/`apiJson`; `userId` optional in Server Components), `api-types`, `rate-limit`, `backend-path` (BFF path rules), `player` (zod schemas, `defaultDisplayName`), `org-meta`, `site`.
 - `src/app/(game)/actions.ts`: `getPlayer()` (upsert on first read, one round trip) and `savePlayer({avatar, settings})` (zod; **shallow-merges** both jsonb objects).
 - `src/app/(game)/page.tsx`: placeholder home (org list, empty state → DocuMind `/app/join`); `(game)/layout.tsx` top bar + user menu.
 - `src/app/(auth)/sign-in` + `components/auth/directory-panel.tsx` (the lobby directory companion panel). `src/proxy.ts`: optimistic cookie redirects.
-- `db/migrations/0001_init.sql`, `scripts/migrate.mjs` (advisory lock; one transaction per file), `scripts/auth-check.ts`, `tests/` (Vitest).
+- `db/migrations/0001_init.sql`, `scripts/migrate.mjs` (advisory lock; one transaction per file), `scripts/auth-check.ts`, `tests/` (Vitest), `e2e/` (Playwright; `support/test-user.ts` makes a signed-in throwaway user).
+- **Game (O2), `src/game/`:** `GameRoot` (client root: store init, keyboard, motion, audio unlock, settings persistence, first-look editor, dev handle) loaded by `components/game/game-client.tsx` (`dynamic`, `ssr: false`).
+  - `store/game-store.ts` (zustand `useGame`: world/transition phase, input, player, interactables, focus, modal, settings, quality); `player/rig.ts` holds per-frame values (camera yaw, exact position).
+  - `engine/`: `GameCanvas` (tiers, PerformanceMonitor, AdaptiveDpr), `SceneManager` (lazy scene per key, each in its own keyed `<Physics>`), `Loading` (curtain; it drives the transition timers), `quality.ts`, `SunLight`, `QualityApplier`, `PostFx` (lazy, high tier).
+  - `input/` (bindings, joystick, `use-keyboard`), `interact/` (`select.ts` pure, `Interactable`, `InteractionSystem`, `interact.ts`), `player/` (`Avatar` + `avatar-clips` + `avatar-style`, `Player` (KCC), `FollowCamera`), `audio/audio.ts` (Howler buses), `quests/bus.ts`, `settings.ts`, `persist.ts`, `world/kit.tsx` (`Block`, `useSignTexture`), `world/sandbox/`, `world/placeholder/` (stands in for city/office/rooftop).
+- **HUD, `src/components/hud/`:** `hud` (breadcrumb, quota + minimap slots, menu button), `interaction-prompt`, `game-menu` (Esc: settings, controls), `avatar-editor`, `sign-dialog`, `dialogue-panel`, `touch-controls`. Page: `src/app/dev/sandbox/page.tsx` (`notFound()` in production).
 
 ## Commands
 ```bash
 cd office && pnpm dev            # :3200 (DocuMind api must run on :8000; MinIO for PDFs)
 cd office && pnpm typecheck | pnpm lint | pnpm test | pnpm build
+cd office && pnpm test:e2e       # Playwright on :3200 (starts or reuses `pnpm dev`; needs the dev DB)
 cd office && node scripts/migrate.mjs [--dry-run]   # documind_office(_dev) schema; re-run = no-op
 cd office && pnpm auth:check     # read-only: DocuMind owns the auth tables
 docker build -f office/Dockerfile --build-arg NEXT_PUBLIC_APP_URL=https://documind.zeeshanai.cloud .   # from O10
@@ -61,6 +67,7 @@ docker build -f office/Dockerfile --build-arg NEXT_PUBLIC_APP_URL=https://documi
 - **Assets:** CC0 only. Record each source and licence in `public/assets/LICENSES.md`, and compress with gltf-transform.
 - **Copies of `web/`:** `globals.css` tokens, `components/ui`, fonts, the logo, the PDF viewer, `api-types.ts`, `rate-limit.ts`, the explainer video. Record the sync date here and copy changes by hand.
   - **Synced 2026-10-22:** `globals.css` (tokens + answer prose, via evaluation/web; identical `:root`/`.dark`), `components/ui` (alert, avatar, button, dropdown-menu, empty, field, input, label, separator, skeleton, sonner, spinner, tooltip), the logo, fonts, `api-types.ts`, `rate-limit.ts` (chat only). Auth, BFF, `auth-check` and the sign-in form come from `evaluation/web`.
+  - **O2 (2026-10-22):** `dialog`, `radio-group`, `toggle`, `toggle-group` from `web/`; `switch` from `evaluation/web`; `slider` and `kbd` from the shadcn registry (not in `web/`; the slider thumb uses `bg-background`, not `bg-white`).
 - **Tests:** `*.test.ts` run in node; `*.dom.test.tsx` in jsdom (`vitest.config.mts` projects). `server-only` is aliased to a stub, so server modules are importable.
 - **Files:** use the Write/Edit tools, never shell heredocs. **Git:** commit and push only when the user asks (`/ship`).
 
@@ -73,7 +80,8 @@ The keys are in the root `.env.local`; see README › Environment.
 ## Pinned versions
 - Same as `web/` (O1): `next` 16.4.0, `react`/`react-dom` 19.3.0, `better-auth` 1.7.7 (exact, as in eval), `pg` 8.23.1, `zod` 4.6.5, `@upstash/ratelimit` 2.2.0, `@upstash/redis` 1.39.0, `@base-ui/react` 1.8.0, `tailwindcss` 4.3.3, `typescript` 5.9.3.
 - Tests: `vitest` 5.0.5, `jsdom` 30.1.3, `@testing-library/react` 16.3.3.
-- `swr` and the 3D packages arrive with the phases that use them (O2+); record them here.
+- 3D, exact (O2): `three` 0.186.1, `@react-three/fiber` 9.8.2, `@react-three/drei` 10.7.9, `@react-three/rapier` 2.2.0 (rapier3d-compat 0.19.2), `@react-three/postprocessing` 3.1.3 + `postprocessing` 6.39.5, `zustand` 5.0.16, `howler` 2.2.4, `suncalc` 2.1.1; types `@types/three` 0.186.0, `@types/howler` 2.2.13, `@types/suncalc` 1.9.2; `@playwright/test` 1.64.1 (Chromium 1248). `swr` arrives with O3.
+- **Game route JS (O2, sandbox):** 443 KB gz excluding rapier's chunk (budget 1.5 MB); rapier-compat's chunk with its base64 wasm is 810 KB gz on its own.
 
 ## Gotchas already known
 - **Localhost cookies:** :3000 (DocuMind), :3100 (Eval) and :3200 (Office) share cookies, hence the distinct cookie prefix.
@@ -85,4 +93,12 @@ The keys are in the root `.env.local`; see README › Environment.
 - **`/v1/me` lists every org to platform admins, eval orgs included,** and carries no metadata: filter with `withoutEvalOrgs()` (SQL on `organization.metadata`). `requireOrgAccess` treats eval orgs as not found.
 - **Bans:** the sign-in hook refuses banned users (`ACCOUNT_BANNED`); `requireSession()` and the BFF re-check `banned`/`banExpires` on every request, because a ban set in DocuMind doesn't revoke this app's sessions.
 - **Stopping `pnpm dev` from a background task** can leave the `node` child holding :3200; kill it by port and delete `.next/dev` if typecheck ran alongside.
+- **3D gotchas (O2):**
+  - **Rapier objects live in effects, not `useMemo`:** StrictMode's mount-unmount-mount frees a memoized character controller and keeps returning it. Free controllers with `kcc.free()`, never `world.removeCharacterController`: `<Physics>` frees its world first, and touching its proxy afterwards silently creates a new world.
+  - **Esc and dialogs:** the game's keydown listener is capture-phase and opens the menu on the next task; opened synchronously, Base UI attaches its Escape listener in time to close it on the same press.
+  - **The react-hooks lint (React Compiler rules) rejects mutating hook values** (`useMemo` objects, `useThree().camera`, props). Use `state.camera` inside `useFrame`, refs for reused objects, module-level state, or plain helper functions.
+  - **three r186 dropped `PCFSoftShadowMap`:** the Canvas uses `shadows="percentage"`. R3F still uses the deprecated `THREE.Clock`, and rapier-compat warns about its init signature; both warnings are harmless.
+  - **Disposal:** R3F disposes only JSX-created geometries/materials. Shared module-level ones (avatar parts) are kept on purpose; per-instance materials and canvas textures are disposed in effects. Over 6 transitions, `renderer.info.memory` stayed at 45 geometries / 4 textures.
+  - **`spawn.yaw` is the avatar's heading** (0 faces +z); the camera starts half a turn behind it. Seats use the same convention.
+  - **Playwright WebGL** runs on SwiftShader (`--enable-unsafe-swiftshader`), so the auto tier drops to low there and frame rates mean nothing. The dev-only `window.__office` exposes `getState`/`setState`, `memory()` and `render()`. A test that hits its timeout can skip `finally`: clean up throwaway users in `afterAll`.
 - **Testing the shared chat limit:** spend the window with DocuMind's own `web/src/lib/rate-limit.ts` (tsx, `--conditions=react-server`, import via `pathToFileURL` on Windows), then POST `orgs/{id}/chat` through :3200 and expect 429. A POST that passes the limit runs a real (billed) chat.

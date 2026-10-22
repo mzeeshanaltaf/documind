@@ -297,3 +297,31 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* The game's own "Reduced motion" setting (it can override the OS either way; GameRoot sets it). */
+:root[data-motion="reduced"] *,
+:root[data-motion="reduced"] *::before,
+:root[data-motion="reduced"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* HUD: a short sideways nudge when E is pressed on something locked. */
+@keyframes hud-nudge {
+  0%,
+  100% {
+    translate: 0;
+  }
+  25% {
+    translate: -4px;
+  }
+  75% {
+    translate: 4px;
+  }
+}
+.hud-nudge {
+  /* ease-out-quart (an @theme inline token, so not a runtime variable). */
+  animation: hud-nudge 220ms cubic-bezier(0.25, 1, 0.5, 1) 1;
+}

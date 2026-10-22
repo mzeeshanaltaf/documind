@@ -4,10 +4,22 @@ import { requireSession } from "@/lib/auth-guards";
 import { query } from "@/lib/office-db";
 import { defaultDisplayName, type Player, type SavePlayerInput, savePlayerSchema } from "@/lib/player";
 
-type PlayerRow = { user_id: string; display_name: string; avatar: Player["avatar"]; settings: Player["settings"] };
+type PlayerRow = {
+  user_id: string;
+  display_name: string;
+  avatar: Player["avatar"];
+  settings: Player["settings"];
+  updated_at: Date;
+};
 
 function toPlayer(row: PlayerRow): Player {
-  return { userId: row.user_id, displayName: row.display_name, avatar: row.avatar, settings: row.settings };
+  return {
+    userId: row.user_id,
+    displayName: row.display_name,
+    avatar: row.avatar,
+    settings: row.settings,
+    updatedAt: row.updated_at.toISOString(),
+  };
 }
 
 /**
@@ -22,11 +34,11 @@ export async function getPlayer(): Promise<Player> {
        insert into {office}.players (user_id, display_name)
        values ($1, $2)
        on conflict (user_id) do nothing
-       returning user_id, display_name, avatar, settings
+       returning user_id, display_name, avatar, settings, updated_at
      )
      select * from ins
      union all
-     select user_id, display_name, avatar, settings from {office}.players where user_id = $1
+     select user_id, display_name, avatar, settings, updated_at from {office}.players where user_id = $1
      limit 1`,
     [user.id, defaultDisplayName(user.name, user.email)],
   );
@@ -53,7 +65,7 @@ export async function savePlayer(input: SavePlayerInput): Promise<SavePlayerResu
        set avatar = p.avatar || excluded.avatar,
            settings = p.settings || excluded.settings,
            updated_at = now()
-     returning user_id, display_name, avatar, settings`,
+     returning user_id, display_name, avatar, settings, updated_at`,
     [
       user.id,
       defaultDisplayName(user.name, user.email),

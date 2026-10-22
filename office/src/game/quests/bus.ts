@@ -1,0 +1,61 @@
+import type { InteractKind } from "@/game/interact/select";
+import type { SceneId } from "@/game/store/game-store";
+
+/**
+ * The game's typed event bus. Interactions and scenes emit here; the quest engine (O9) and
+ * analytics listen. Synchronous, and a throwing listener never stops the others.
+ */
+export type GameEvent =
+  | { type: "scene_entered"; scene: SceneId }
+  | { type: "room_entered"; room: string }
+  | { type: "interacted"; id: string; kind: InteractKind }
+  | { type: "interact_blocked"; id: string; requires?: string }
+  | { type: "npc_talked"; npc: string }
+  | { type: "sat"; seat: string }
+  | { type: "sign_read"; sign: string }
+  | { type: "avatar_saved" }
+  | { type: "hotkey"; action: "journal" | "map" };
+
+export type GameEventType = GameEvent["type"];
+type Listener<T extends GameEventType> = (event: Extract<GameEvent, { type: T }>) => void;
+type AnyListener = (event: GameEvent) => void;
+
+export function createBus() {
+  const listeners = new Map<GameEventType | "*", Set<AnyListener>>();
+
+  function add(key: GameEventType | "*", listener: AnyListener) {
+    let set = listeners.get(key);
+    if (!set) listeners.set(key, (set = new Set()));
+    set.add(listener);
+    return () => {
+      set.delete(listener);
+    };
+  }
+
+  /** Listens to one event type; returns the unsubscribe function. */
+  function on<T extends GameEventType>(type: T, listener: Listener<T>) {
+    return add(type, listener as AnyListener);
+  }
+
+  /** Listens to every event. */
+  function onAny(listener: AnyListener) {
+    return add("*", listener);
+  }
+
+  function emit(event: GameEvent) {
+    for (const key of [event.type, "*"] as const) {
+      for (const listener of listeners.get(key) ?? []) {
+        try {
+          listener(event);
+        } catch (error) {
+          console.error(`[bus] listener for ${event.type} failed`, error);
+        }
+      }
+    }
+  }
+
+  return { on, onAny, emit, clear: () => listeners.clear() };
+}
+
+export const bus = createBus();
+export const emit = bus.emit;

@@ -11,7 +11,7 @@
 ## Current phase
 Phases 1–10 are built, deployed and owner-checked. The evaluation harness (below) is **code-complete with E9 — Human review & judge calibration** (2026-10-21, deployed `efbdc8e`); the judged parts of E4/E7/E8 and the first calibration grades wait for the Anthropic spend limit (access back 2026-11-01).
 
-**DocuMind Office** (3D virtual office, `office/`) was planned 2026-10-22; **O1–O4 are done** (2026-10-22, committed, local only), **O5 is done** (2026-10-22, committed `0d17392`, local only), **O6 is done** (2026-10-22, committed `6500036`, local only), **O7 is done** (2026-10-22, committed `d4c449d`, local only; Next 16.4.2 security upgrade `6655fdd`) **O8 is done** (2026-10-25, local, not yet committed) and **O9 is next** (see the *DocuMind Office* section below).
+**DocuMind Office** (3D virtual office, `office/`) was planned 2026-10-22; **O1–O4 are done** (2026-10-22, committed, local only), **O5 is done** (2026-10-22, committed `0d17392`, local only), **O6 is done** (2026-10-22, committed `6500036`, local only), **O7 is done** (2026-10-22, committed `d4c449d`, local only; Next 16.4.2 security upgrade `6655fdd`) **O8 is done** (2026-10-25, committed `6433dcb`, pushed to `main`) and **O9 is next** (see the *DocuMind Office* section below).
 
 > ✅ The Privacy Policy (`/privacy`) has been legally reviewed (owner-confirmed 2026-10-20). Re-review it if the app's data handling changes.
 
@@ -355,7 +355,7 @@ Docs: overview in [docs/plan/office/README.md](docs/plan/office/README.md), guid
 ## Session log
 <!-- Newest first. Keep entries short: what was built, deviations, gotchas, next. Decisions that outlive a phase go in the sections above. -->
 
-### 2026-10-25 — [office] O8: play area, mini-games & leaderboards (not committed yet)
+### 2026-10-25 — [office] O8: play area, mini-games & leaderboards (committed `6433dcb`)
 - **Built:** `world/office/play/` (pure `layout.ts`, merged `furniture.ts`, the wall's `textures.ts`, `PlayArea.tsx`): two arcade cabinets, the sorting station (conveyor + 3 bins), a table-tennis table, 3 beanbags on a rug, coffee counter, jukebox, the leaderboard wall; E on a game station = **game mode** (`modal: game`, camera framed on the station, a full-size dialog, Esc quits; the 3D canvas stops 1.1 s later). Games (`game/games/` pure logic + `components/games/` UI, each a lazy chunk of 6–8 KB gz):
   - **Policy Trivia:** 94 questions in `content/orgs/simtora-trivia.json` (every department, all 6 offices + GLOBAL), 10 per round picked without repeats, weighted ×6 for the office's country, ×1 GLOBAL, ×0.1 other countries (Worldwide: equal), easy to hard, choices shuffled; 20 s, keys 1–4, score 100 + ≤50 speed + ≤40 streak (max 1,900); explanation + "Show source" (PDF sheet at the page, `citation_opened`); a "review the misses" list.
   - **Sort & Toss:** 60 s, belt 70→150 px/s, ~44 items, ×1–×4 combo, wrong bin −1 (floor 0); drag back to throw, or ←/→ + hold Space; the card cites SIM-FAC-001 pp. 68 and 56 with "View p." buttons.

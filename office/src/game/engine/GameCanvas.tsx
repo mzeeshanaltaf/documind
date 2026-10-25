@@ -1,6 +1,6 @@
 import { AdaptiveDpr, PerformanceMonitor } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { ACESFilmicToneMapping, SRGBColorSpace, type WebGLRenderer } from "three";
 import { selectTier, useGame } from "@/game/store/game-store";
 import { stepTier, TIERS } from "./quality";
@@ -39,9 +39,20 @@ export function GameCanvas() {
   // Antialiasing is fixed when the WebGL context is created.
   const [antialias] = useState(() => tier.antialias);
 
+  // A mini-game (O8) covers the screen, so the world stops drawing once the camera has settled on
+  // its station (about a second): the game gets the whole frame budget, e.g. Sort & Toss on a
+  // low-end laptop. It resumes the moment the game closes.
+  const inGame = useGame((s) => s.modal?.type === "game");
+  const [frozen, setFrozen] = useState(false);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setFrozen(inGame), inGame ? 1100 : 0);
+    return () => window.clearTimeout(timer);
+  }, [inGame]);
+
   return (
     <Canvas
       className="touch-none"
+      frameloop={frozen ? "never" : "always"}
       // PCF: three r186 removed PCFSoftShadowMap (R3F's "soft").
       shadows={tier.shadows ? "percentage" : false}
       dpr={[1, tier.dpr]}

@@ -1,0 +1,324 @@
+{
+  "hr-us-intro-period": [
+    "introductory period is 90 calendar days"
+  ],
+  "hr-us-paid-holidays": [
+    "observes 11 paid holidays per year",
+    "2 floating holidays per year"
+  ],
+  "hr-us-pto-accrual": [
+    "3 to 5 years 20 days",
+    "less than 3 years 15 days",
+    "6 or more years 25 days"
+  ],
+  "hr-us-pto-carryover": [
+    "up to 5 days of unused pto may carry over"
+  ],
+  "hr-us-sick-leave": [
+    "8 days (64 hours) of paid sick and safe leave per year"
+  ],
+  "hr-us-parental-leave": [
+    "primary caregiver: up to 12 weeks of paid leave at 100% of base pay",
+    "secondary caregiver: up to 6 weeks"
+  ],
+  "hr-us-learning-budget": [
+    "annual professional development budget of $1,500 (and 40 hours of paid learning time)"
+  ],
+  "hr-us-gift-limit": [
+    "a maximum of $50 per source per year"
+  ],
+  "hr-us-anchor-days": [
+    "work from a simtora office on anchor days (tuesday, wednesday and",
+    "thursday), or a minimum of 3 days per week"
+  ],
+  "hr-us-expense-deadline": [
+    "within 30 days of the expense",
+    "paid within 10 business days"
+  ],
+  "hr-us-bereavement": [
+    "5 paid days on the death of a spouse",
+    "3 paid days on the death of any other close relative"
+  ],
+  "hr-us-domestic-booking": [
+    "domestic: at least 14 days ahead; international: at least 21 days ahead"
+  ],
+  "hr-pk-probation": [
+    "probation is 3 months from the start date",
+    "6 months in all"
+  ],
+  "hr-pk-ramadan-hours": [
+    "reduced by 1 hour at full pay (7 hours)"
+  ],
+  "hr-pk-annual-leave": [
+    "20 working days per calendar year for all employees (law: 14 days"
+  ],
+  "hr-pk-pakistan-day": [
+    "pakistan day (march 23)",
+    "14 to 16 such days"
+  ],
+  "hr-pk-floating-days": [
+    "may take 2 days a year of paid leave for their own holy days"
+  ],
+  "hr-de-probation": [
+    "probation is 6 months from the start date (the legal maximum",
+    "2 weeks' written notice"
+  ],
+  "hr-de-annual-leave": [
+    "30 working days per calendar year (for a 5-day week)",
+    "statutory minimum is 20 days (24 on a 6-day week)",
+    "10 days are contractual"
+  ],
+  "hr-de-public-holidays": [
+    "berlin has 10 public holidays each year",
+    "international women's day (march 8)"
+  ],
+  "hr-de-breaks": [
+    "at least 30 minutes if work exceeds 6 hours; 45 minutes if work"
+  ],
+  "hr-de-extra-days": [
+    "december 24 and december 31 as additional paid company days off"
+  ],
+  "hr-fr-working-week": [
+    "35 hours a week (or 1,607 hours a year)"
+  ],
+  "hr-fr-overtime-rates": [
+    "hours 36 to 43: +25%; from the 44th hour: +50%"
+  ],
+  "hr-fr-disconnect": [
+    "before 8:00 a.m. and after 7:00 p.m., on weekends, on leave and public holidays) no employee must read or answer messages"
+  ],
+  "hr-fr-overtime-cap": [
+    "annual overtime limit: 220 hours per employee"
+  ],
+  "hr-fr-contract-bonus": [
+    "end-of-contract bonus (10% of total gross pay)"
+  ],
+  "hr-au-probation": [
+    "probation is 6 months from the start date",
+    "months 2 and 5"
+  ],
+  "hr-au-annual-leave": [
+    "25 working days a year for a full-time employee (190 hours): 20",
+    "5 additional simtora days"
+  ],
+  "hr-au-super": [
+    "12% of ordinary time earnings, paid into the employee's"
+  ],
+  "hr-au-full-time-hours": [
+    "full-time (38 hours)"
+  ],
+  "hr-uk-bank-holidays": [
+    "simtora uk gives all 8 bank holidays in england and wales",
+    "bank holidays are in addition to annual leave"
+  ],
+  "hr-uk-annual-leave": [
+    "25 days a year plus 8 bank holidays, rising by 1 day a year after 2 years' service to 28 days after 5 years"
+  ],
+  "hr-uk-leave-cap": [
+    "to 28 days after 5 years"
+  ],
+  "hr-uk-probation": [
+    "probation is 3 months from the start date. it may be extended once, to a maximum of 6 months in total"
+  ],
+  "hr-uk-working-time-average": [
+    "48 hours a week on average over 17 weeks",
+    "cancel an opt-out on 7 days' notice"
+  ],
+  "hr-global-core-hours": [
+    "core hours remain 10:00 a.m. to 3:00 p.m. in each employee's own local time"
+  ],
+  "hr-global-incident-rest": [
+    "at least 11 hours of rest between finishing an out-of-hours"
+  ],
+  "glb-de-cctv": [
+    "germany: 72 hours unless an incident requires"
+  ],
+  "glb-gift-limit": [
+    "gifts and hospitality: us $50 per source per year (local currency equivalent) without approval"
+  ],
+  "glb-payment-term": [
+    "the standard payment term is net 30 days"
+  ],
+  "glb-dsr-ack": [
+    "acknowledgment within 10 business days",
+    "30 days for eu, uk and australian requests",
+    "45 days for u.s."
+  ],
+  "glb-pk-power": [
+    "lahore: ups and generator sized for at least 8 hours of core load"
+  ],
+  "glb-uk-late-payment": [
+    "interest at 8% above the bank of england base rate",
+    "late payment of commercial debts (interest) act 1998"
+  ],
+  "ovr-founded": [
+    "founded 2016"
+  ],
+  "ovr-first-rd": [
+    "lahore r&d center opened as simtora's first engineering site outside the",
+    "2018"
+  ],
+  "ovr-shield-berlin": [
+    "berlin r&d center",
+    "opened to build shield",
+    "2021"
+  ],
+  "ovr-product-lines": [
+    "simtora has four software product lines and two service lines"
+  ],
+  "ovr-assist": [
+    "a platform for building and deploying ai assistants and task-performing agents"
+  ],
+  "ovr-connectors": [
+    "300+ prebuilt connectors"
+  ],
+  "ovr-sydney-shift": [
+    "asia-pacific shift of the follow-the-sun sre and support rota"
+  ],
+  "ovr-fiscal-year": [
+    "calendar year (january 1 to december 31)"
+  ],
+  "ovr-london-ai": [
+    "leads evaluation, safety testing and red-teaming for simtora assist"
+  ],
+  "ovr-employees": [
+    "about 230 in six countries",
+    "about 120 in the united states",
+    "about 900 organizations"
+  ],
+  "it-laptop-lock": [
+    "sessions lock automatically after 10 minutes of inactivity on laptops and 2 minutes on mobile devices"
+  ],
+  "it-password-length": [
+    "minimum 14 characters for user passwords; 20 characters for privileged"
+  ],
+  "it-mfa-sms": [
+    "sms or voice codes",
+    "not permitted as an mfa method"
+  ],
+  "it-lockout": [
+    "account lockout or throttling after 10 failed attempts"
+  ],
+  "it-critical-patch": [
+    "critical (for example, actively",
+    "72 hours (or immediate",
+    "mitigation within 24 hours if"
+  ],
+  "it-secret-rotation": [
+    "rotated at least every 90 days (tier 0 systems) or every 12 months (others)"
+  ],
+  "it-sev1-ack": [
+    "acknowledge sev 1 pages within 15 minutes and sev 2 within 30 minutes"
+  ],
+  "it-log-retention": [
+    "security-relevant logs are kept at least 12 months, with the most recent 90 days immediately searchable"
+  ],
+  "it-noncompliant-device": [
+    "must apply critical updates within 7 days",
+    "out of compliance for more than 14 days are blocked from company resources"
+  ],
+  "it-support-hours": [
+    "support hours are monday–friday, 7:00–19:00 eastern time"
+  ],
+  "fin-approval-mid": [
+    "25,000.01–100,000 department head and cfo",
+    "up to $5,000 budget owner (manager)"
+  ],
+  "fin-legal-review": [
+    "contracts with a total value above $25,000 are reviewed by legal before signature"
+  ],
+  "fin-discount-approval": [
+    "20.01% – 30% head of sales and cfo (deal desk)",
+    "10.01% – 20% head of sales"
+  ],
+  "fin-dso": [
+    "days sales outstanding (dso) of 45 days or less"
+  ],
+  "fin-stale-check": [
+    "a check outstanding for 180 days (about six months) is treated as stale"
+  ],
+  "fin-po-threshold": [
+    "a po is required for any purchase over $5,000"
+  ],
+  "fin-mandatory-leave": [
+    "at least 5 consecutive business days of pto each year"
+  ],
+  "fin-vendor-dormant": [
+    "vendors with no activity for 13 months are deactivated"
+  ],
+  "fin-form-8300": [
+    "irs form 8300 is filed within 15 days"
+  ],
+  "prc-tco-example": [
+    "year subscription of",
+    "120,000",
+    "same measure used in the finance and accounting manual"
+  ],
+  "prc-price-weight": [
+    "price or total cost counts for at least 20% of the total"
+  ],
+  "prc-min-technical": [
+    "an offer must score at least 60% of the available technical points to be considered"
+  ],
+  "prc-debrief": [
+    "may request a debrief within 10 business days of the notice",
+    "procurement gives it within 10 business days of the request"
+  ],
+  "prc-four-eyes": [
+    "every award above $25,000 is reviewed by at least two people who were not the requester"
+  ],
+  "prc-vendor-low-risk": [
+    "low 3 business days; medium 10 business days; high 20 business days"
+  ],
+  "fac-badge-hours": [
+    "offices open for badge access from 6:00 a.m. to 8:00 p.m. local time on business days"
+  ],
+  "fac-lost-badge": [
+    "deactivates the badge within 15 minutes of the report during business hours",
+    "temporary badge valid for at most 3 business days"
+  ],
+  "fac-cctv-retention": [
+    "footage is stored on secure, encrypted, access-logged systems for 30 days and then overwritten"
+  ],
+  "fac-desk-release": [
+    "a desk not checked in within 60 minutes of the booking start is released"
+  ],
+  "fac-catered-lunch": [
+    "catered lunches are provided tuesdays and thursdays at hub offices"
+  ],
+  "fac-coffee-machine": [
+    "coffee machines are cleaned and descaled weekly"
+  ],
+  "fac-waste-diversion": [
+    "divert at least 60% of office waste from landfill at hub offices"
+  ],
+  "fac-batteries": [
+    "batteries (including lithium), fluorescent lamps",
+    "marked containers",
+    "nothing hazardous goes in general trash"
+  ],
+  "fac-lost-found": [
+    "found items are kept at reception for 30 days"
+  ],
+  "cmp-routine-answer": [
+    "compliance aims to answer routine questions within 2 business days"
+  ],
+  "cmp-investigation-target": [
+    "investigator within 45 days",
+    "(90 days for"
+  ],
+  "cmp-gdpr-notice": [
+    "gdpr requires notice to the authority within 72 hours"
+  ],
+  "cmp-privacy-request": [
+    "acknowledged within 10 business days, and completed within 45 days"
+  ],
+  "cmp-cash-limit": [
+    "cash payments over",
+    "1,000",
+    "arenotaccepted"
+  ],
+  "cmp-ai-review-board": [
+    "chaired by the general counsel or a designee"
+  ]
+}

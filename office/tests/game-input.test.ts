@@ -13,12 +13,13 @@ describe("actionForCode", () => {
     expect(actionForCode("ShiftRight")).toBe("run");
   });
 
-  it("maps E, J, M and Esc, and nothing else", () => {
+  it("maps E, J, M, Q (the emote wheel, O8) and Esc, and nothing else", () => {
     expect(actionForCode("KeyE")).toBe("interact");
     expect(actionForCode("KeyJ")).toBe("journal");
     expect(actionForCode("KeyM")).toBe("map");
     expect(actionForCode("Escape")).toBe("menu");
-    expect(actionForCode("KeyQ")).toBeNull();
+    expect(actionForCode("KeyQ")).toBe("emote");
+    expect(actionForCode("KeyZ")).toBeNull();
     expect(actionForCode("Space")).toBeNull();
   });
 });

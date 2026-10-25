@@ -40,6 +40,7 @@ regenerate them; the output is deterministic.
 | `ambience/hub-wind` | 24 s loop: soft wind for the Global Hub | Generated (this repo) | CC0 1.0 |
 | `music/motif-golden-gate`, `-minar`, `-brandenburg`, `-eiffel`, `-opera-house`, `-generic`, `-global-hub` | 16–24 s loops: original melodies, one per landmark kit | Generated (this repo) | CC0 1.0 |
 | `music/motif-elizabeth-tower` | 24 s loop: the Westminster Quarters (the hour's four changes) on synthesized bells | Melody: Westminster Quarters (1793), public domain; rendering generated (this repo) | Public domain / CC0 1.0 |
+| `music/play-lounge`, `-arcade`, `-bossa` | 15–24 s loops for the play area's jukebox (O8): soft keys and pads, a 128 bpm chip melody, nylon plucks. Original, synthesized with `scripts/make-ambience.mjs --play` | Generated (this repo) | CC0 1.0 |
 
 ## Textures (`textures/`)
 

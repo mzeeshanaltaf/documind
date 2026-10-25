@@ -1,4 +1,6 @@
+import type { GameId } from "@/game/games/types";
 import type { InteractKind } from "@/game/interact/select";
+import type { EmoteId } from "@/game/player/emotes";
 import type { SceneId } from "@/game/store/game-store";
 import type { DeckId } from "@/game/world/office/presentation/slides";
 
@@ -27,6 +29,15 @@ export type GameEvent =
   | { type: "sat"; seat: string }
   /** Every slide of a presentation-room deck has been seen this visit (O7; "Orientation", O9). */
   | { type: "presentation_watched"; deck: DeckId; location?: string }
+  /** A mini-game was started from its station in the play area (O8). */
+  | { type: "game_started"; game: GameId }
+  /** A game ran to its end (not quit); `score` is what it will submit (O8; "Arcade regular", O9). */
+  | { type: "game_finished"; game: GameId; score: number }
+  /** The server stored the score; `rank` is the player's place on the org's board (O8). */
+  | { type: "score_submitted"; game: GameId; score: number; rank: number; personalBest: boolean }
+  | { type: "emote_used"; emote: EmoteId }
+  | { type: "coffee_brewed" }
+  | { type: "jukebox_changed"; track: string }
   | { type: "sign_read"; sign: string }
   | { type: "avatar_saved" }
   | { type: "hotkey"; action: "journal" | "map" };

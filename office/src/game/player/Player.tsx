@@ -16,6 +16,7 @@ import { emit } from "@/game/quests/bus";
 import { type Seat, selectTier, useGame, type Vec3 } from "@/game/store/game-store";
 import { Avatar, type AvatarHandle } from "./Avatar";
 import type { ClipName } from "./avatar-clips";
+import { CAFFEINE_BOOST } from "./boost";
 import { resetRig, rig } from "./rig";
 
 /** Capsule: 0.6 m half-height + 0.28 m radius = 1.76 m tall; its centre sits this far above the feet. */
@@ -126,6 +127,8 @@ export function Player() {
     const move = blocked ? NO_MOVE : combineMove(s.input.keyboard, s.input.touch);
     const run = !blocked && (s.input.keyboardRun || s.input.touchRun);
     const moving = move.x !== 0 || move.y !== 0;
+    // An emote (O8) plays until it ends, or until the player moves or something takes over.
+    if (s.emote && (moving || blocked || performance.now() >= s.emote.until)) s.setEmote(null);
 
     // Seated: snap onto the seat once; any movement stands up in front of it (on an auditorium
     // seat only forward/back does: sideways is the slide changer, and touch may drift sideways).
@@ -159,7 +162,8 @@ export function Player() {
     // Camera-relative: forward is the camera's view direction on the floor.
     const sin = Math.sin(rig.yaw);
     const cos = Math.cos(rig.yaw);
-    const speed = run ? RUN_SPEED : WALK_SPEED;
+    // The coffee machine's boost (O8) makes running faster.
+    const speed = run ? RUN_SPEED * (s.caffeinatedUntil > Date.now() ? CAFFEINE_BOOST : 1) : WALK_SPEED;
     const vx = (-sin * move.y + cos * move.x) * speed;
     const vz = (-cos * move.y - sin * move.x) * speed;
 
@@ -196,7 +200,7 @@ export function Player() {
     rig.position.set(at.x, at.y - CENTER, at.z);
 
     if (rig.speed < 0.25) {
-      play("idle");
+      play(s.emote ? s.emote.clip : "idle");
       state.stride = 0;
     } else {
       play(rig.running ? "run" : "walk");

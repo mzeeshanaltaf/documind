@@ -1,8 +1,9 @@
 "use client";
 
-import { HandIcon, MenuIcon } from "lucide-react";
+import { HandIcon, MenuIcon, SmileIcon } from "lucide-react";
 import { useRef } from "react";
 import { interactWithFocus } from "@/game/interact/interact";
+import { closeEmoteWheel, openEmoteWheel } from "@/game/player/emote-actions";
 import { NO_MOVE } from "@/game/input/bindings";
 import { joystickVector } from "@/game/input/joystick";
 import { useGame } from "@/game/store/game-store";
@@ -17,6 +18,7 @@ export function TouchControls() {
   const knob = useRef<HTMLSpanElement>(null);
   const drag = useRef<{ id: number; x: number; y: number } | null>(null);
   const hasFocus = useGame((s) => s.focus !== null && !s.focus.locked);
+  const wheelOpen = useGame((s) => s.emoteWheel.open);
 
   function moveKnob(dx: number, dy: number) {
     const distance = Math.hypot(dx, dy);
@@ -69,6 +71,15 @@ export function TouchControls() {
           className="flex size-11 items-center justify-center rounded-full bg-background/90 shadow-sm ring-1 ring-foreground/15 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
         >
           <MenuIcon className="size-5" />
+        </button>
+        <button
+          type="button"
+          aria-label="Emotes"
+          aria-expanded={wheelOpen}
+          onClick={() => (wheelOpen ? closeEmoteWheel() : openEmoteWheel())}
+          className="flex size-11 items-center justify-center rounded-full bg-background/90 shadow-sm ring-1 ring-foreground/15 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+          <SmileIcon className="size-5" />
         </button>
         <button
           type="button"

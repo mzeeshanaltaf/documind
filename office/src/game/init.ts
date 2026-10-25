@@ -1,4 +1,5 @@
 import type { Player } from "@/lib/player";
+import { DEFAULT_TRACK } from "./audio/jukebox";
 import { initialAutoTier } from "./engine/quality";
 import { NO_MOVE } from "./input/bindings";
 import { readMirror } from "./persist";
@@ -62,5 +63,10 @@ export function initGame({ player, scene, spawn, location, office, cards }: Game
     viewer: { open: false, request: null },
     presentation: INITIAL_PRESENTATION,
     calledOut: {},
+    emote: null,
+    emoteWheel: { open: false, highlight: null },
+    caffeinatedUntil: 0,
+    jukebox: DEFAULT_TRACK,
+    scoresVersion: 0,
   });
 }

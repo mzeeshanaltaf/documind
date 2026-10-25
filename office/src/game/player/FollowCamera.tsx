@@ -12,6 +12,10 @@ const LOOK_HEIGHT = 1.45;
 const WALL_MARGIN = 0.3;
 const DIALOGUE_DISTANCE = 3.4;
 const HIDE_AVATAR_WITHIN = 0.9;
+/** Sitting on a beanbag (O8): the camera settles closer and lower, then leaves the orbit to the player. */
+const RELAXED_DISTANCE = 3.6;
+const RELAXED_PITCH = 0.2;
+const RELAX_SETTLE_S = 1.6;
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 const ease = (rate: number, delta: number) => 1 - Math.exp(-rate * delta);
@@ -39,6 +43,8 @@ export function FollowCamera() {
     look: new Vector3(),
     blend: new Vector3(),
     seated: 0,
+    /** Seconds since sitting on a relaxed seat (0 when not). */
+    relaxed: 0,
   });
 
   useEffect(() => {
@@ -106,6 +112,14 @@ export function FollowCamera() {
       const yaw = Math.abs(Math.atan2(Math.sin(side - rig.yaw), Math.cos(side - rig.yaw))) < Math.PI / 2 ? side : side + Math.PI;
       rig.yaw += Math.atan2(Math.sin(yaw - rig.yaw), Math.cos(yaw - rig.yaw)) * ease(3, delta);
       rig.pitch += (0.22 - rig.pitch) * ease(3, delta);
+    }
+    const lounging = s.player.pose === "sit" && s.player.seat?.relaxed && !s.player.seat.view;
+    if (lounging) {
+      view.relaxed += delta;
+      wanted = Math.min(wanted, RELAXED_DISTANCE);
+      if (view.relaxed < RELAX_SETTLE_S) rig.pitch += (RELAXED_PITCH - rig.pitch) * ease(2.5, delta);
+    } else {
+      view.relaxed = 0;
     }
     if (!view.ready) {
       view.target.copy(view.goal);

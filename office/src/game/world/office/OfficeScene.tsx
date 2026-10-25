@@ -11,6 +11,7 @@ import { Trigger } from "../Trigger";
 import { Doors } from "./doors";
 import { type Floorplan, roomAt } from "./floorplan";
 import { Lobby } from "./lobby";
+import { PlayArea } from "./play/PlayArea";
 import { PresentationRoom } from "./presentation/PresentationRoom";
 import { Reception } from "./reception";
 import { Rooms } from "./rooms";
@@ -20,7 +21,7 @@ import { useOfficeDepartments, floorplanFor } from "./use-floorplan";
 /**
  * The office interior (phase O5): the floor plan built from the org's departments, with the
  * lobby, reception, the card-gated corridor of furnished department rooms and their experts
- * (O6), the presentation room's auditorium (O7) and the play area. Walking out through the
+ * (O6), the presentation room's auditorium (O7) and the play area (O8). Walking out through the
  * street doors returns to the city.
  */
 export default function OfficeScene() {
@@ -45,6 +46,7 @@ export default function OfficeScene() {
       <Reception desk={plan.props.desk} spot={plan.npcSpots.reception} />
       <Rooms plan={plan} />
       <PresentationRoom plan={plan} />
+      <PlayArea plan={plan} />
       <RoomTracker plan={plan} location={place.id} />
       <Trigger box={plan.exit} onEnter={leave} />
     </>

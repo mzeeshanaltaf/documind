@@ -6,10 +6,14 @@ import { audio } from "@/game/audio/audio";
 import { useGame } from "@/game/store/game-store";
 import { cn } from "@/lib/utils";
 import { NpcDialogue } from "@/components/dialogue/npc-dialogue";
+import { GameDialog } from "@/components/games/game-dialog";
+import { JukeboxDialog } from "@/components/games/jukebox-dialog";
+import { LeaderboardDialog } from "@/components/games/leaderboard-dialog";
 import { ArrivalBanner } from "./arrival-banner";
 import { AvatarEditor } from "./avatar-editor";
 import { CardWallet } from "./card-wallet";
 import { DialoguePanel } from "./dialogue-panel";
+import { CaffeinatedChip, EmoteWheel } from "./emote-wheel";
 import { GameMenu } from "./game-menu";
 import { InteractionPrompt } from "./interaction-prompt";
 import { Minimap } from "./minimap";
@@ -73,7 +77,8 @@ export function Hud() {
         </div>
 
         <div className="flex items-end justify-between gap-3">
-          <div className="flex min-w-0 pointer-coarse:hidden">
+          <div className="flex min-w-0 flex-col gap-2 pointer-coarse:hidden">
+            <CaffeinatedChip />
             <CardWallet />
           </div>
           <div className="flex min-w-0 flex-1 flex-col items-center gap-2 pb-1 pointer-coarse:pb-36">
@@ -87,6 +92,7 @@ export function Hud() {
       </div>
 
       <ArrivalBanner />
+      <EmoteWheel />
       <TouchControls />
       <GameMenu />
       <AvatarEditor />
@@ -95,6 +101,9 @@ export function Hud() {
       <NpcDialogue />
       <TravelDialog />
       <SlidesDialog />
+      <GameDialog />
+      <LeaderboardDialog />
+      <JukeboxDialog />
     </>
   );
 }

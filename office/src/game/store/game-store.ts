@@ -3,8 +3,11 @@ import { create } from "zustand";
 import { effectiveTier, type Tier } from "@/game/engine/quality";
 import { type Move, NO_MOVE } from "@/game/input/bindings";
 import type { NpcTurn } from "@/game/chat/sse";
+import { type JukeboxChoice, DEFAULT_TRACK } from "@/game/audio/jukebox";
+import type { GameId } from "@/game/games/types";
 import type { Focus, InteractKind } from "@/game/interact/select";
 import { type AvatarColors, DEFAULT_AVATAR } from "@/game/player/avatar-style";
+import type { ActiveEmote } from "@/game/player/emotes";
 import { DEFAULT_SETTINGS, reducedMotion, type Settings } from "@/game/settings";
 import { type SeenSlides, wrapSlide } from "@/game/world/office/presentation/slides";
 import type { DocumentOut, Me } from "@/lib/api-types";
@@ -23,7 +26,7 @@ export type Spawn = { position: Vec3; yaw: number; pitch?: number };
  * `view` (auditorium seats, O7): the point the camera frames while seated there (the screen);
  * sideways input pages the slides instead of standing up.
  */
-export type Seat = { id: string; position: Vec3; yaw: number; view?: Vec3 };
+export type Seat = { id: string; position: Vec3; yaw: number; view?: Vec3; /** Beanbags (O8): the camera settles lower and closer once. */ relaxed?: boolean };
 
 /**
  * Transition phases: `loading` (curtain closed, the scene suspends) → `in` (curtain fading out)
@@ -55,7 +58,13 @@ export type Modal =
   /** A Global Hub kiosk asking to travel to another office (O4). */
   | { type: "travel"; locationId: string; name: string; detail: string }
   /** The presentation room's current slide as a readable DOM page (O7 › "View full screen"). */
-  | { type: "slides" };
+  | { type: "slides" }
+  /** A mini-game from the play area (O8): game mode, until it's quit. */
+  | { type: "game"; game: GameId }
+  /** The leaderboard wall's DOM version, with week / all-time tabs (O8). */
+  | { type: "leaderboard" }
+  /** The jukebox's track picker (O8). */
+  | { type: "jukebox" };
 
 export type NpcView = "menu" | "chat" | "cards";
 
@@ -147,6 +156,16 @@ export type GameState = {
   presentation: Presentation;
   /** NPCs that have called out to the player this visit (`{location}:{npcId}`). */
   calledOut: Record<string, true>;
+  /** The emote playing now (O8), or null. */
+  emote: ActiveEmote | null;
+  /** The emote wheel: open while Q is held (or toggled by the HUD button), with the highlighted slot. */
+  emoteWheel: { open: boolean; highlight: number | null };
+  /** `Date.now()` until which the coffee boost lasts (O8); 0 = none. */
+  caffeinatedUntil: number;
+  /** The jukebox's choice for this visit (O8). */
+  jukebox: JukeboxChoice;
+  /** Bumped after a score is submitted, so the leaderboard wall and board refetch. */
+  scoresVersion: number;
   /** Development only: the city's local hour (0–24) instead of the real time; null = real. */
   clockHour: number | null;
   /** The current city sky, published when it changes (HUD, tests); null outside the city. */
@@ -169,6 +188,13 @@ export type GameState = {
   openModal: (modal: Modal) => void;
   /** Opens a conversation and frames the camera on the speaker. */
   startDialogue: (dialogue: Extract<Modal, { type: "dialogue" | "npc" }>, focus: Vec3) => void;
+  /** Enters a mini-game and frames the camera on its station (O8). */
+  startGame: (game: GameId, focus: Vec3) => void;
+  setEmote: (emote: ActiveEmote | null) => void;
+  setEmoteWheel: (wheel: { open: boolean; highlight: number | null }) => void;
+  setCaffeinatedUntil: (until: number) => void;
+  setJukebox: (choice: JukeboxChoice) => void;
+  bumpScores: () => void;
   /** Switches the open NPC conversation between its menu, chat and card picker. */
   setNpcView: (view: NpcView) => void;
   setCards: (cards: string[]) => void;
@@ -231,6 +257,11 @@ export const useGame = create<GameState>()((set, get) => ({
   viewer: { open: false, request: null },
   presentation: INITIAL_PRESENTATION,
   calledOut: {},
+  emote: null,
+  emoteWheel: { open: false, highlight: null },
+  caffeinatedUntil: 0,
+  jukebox: DEFAULT_TRACK,
+  scoresVersion: 0,
 
   transitionTo: (scene, spawn) => {
     if (get().world.phase === "out") return;
@@ -244,6 +275,7 @@ export const useGame = create<GameState>()((set, get) => ({
       player: { ...s.player, pose: "stand", seat: null, position: pending.spawn.position },
       focus: null,
       cameraFocus: null,
+      emote: null,
     }));
   },
   sceneReady: () => {
@@ -267,6 +299,12 @@ export const useGame = create<GameState>()((set, get) => ({
   deny: () => set({ deniedAt: Date.now() }),
   openModal: (modal) => set({ modal }),
   startDialogue: (dialogue, focus) => set({ modal: dialogue, cameraFocus: focus }),
+  startGame: (game, focus) => set({ modal: { type: "game", game }, cameraFocus: focus, emote: null, emoteWheel: { open: false, highlight: null } }),
+  setEmote: (emote) => set({ emote }),
+  setEmoteWheel: (emoteWheel) => set({ emoteWheel }),
+  setCaffeinatedUntil: (caffeinatedUntil) => set({ caffeinatedUntil }),
+  setJukebox: (jukebox) => set({ jukebox }),
+  bumpScores: () => set((s) => ({ scoresVersion: s.scoresVersion + 1 })),
   closeModal: () => set((s) => ({ modal: null, cameraFocus: null, viewer: { ...s.viewer, open: false } })),
   setNpcView: (view) => {
     const { modal } = get();

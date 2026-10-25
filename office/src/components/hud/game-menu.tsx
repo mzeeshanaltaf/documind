@@ -159,6 +159,7 @@ function SettingsView({ onBack, onControls }: { onBack: () => void; onControls: 
   const soundId = useId();
   const musicId = useId();
   const tagsId = useId();
+  const hideId = useId();
 
   const motion = settings.reduced_motion === null ? "system" : settings.reduced_motion ? "reduced" : "full";
 
@@ -253,6 +254,18 @@ function SettingsView({ onBack, onControls }: { onBack: () => void; onControls: 
           />
         </Field>
 
+        <Field orientation="horizontal" className="items-start justify-between gap-4">
+          <FieldContent>
+            <FieldLabel htmlFor={hideId}>Hide me from leaderboards</FieldLabel>
+            <FieldDescription>Your scores are still saved, but your name stays off the boards.</FieldDescription>
+          </FieldContent>
+          <Switch
+            id={hideId}
+            checked={settings.hide_from_leaderboard}
+            onCheckedChange={(checked) => update({ hide_from_leaderboard: checked })}
+          />
+        </Field>
+
         <button type="button" className={cn(rowClass, "-mt-2")} onClick={onControls}>
           <KeyboardIcon className="text-muted-foreground" />
           Controls
@@ -267,6 +280,7 @@ const CONTROL_ROWS: { keys: string[]; action: string }[] = [
   { keys: ["W", "A", "S", "D"], action: "Move (or the arrow keys)" },
   { keys: ["Shift"], action: "Run while held" },
   { keys: ["E"], action: "Talk, sit, read or open" },
+  { keys: ["Q"], action: "Emotes: hold, point and let go" },
   { keys: ["J"], action: "Journal" },
   { keys: ["M"], action: "Map" },
   { keys: ["Esc"], action: "Menu, or close a dialog" },

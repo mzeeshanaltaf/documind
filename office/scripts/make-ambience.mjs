@@ -8,6 +8,7 @@
  * the same audio. London's motif is the Westminster Quarters (1793, public domain).
  *
  *   node scripts/make-ambience.mjs            # needs ffmpeg on PATH (libvorbis + libmp3lame)
+ *   node scripts/make-ambience.mjs --play     # only the play area's jukebox tracks (phase O8)
  */
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -189,6 +190,20 @@ const TIMBRES = {
     [1, 1, 6],
     [2, 0.35, 5],
     [3, 0.12, 4],
+  ],
+  // Odd harmonics, short: a square-ish chip voice (the arcade track, O8).
+  chip: [
+    [1, 1, 0.28],
+    [3, 0.33, 0.22],
+    [5, 0.2, 0.16],
+    [7, 0.14, 0.12],
+  ],
+  // A soft electric-piano tone (the lounge track, O8).
+  keys: [
+    [1, 1, 1.3],
+    [2, 0.42, 0.9],
+    [4, 0.14, 0.45],
+    [6, 0.06, 0.25],
   ],
 };
 
@@ -412,6 +427,64 @@ const MOTIFS = {
   },
 };
 
+
+// The jukebox's tracks for the play area (phase O8): original loops, played one at a time.
+const PLAY_TRACKS = {
+  // Lounge: soft pads under an electric-piano arpeggio, Fmaj7 - Em7 - Dm7 - Cmaj9, unhurried.
+  lounge: {
+    seconds: 24,
+    events: [
+      [N.F3, N.A3, N.C4, N.E4],
+      [N.E3, N.G3, N.B3, N.D4],
+      [N.D3, N.F3, N.A3, N.C4],
+      [N.C3, N.E3, N.G3, N.D4],
+    ].flatMap((chord, k) => [
+      ...chord.map((note) => ({ t: k * 6, note, length: 7.5, timbre: "pad", level: 0.12, attack: 1.4 })),
+      ...Array.from({ length: 8 }, (_, j) => ({ t: k * 6 + j * 0.75 + (j % 2 ? 0.08 : 0), note: chord[[0, 1, 2, 3, 2, 1, 3, 2][j]] + 12, length: 2.4, timbre: "keys", level: 0.2 })),
+    ]),
+    echo: [0.375, 0.35, 0.28],
+  },
+  // Arcade: a chip arpeggio at 128 bpm over Am - F - C - G with a square bass, played twice.
+  arcade: {
+    seconds: 15,
+    events: Array.from({ length: 8 }, (_, k) => k).flatMap((k) => {
+      const chord = [
+        [N.A3, N.C4, N.E4],
+        [N.F3, N.A3, N.C4],
+        [N.C4, N.E4, N.G4],
+        [N.G3, N.B3, N.D4],
+      ][k % 4];
+      const eighth = 60 / 128 / 2;
+      return [
+        ...Array.from({ length: 8 }, (_, j) => ({ t: (k * 8 + j) * eighth, note: chord[j % 3] + (j >= 6 ? 12 : 0), length: 0.5, timbre: "chip", level: 0.17 })),
+        { t: k * 8 * eighth, note: chord[0] - 24, length: 0.6, timbre: "chip", level: 0.2 },
+        { t: (k * 8 + 4) * eighth, note: chord[0] - 24, length: 0.6, timbre: "chip", level: 0.2 },
+      ];
+    }),
+    echo: [0.234, 0.25, 0.2],
+  },
+  // Bossa: nylon plucks, a bass on one and three and syncopated stabs, Dm9 - G13 - Cmaj7 - A7, twice.
+  bossa: {
+    seconds: 20,
+    events: Array.from({ length: 8 }, (_, k) => k).flatMap((k) => {
+      const { bass, chord } = [
+        { bass: N.D3, chord: [N.F4, N.A4, N.C5, N.E5] },
+        { bass: N.G3, chord: [N.F4, N.B4, N.E5] },
+        { bass: N.C3, chord: [N.E4, N.G4, N.B4, N.D5] },
+        { bass: N.A3 - 12, chord: [N.E4, N.G4, N.C5 + 1] },
+      ][k % 4];
+      const beat = 60 / 96;
+      const bar = k * 4 * beat;
+      return [
+        { t: bar, note: bass, length: 1.6, timbre: "pluck", level: 0.34 },
+        { t: bar + 2 * beat, note: bass + 7, length: 1.4, timbre: "pluck", level: 0.28 },
+        ...[0.5, 1.5, 2.5, 3.5].flatMap((at) => chord.map((note, c) => ({ t: bar + at * beat + c * 0.012, note, length: 1.1, timbre: "pluck", level: 0.12 }))),
+      ];
+    }),
+    echo: [0.3125, 0.3, 0.22],
+  },
+};
+
 // ---------------------------------------------------------------------------------------------
 
 function writeWav(file, samples) {
@@ -445,14 +518,23 @@ function encode(name, samples) {
   console.log(`${name}: ogg ${size(`${out}.ogg`)}, mp3 ${size(`${out}.mp3`)}`);
 }
 
-encode(
-  "ambience/city-traffic",
-  normalize(loop(24, { bed: trafficBed(11), events: trafficEvents(24, 12), voice: carVoice(13) }), 0.6),
-);
-encode("ambience/hub-wind", normalize(loop(24, { bed: windBed(21) }), 0.5));
-for (const [kit, motif] of Object.entries(MOTIFS)) {
-  const dry = loop(motif.seconds, { events: motif.events, voice: noteVoice });
-  const [seconds, feedback, mix] = motif.echo;
+const playOnly = process.argv.includes("--play");
+if (!playOnly) {
+  encode(
+    "ambience/city-traffic",
+    normalize(loop(24, { bed: trafficBed(11), events: trafficEvents(24, 12), voice: carVoice(13) }), 0.6),
+  );
+  encode("ambience/hub-wind", normalize(loop(24, { bed: windBed(21) }), 0.5));
+  for (const [kit, motif] of Object.entries(MOTIFS)) {
+    const dry = loop(motif.seconds, { events: motif.events, voice: noteVoice });
+    const [seconds, feedback, mix] = motif.echo;
+    const smooth = lowpass(5200);
+    encode(`music/motif-${kit}`, normalize(echo(dry, seconds, feedback, mix).map((sample) => smooth(sample)), 0.6));
+  }
+}
+for (const [id, track] of Object.entries(PLAY_TRACKS)) {
+  const dry = loop(track.seconds, { events: track.events, voice: noteVoice });
+  const [seconds, feedback, mix] = track.echo;
   const smooth = lowpass(5200);
-  encode(`music/motif-${kit}`, normalize(echo(dry, seconds, feedback, mix).map((sample) => smooth(sample)), 0.6));
+  encode(`music/play-${id}`, normalize(echo(dry, seconds, feedback, mix).map((sample) => smooth(sample)), 0.6));
 }

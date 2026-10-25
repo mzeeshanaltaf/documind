@@ -4,7 +4,7 @@ import type { KeyboardControlsEntry } from "@react-three/drei";
  * Keyboard bindings, in drei's `KeyboardControls` map shape. The listener is our own
  * (`use-keyboard.ts`): drei's has no guard for editable focus or open dialogs.
  */
-export type Action = "forward" | "back" | "left" | "right" | "run" | "interact" | "journal" | "map" | "menu";
+export type Action = "forward" | "back" | "left" | "right" | "run" | "interact" | "journal" | "map" | "menu" | "emote";
 
 export const CONTROLS: KeyboardControlsEntry<Action>[] = [
   { name: "forward", keys: ["ArrowUp", "KeyW"] },
@@ -16,6 +16,8 @@ export const CONTROLS: KeyboardControlsEntry<Action>[] = [
   { name: "journal", keys: ["KeyJ"] },
   { name: "map", keys: ["KeyM"] },
   { name: "menu", keys: ["Escape"] },
+  /** Hold to open the emote wheel (O8); release to play the highlighted gesture. */
+  { name: "emote", keys: ["KeyQ"] },
 ];
 
 /** Held while down (movement and run); the others fire once per press. */

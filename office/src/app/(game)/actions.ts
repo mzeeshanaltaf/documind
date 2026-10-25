@@ -1,13 +1,17 @@
 "use server";
 
 import { z } from "zod";
+import { inconsistency, type SubmitScoreInput, submitScoreSchema } from "@/game/games/scoring";
+import { GAME_IDS, type GameId } from "@/game/games/types";
 import { apiJson } from "@/lib/api";
 import type { DocumentList } from "@/lib/api-types";
 import { requireOrgAccess, requireSession } from "@/lib/auth-guards";
 import { orderDepartments, roomDepartments } from "@/lib/departments";
+import { type LeaderboardEntry, type Leaderboards, PERIODS, type Period, recordScore, topScores } from "@/lib/leaderboard";
 import { LOCATION_ID } from "@/lib/locations";
 import { query } from "@/lib/office-db";
 import { defaultDisplayName, type Player, type SavePlayerInput, savePlayerSchema } from "@/lib/player";
+import { limitScore } from "@/lib/rate-limit";
 
 type PlayerRow = {
   user_id: string;
@@ -197,4 +201,60 @@ export async function issueCards(orgId: string, departments: string[]): Promise<
     [user.id, orgId, [...new Set(parsed.data)]],
   );
   return { ok: true, cards: orderDepartments(rows[0].cards) };
+}
+
+export type SubmitScoreResult =
+  | { ok: true; rank: number; personalBest: boolean }
+  | { ok: false; error: string; retryAfterSeconds?: number };
+
+/**
+ * Stores a finished game's score (phase O8 › Scores & leaderboard) and returns its rank. In
+ * order: org access, the schema (a known game, a score inside its bounds, the right details), the
+ * rules' cross-checks, then at most one submit per 10 seconds per user (Upstash, backed by the
+ * database). The client is trusted for results; this keeps them reachable.
+ */
+export async function submitScore(input: { orgId: string } & SubmitScoreInput): Promise<SubmitScoreResult> {
+  const orgId = (input as { orgId?: unknown } | null)?.orgId;
+  if (typeof orgId !== "string" || orgId.length === 0 || orgId.length > 64) return { ok: false, error: "Missing organization." };
+  const { user } = await requireOrgAccess(orgId);
+
+  const rest: Record<string, unknown> = { ...input };
+  delete rest.orgId;
+  const parsed = submitScoreSchema.safeParse(rest);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    return { ok: false, error: `${issue.path.join(".") || "score"}: ${issue.message}` };
+  }
+  const problem = inconsistency(parsed.data);
+  if (problem) return { ok: false, error: problem };
+
+  const limit = await limitScore(user.id);
+  if (!limit.ok) return { ok: false, error: "You're submitting scores too fast.", retryAfterSeconds: limit.retryAfterSeconds };
+  const recorded = await recordScore(user.id, orgId, parsed.data);
+  if (!recorded.ok) return { ok: false, error: "You're submitting scores too fast.", retryAfterSeconds: recorded.retryAfterSeconds };
+  return { ok: true, rank: recorded.rank, personalBest: recorded.personalBest };
+}
+
+const leaderboardSchema = z.object({ orgId: z.string().min(1).max(64), game: z.enum(GAME_IDS), period: z.enum(PERIODS as [Period, ...Period[]]) }).strict();
+const leaderboardsSchema = leaderboardSchema.omit({ game: true });
+
+/**
+ * The org's top ten for one game: each player's best score, week (the last 7 days) or all time.
+ * Names are the players' display names; players who hide themselves are left out. Members of the
+ * org (and platform admins) only.
+ */
+export async function getLeaderboard(input: { orgId: string; game: GameId; period: Period }): Promise<LeaderboardEntry[]> {
+  const parsed = leaderboardSchema.safeParse(input);
+  if (!parsed.success) return [];
+  const { user } = await requireOrgAccess(parsed.data.orgId);
+  const boards = await topScores(parsed.data.orgId, user.id, parsed.data.period, [parsed.data.game]);
+  return boards[parsed.data.game];
+}
+
+/** All three games' boards in one round trip (the leaderboard wall and the full-screen board). */
+export async function getLeaderboards(input: { orgId: string; period: Period }): Promise<Leaderboards | null> {
+  const parsed = leaderboardsSchema.safeParse(input);
+  if (!parsed.success) return null;
+  const { user } = await requireOrgAccess(parsed.data.orgId);
+  return topScores(parsed.data.orgId, user.id, parsed.data.period);
 }

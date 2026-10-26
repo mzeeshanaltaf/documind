@@ -16,8 +16,8 @@ const HIDE_AVATAR_WITHIN = 0.9;
 const RELAXED_DISTANCE = 3.6;
 const RELAXED_PITCH = 0.2;
 const RELAX_SETTLE_S = 1.6;
-/** Bird's-eye shot: nearly straight down (not quite, so "forward" keeps a screen direction). */
-const TOP_PITCH = 1.38;
+/** Bird's-eye shot: steep, from a little behind the avatar so the way ahead stays in view. */
+const TOP_PITCH = 1.1;
 const TOP_MIN_DISTANCE = 9;
 const TOP_MAX_DISTANCE = 24;
 
@@ -25,7 +25,7 @@ const clamp = (value: number, min: number, max: number) => Math.min(max, Math.ma
 const ease = (rate: number, delta: number) => 1 - Math.exp(-rate * delta);
 
 /**
- * Third-person follow camera, spring-damped. Right-drag (or a touch drag on the canvas) orbits,
+ * Third-person follow camera, spring-damped. Left-drag (or a touch drag on the canvas) orbits,
  * the wheel zooms within limits, and a ray from the player's head pulls the camera in front of
  * any wall behind it. While `cameraFocus` is set (a conversation) it eases to frame both; on a
  * seat with a `view` (the auditorium) it eases to a shot of that point instead.
@@ -72,9 +72,10 @@ export function FollowCamera() {
 
     function onDown(event: PointerEvent) {
       if (useGame.getState().modal) return;
-      if (event.button !== 2 && event.pointerType !== "touch") return;
+      if (event.button !== 0 && event.pointerType !== "touch") return;
       drag = { id: event.pointerId, x: event.clientX, y: event.clientY };
       dragging.current = true;
+      element.style.cursor = "grabbing";
       smooth.current.recenter = 0;
       element.setPointerCapture(event.pointerId);
     }
@@ -91,6 +92,7 @@ export function FollowCamera() {
       if (drag?.id !== event.pointerId) return;
       drag = null;
       dragging.current = false;
+      element.style.cursor = "";
       if (element.hasPointerCapture(event.pointerId)) element.releasePointerCapture(event.pointerId);
     }
     function onWheel(event: WheelEvent) {

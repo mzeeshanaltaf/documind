@@ -307,7 +307,7 @@ function ControlsView({ onBack }: { onBack: () => void }) {
         </dl>
         <div className="flex flex-col gap-1.5 text-sm text-muted-foreground">
           <p>
-            <span className="font-medium text-foreground">Camera:</span> right-drag to look around; scroll to zoom.
+            <span className="font-medium text-foreground">Camera:</span> left-drag to look around; scroll to zoom.
           </p>
           <p>
             <span className="font-medium text-foreground">Touch:</span> drag the stick to walk (push it all the way to

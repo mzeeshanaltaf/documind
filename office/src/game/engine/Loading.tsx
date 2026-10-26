@@ -10,7 +10,7 @@ const TIPS = [
   "Press J for your journal.",
   "Hold Shift to run.",
   "Press E to talk, sit or open doors.",
-  "Right-drag to look around, and scroll to zoom.",
+  "Left-drag to look around, and scroll to zoom.",
   "Press Esc for settings and controls.",
 ];
 

@@ -12,7 +12,7 @@ const STEPS = [
     title: "Move",
     keys: (
       <>
-        <Kbd>W</Kbd> <Kbd>A</Kbd> <Kbd>S</Kbd> <Kbd>D</Kbd> or the arrow keys to walk, <Kbd>Shift</Kbd> to run. Drag with the right mouse button to look around.
+        <Kbd>W</Kbd> <Kbd>A</Kbd> <Kbd>S</Kbd> <Kbd>D</Kbd> or the arrow keys to walk, <Kbd>Shift</Kbd> to run. Drag with the left mouse button to look around.
       </>
     ),
     touch: "Drag the stick on the left to walk; push it all the way to run. Drag the view to look around.",

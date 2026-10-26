@@ -32,7 +32,8 @@ const WALL_HEIGHT = 3.2;
 /** The street vestibule beyond the lobby's doors: daylight and a way back out. */
 const VESTIBULE = { depth: 2.6, width: 4 };
 
-function shellParts(plan: Floorplan): Part[] {
+/** Floors take the avatar's shadow. */
+function floorParts(plan: Floorplan): Part[] {
   const parts: Part[] = [];
   for (const room of plan.rooms) {
     const { x, z, w, d } = room.rect;
@@ -42,6 +43,17 @@ function shellParts(plan: Floorplan): Part[] {
       parts.push({ color: OFFICE.lobbyInlay, geometry: box(2.4, 0.012, d - 0.4, { at: [x, 0.006, z] }) });
     }
   }
+  const south = rectEdges(plan.rooms[0].rect).z1;
+  parts.push({ color: OFFICE.lobbyInlay, geometry: box(VESTIBULE.width, 0.1, VESTIBULE.depth, { at: [0, -0.05, south + VESTIBULE.depth / 2] }) });
+  return parts;
+}
+
+/**
+ * Walls, glass frames and the vestibule's sides. They don't receive shadows: their thin, grazing
+ * faces (jambs, posts) shimmer with shadow-map noise whenever the camera moves.
+ */
+function shellParts(plan: Floorplan): Part[] {
+  const parts: Part[] = [];
   for (const wall of plan.walls) {
     if (wall.kind === "glass") continue;
     const [hx, hy, hz] = wall.half;
@@ -76,7 +88,6 @@ function shellParts(plan: Floorplan): Part[] {
   // The vestibule: a floor and side walls; daylight fills its far end.
   const south = rectEdges(plan.rooms[0].rect).z1;
   const v = VESTIBULE;
-  parts.push({ color: OFFICE.lobbyInlay, geometry: box(v.width, 0.1, v.depth, { at: [0, -0.05, south + v.depth / 2] }) });
   for (const side of [-1, 1]) {
     parts.push({ color: OFFICE.wall, geometry: box(0.2, WALL_HEIGHT, v.depth, { at: [side * (v.width / 2 + 0.1), WALL_HEIGHT / 2, south + v.depth / 2] }) });
   }
@@ -119,7 +130,8 @@ export function Shell({ plan, version }: { plan: Floorplan; version: string }) {
 
   return (
     <>
-      <Merged build={() => shellParts(plan)} version={version} roughness={0.92} materials={{ [OFFICE.glassFrame]: { roughness: 0.5 } }} />
+      <Merged build={() => floorParts(plan)} version={version} roughness={0.92} />
+      <Merged build={() => shellParts(plan)} version={version} receiveShadow={false} roughness={0.92} materials={{ [OFFICE.glassFrame]: { roughness: 0.5 } }} />
       <Merged
         build={() => ceilingParts(plan)}
         version={version}

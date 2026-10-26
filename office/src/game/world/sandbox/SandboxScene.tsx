@@ -36,7 +36,7 @@ const HINA: AvatarColors = {
 };
 
 const SIGN_TITLE = "Sandbox";
-const SIGN_LINES = ["Walk: WASD or arrows. Run: Shift.", "Look: right-drag. Zoom: scroll.", "Use things: E. Menu: Esc."];
+const SIGN_LINES = ["Walk: WASD or arrows. Run: Shift.", "Look: left-drag. Zoom: scroll.", "Use things: E. Menu: Esc."];
 
 const CHAIR = { x: 3.5, z: -2.5, yaw: Math.PI };
 const NPC = { x: 4.5, z: 3, yaw: -Math.PI / 2 };

@@ -17,7 +17,7 @@ const RELAXED_DISTANCE = 3.6;
 const RELAXED_PITCH = 0.2;
 const RELAX_SETTLE_S = 1.6;
 /** Bird's-eye shot: steep, from a little behind the avatar so the way ahead stays in view. */
-const TOP_PITCH = 1.1;
+const TOP_PITCH = 0.85;
 const TOP_MIN_DISTANCE = 9;
 const TOP_MAX_DISTANCE = 24;
 
@@ -157,7 +157,7 @@ export function FollowCamera() {
       const behind = rig.facing + Math.PI;
       rig.yaw += Math.atan2(Math.sin(behind - rig.yaw), Math.cos(behind - rig.yaw)) * ease(5, delta);
       rig.pitch += (DEFAULT_PITCH - rig.pitch) * ease(3, delta);
-    } else if (!covered && !overhead && rig.strafe !== 0 && !dragging.current) {
+    } else if (!covered && rig.strafe !== 0 && !dragging.current) {
       // Moving left or right: the avatar turns that way, and the camera follows round to stay behind it.
       const behind = rig.facing + Math.PI;
       rig.yaw += Math.atan2(Math.sin(behind - rig.yaw), Math.cos(behind - rig.yaw)) * ease(2.5, delta);

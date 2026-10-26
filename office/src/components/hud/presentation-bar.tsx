@@ -1,9 +1,11 @@
 "use client";
 
-import { ChevronLeftIcon, ChevronRightIcon, Maximize2Icon, PresentationIcon, Volume2Icon, VolumeXIcon } from "lucide-react";
+import { ChevronLeftIcon, ChevronRightIcon, Maximize2Icon, PresentationIcon, TimerIcon, Volume2Icon, VolumeXIcon } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Kbd } from "@/components/ui/kbd";
 import { audio } from "@/game/audio/audio";
 import { useGame } from "@/game/store/game-store";
+import { slideClock } from "@/game/world/office/presentation/clock";
 import { currentEntry, useProgramme } from "@/game/world/office/presentation/use-programme";
 import { cn } from "@/lib/utils";
 
@@ -22,6 +24,28 @@ export function PresentationBar() {
 const panel = "pointer-events-auto rounded-lg bg-background/95 shadow-md ring-1 ring-foreground/10";
 const control =
   "flex h-8 items-center gap-1.5 rounded-md px-2 text-sm font-medium outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50";
+
+/** Seconds left on the current slide before the loop moves on (polled from the Director's clock). */
+function SlideTimer({ slide }: { slide: number }) {
+  const [left, setLeft] = useState<number | null>(null);
+  useEffect(() => {
+    const read = () => setLeft(slideClock.total > 0 ? Math.max(0, Math.ceil(slideClock.total - slideClock.elapsed)) : null);
+    const id = window.setInterval(read, 250);
+    return () => window.clearInterval(id);
+  }, [slide]);
+  if (left === null) return null;
+  return (
+    <span
+      data-slide-timer=""
+      className="flex shrink-0 items-center gap-1 font-mono text-xs text-muted-foreground tabular-nums"
+      title="Time left on this slide"
+    >
+      <TimerIcon className="size-3.5" aria-hidden />
+      <span aria-hidden>{left}s</span>
+      <span className="sr-only">{left} seconds left on this slide</span>
+    </span>
+  );
+}
 
 function Bar() {
   const programme = useProgramme();
@@ -52,6 +76,7 @@ function Bar() {
       <p className="flex min-w-0 items-center gap-2 px-1.5 text-sm" aria-live={seated ? "polite" : "off"}>
         {!seated && <PresentationIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />}
         <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">{counter}</span>
+        <SlideTimer slide={slide} />
         <span className="truncate font-medium">
           <span className="sr-only">{entry.deck.title}: </span>
           {entry.slide.title}

@@ -18,6 +18,8 @@ export const rig = {
   /** Horizontal speed in m/s. */
   speed: 0,
   running: false,
+  /** Sideways input (−1…1) while walking without backing up; the camera swings behind the avatar. */
+  strafe: 0,
   /** Set by the camera when a wall has pushed it so close that it would be inside the avatar. */
   cameraTooClose: false,
   /** Excluded from the camera's wall ray. */

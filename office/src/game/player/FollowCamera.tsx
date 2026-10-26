@@ -64,6 +64,8 @@ export function FollowCamera() {
     wasTop: false,
   });
 
+  const dragging = useRef(false);
+
   useEffect(() => {
     const element = gl.domElement;
     let drag: { id: number; x: number; y: number } | null = null;
@@ -72,6 +74,7 @@ export function FollowCamera() {
       if (useGame.getState().modal) return;
       if (event.button !== 2 && event.pointerType !== "touch") return;
       drag = { id: event.pointerId, x: event.clientX, y: event.clientY };
+      dragging.current = true;
       smooth.current.recenter = 0;
       element.setPointerCapture(event.pointerId);
     }
@@ -87,6 +90,7 @@ export function FollowCamera() {
     function onUp(event: PointerEvent) {
       if (drag?.id !== event.pointerId) return;
       drag = null;
+      dragging.current = false;
       if (element.hasPointerCapture(event.pointerId)) element.releasePointerCapture(event.pointerId);
     }
     function onWheel(event: WheelEvent) {
@@ -151,6 +155,10 @@ export function FollowCamera() {
       const behind = rig.facing + Math.PI;
       rig.yaw += Math.atan2(Math.sin(behind - rig.yaw), Math.cos(behind - rig.yaw)) * ease(5, delta);
       rig.pitch += (DEFAULT_PITCH - rig.pitch) * ease(3, delta);
+    } else if (!covered && !overhead && rig.strafe !== 0 && !dragging.current) {
+      // Moving left or right: the avatar turns that way, and the camera follows round to stay behind it.
+      const behind = rig.facing + Math.PI;
+      rig.yaw += Math.atan2(Math.sin(behind - rig.yaw), Math.cos(behind - rig.yaw)) * ease(2.5, delta);
     }
 
     // The bird's-eye shot: steep, and far enough to see the whole room (the wheel still zooms).

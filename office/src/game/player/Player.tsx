@@ -127,6 +127,7 @@ export function Player() {
     const move = blocked ? NO_MOVE : combineMove(s.input.keyboard, s.input.touch);
     const run = !blocked && (s.input.keyboardRun || s.input.touchRun);
     const moving = move.x !== 0 || move.y !== 0;
+    rig.strafe = move.x !== 0 && move.y >= 0 ? move.x : 0;
     // An emote (O8) plays until it ends, or until the player moves or something takes over.
     if (s.emote && (moving || blocked || performance.now() >= s.emote.until)) s.setEmote(null);
 

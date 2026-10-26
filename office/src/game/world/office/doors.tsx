@@ -26,6 +26,7 @@ import { PLATE, platePainter } from "./signage";
  * street) just slide open. The rooftop lift (`LiftDoor`) opens once the core quests are done (O9).
  */
 const OPEN_RANGE = 2.2;
+const CLOSE_MARGIN = 0.8;
 const BEEP_RANGE = 1.5;
 const DOOR_HEIGHT = 2.5;
 // Locked interactables only explain themselves (the prompt); E never acts on them.
@@ -75,7 +76,8 @@ function SlidingDoor({ door }: { door: Door }) {
     const distance = Math.hypot(rig.position.x - door.x, rig.position.z - door.z);
     const ready = state.world.phase === "ready";
     const m = motion.current;
-    const wanted = ready && distance < OPEN_RANGE && granted;
+    // Hysteresis: a player walking along the range's edge must not make the door chatter.
+    const wanted = ready && granted && distance < (m.wanted ? OPEN_RANGE + CLOSE_MARGIN : OPEN_RANGE);
     if (wanted !== m.wanted) {
       m.wanted = wanted;
       if (wanted) {

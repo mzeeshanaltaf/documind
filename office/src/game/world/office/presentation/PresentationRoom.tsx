@@ -17,6 +17,7 @@ import { useNear } from "../use-near";
 import { SlideView } from "./deck";
 import { auditoriumParts } from "./furniture";
 import { type Auditorium, auditoriumLayout, presenterShot, type Seat } from "./layout";
+import { slideClock } from "./clock";
 import { type ProgrammeSlide, type SlideVideo, slideSeconds } from "./slides";
 import { currentEntry, seeSlide, useProgramme } from "./use-programme";
 
@@ -146,6 +147,8 @@ function Director({ programme, room }: { programme: ProgrammeSlide[]; room: Room
       l.seenKey = "";
     }
     l.timer += Math.min(delta, 0.25);
+    slideClock.elapsed = l.timer;
+    slideClock.total = slideSeconds(entry.slide);
     if (l.timer < slideSeconds(entry.slide)) return;
     if (!watching && insideRect(room.rect, rig.position.x, rig.position.z)) seeSlide(entry);
     s.stepSlide(1);

@@ -13,6 +13,7 @@ import { isFirstLook } from "./player/avatar-style";
 import { rig } from "./player/rig";
 import { startStats } from "./progress/stats";
 import { bus, type GameEvent } from "./quests/bus";
+import { startQuests } from "./quests/runtime";
 import { changedSettings } from "./settings";
 import { selectReducedMotion, useGame } from "./store/game-store";
 
@@ -31,6 +32,7 @@ export default function GameRoot(entry: GameEntry) {
   useAudio();
   useSettingsPersistence();
   useEffect(startStats, []);
+  useEffect(startQuests, []);
   useFirstLook(entry.player);
   useDevHandle();
 

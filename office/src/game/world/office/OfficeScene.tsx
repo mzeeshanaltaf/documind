@@ -9,6 +9,7 @@ import { SAMPLE_CITY } from "../city/sample";
 import { cityExitSpawn } from "../city/spawns";
 import { Trigger } from "../Trigger";
 import { Doors } from "./doors";
+import { GuideTrail } from "./GuideTrail";
 import { type Floorplan, roomAt } from "./floorplan";
 import { Lobby } from "./lobby";
 import { PlayArea } from "./play/PlayArea";
@@ -47,6 +48,7 @@ export default function OfficeScene() {
       <Rooms plan={plan} />
       <PresentationRoom plan={plan} />
       <PlayArea plan={plan} />
+      <GuideTrail plan={plan} />
       <RoomTracker plan={plan} location={place.id} />
       <Trigger box={plan.exit} onEnter={leave} />
     </>

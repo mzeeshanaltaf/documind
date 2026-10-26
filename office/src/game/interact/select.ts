@@ -41,10 +41,14 @@ function article(word: string): "a" | "an" {
   return (acronym ? /^[AEFHILMNORSX]/ : /^[AEIOU]/i).test(word) ? "an" : "a";
 }
 
-/** `card:HR` needs the HR card, `card:*` any card; other requirements (`unlock:…`) are unmet. */
-export function meetsRequirement(cards: readonly string[], requirement: string): boolean {
+/**
+ * `card:HR` needs the HR card, `card:*` any card, `unlock:rooftop` the unlock the quests grant
+ * (`unlocks`, O9); any other requirement is unmet.
+ */
+export function meetsRequirement(cards: readonly string[], requirement: string, unlocks: readonly string[] = []): boolean {
   const [type, value] = requirement.split(":", 2);
   if (type === "card") return value === "*" ? cards.length > 0 : cards.includes(value);
+  if (type === "unlock") return unlocks.includes(value);
   return false;
 }
 

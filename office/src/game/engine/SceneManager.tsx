@@ -8,14 +8,14 @@ import { emit } from "@/game/quests/bus";
 import { type SceneId, useGame } from "@/game/store/game-store";
 
 /**
- * Each scene is its own lazy chunk. The city (O4) and the office (O5) are built; the rooftop
- * loads a placeholder room until O9.
+ * Each scene is its own lazy chunk: the dev sandbox, the city (O4), the office (O5) and the
+ * rooftop lounge (O9).
  */
 const SCENES: Record<SceneId, LazyExoticComponent<ComponentType>> = {
   sandbox: lazy(() => import("@/game/world/sandbox/SandboxScene")),
   city: lazy(() => import("@/game/world/city/CityScene")),
   office: lazy(() => import("@/game/world/office/OfficeScene")),
-  rooftop: lazy(() => import("@/game/world/placeholder/PlaceholderScene")),
+  rooftop: lazy(() => import("@/game/world/office/rooftop")),
 };
 
 /**

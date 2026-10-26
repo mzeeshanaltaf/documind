@@ -71,6 +71,8 @@ describe("meetsRequirement", () => {
     expect(meetsRequirement(["IT"], "card:*")).toBe(true);
     expect(meetsRequirement([], "card:*")).toBe(false);
     expect(meetsRequirement(["HR"], "unlock:rooftop")).toBe(false);
+    expect(meetsRequirement(["HR"], "unlock:rooftop", ["rooftop"])).toBe(true);
+    expect(meetsRequirement(["HR"], "unlock:rooftop", ["other"])).toBe(false);
   });
 });
 

@@ -3,6 +3,8 @@
 import { z } from "zod";
 import { inconsistency, type SubmitScoreInput, submitScoreSchema } from "@/game/games/scoring";
 import { GAME_IDS, type GameId } from "@/game/games/types";
+import type { Progress } from "@/game/quests/definitions";
+import { type ProgressPatch, saveProgressSchema } from "@/game/quests/schema";
 import { apiJson } from "@/lib/api";
 import type { DocumentList } from "@/lib/api-types";
 import { requireOrgAccess, requireSession } from "@/lib/auth-guards";
@@ -11,6 +13,7 @@ import { type LeaderboardEntry, type Leaderboards, PERIODS, type Period, recordS
 import { LOCATION_ID } from "@/lib/locations";
 import { query } from "@/lib/office-db";
 import { defaultDisplayName, type Player, type SavePlayerInput, savePlayerSchema } from "@/lib/player";
+import { readProgress, writeProgress } from "@/lib/progress";
 import { limitScore } from "@/lib/rate-limit";
 
 type PlayerRow = {
@@ -201,6 +204,30 @@ export async function issueCards(orgId: string, departments: string[]): Promise<
     [user.id, orgId, [...new Set(parsed.data)]],
   );
   return { ok: true, cards: orderDepartments(rows[0].cards) };
+}
+
+/**
+ * The player's quests, achievements and stats in an org (phase O9), read when the world loads.
+ * Quest state is a player's own and per org, so a platform admin looking around has a separate
+ * row for each org they visit.
+ */
+export async function loadProgress(orgId: string): Promise<Progress> {
+  const { user } = await requireOrgAccess(orgId);
+  return readProgress(user.id, orgId);
+}
+
+/**
+ * Saves a debounced batch of quest, achievement and stat changes (phase O9 › Persistence): org
+ * access, then zod, then the server-side merge (counters never decrease, `done_at` is set once,
+ * stat sets only grow). The client is trusted for game progress; see `office/CLAUDE.md`. The
+ * page-hide flush goes to `/api/progress` with the same validation.
+ */
+export async function saveProgress(orgId: string, patch: ProgressPatch): Promise<{ ok: boolean }> {
+  const { user } = await requireOrgAccess(orgId);
+  const parsed = saveProgressSchema.safeParse({ orgId, patch });
+  if (!parsed.success) return { ok: false };
+  await writeProgress(user.id, orgId, parsed.data.patch);
+  return { ok: true };
 }
 
 export type SubmitScoreResult =

@@ -1,8 +1,10 @@
 "use client";
 
-import { ChevronRightIcon, MenuIcon } from "lucide-react";
+import { BookOpenIcon, ChevronRightIcon, MenuIcon } from "lucide-react";
 import { Kbd } from "@/components/ui/kbd";
 import { audio } from "@/game/audio/audio";
+import { CORE_QUEST_IDS } from "@/game/quests/definitions";
+import { coreStatus } from "@/game/quests/engine";
 import { useGame } from "@/game/store/game-store";
 import { cn } from "@/lib/utils";
 import { NpcDialogue } from "@/components/dialogue/npc-dialogue";
@@ -15,12 +17,16 @@ import { CardWallet } from "./card-wallet";
 import { DialoguePanel } from "./dialogue-panel";
 import { CaffeinatedChip, EmoteWheel } from "./emote-wheel";
 import { GameMenu } from "./game-menu";
+import { CoachMarks } from "./coach-marks";
 import { InteractionPrompt } from "./interaction-prompt";
+import { JournalDialog } from "./journal-dialog";
+import { QuestToasts } from "./quest-toasts";
 import { Minimap } from "./minimap";
 import { PresentationBar } from "./presentation-bar";
 import { QuotaMeter } from "./quota-meter";
 import { SignDialog } from "./sign-dialog";
 import { SlidesDialog } from "./slides-dialog";
+import { TelescopeCaption } from "./telescope-caption";
 import { TouchControls } from "./touch-controls";
 import { TravelDialog } from "./travel-dialog";
 
@@ -61,6 +67,7 @@ export function Hud() {
           </nav>
           <div className="flex shrink-0 items-center gap-2">
             <QuotaMeter />
+            <JournalButton />
             <button
               type="button"
               onClick={() => {
@@ -92,6 +99,8 @@ export function Hud() {
       </div>
 
       <ArrivalBanner />
+      <QuestToasts />
+      <CoachMarks />
       <EmoteWheel />
       <TouchControls />
       <GameMenu />
@@ -104,6 +113,31 @@ export function Hud() {
       <GameDialog />
       <LeaderboardDialog />
       <JukeboxDialog />
+      <JournalDialog />
+      <TelescopeCaption />
     </>
+  );
+}
+
+/** Opens the journal; shows the core quests done so far (3/5). Touch gets its own button. */
+function JournalButton() {
+  const done = useGame((s) => coreStatus(s.progress).done);
+  const total = CORE_QUEST_IDS.length;
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        audio.play("ui-open", { volume: 0.5 });
+        useGame.getState().openModal({ type: "journal" });
+      }}
+      className={`${panel} pointer-events-auto flex h-9 items-center gap-2 px-2.5 text-sm font-medium outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 pointer-coarse:hidden`}
+    >
+      <BookOpenIcon className="size-4" aria-hidden />
+      Journal
+      <span className="font-mono text-xs text-muted-foreground tabular-nums" aria-label={`${done} of ${total} core quests done`}>
+        {done}/{total}
+      </span>
+      <Kbd className="max-sm:hidden">J</Kbd>
+    </button>
   );
 }

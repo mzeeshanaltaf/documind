@@ -1,7 +1,7 @@
 import { useFrame, useThree } from "@react-three/fiber";
 import { useRapier } from "@react-three/rapier";
 import { useEffect, useRef } from "react";
-import { Vector3 } from "three";
+import { type PerspectiveCamera, Vector3 } from "three";
 import { selectReducedMotion, useGame } from "@/game/store/game-store";
 import { seatCamera } from "@/game/world/office/presentation/layout";
 import { CAMERA_LIMITS, rig } from "./rig";
@@ -45,6 +45,13 @@ export function FollowCamera() {
     seated: 0,
     /** Seconds since sitting on a relaxed seat (0 when not). */
     relaxed: 0,
+    /** The rooftop telescope's shot (O9): where the camera sits, what it looks at, how far in (0–1) and how narrow. */
+    scopeEye: new Vector3(),
+    scopeLook: new Vector3(),
+    scopeBlend: new Vector3(),
+    scopeFov: 0,
+    scoped: 0,
+    baseFov: 0,
   });
 
   useEffect(() => {
@@ -170,6 +177,29 @@ export function FollowCamera() {
       if (view.seated > 0.3) rig.cameraTooClose = true;
     } else {
       camera.lookAt(view.target);
+    }
+
+    // Looking through the rooftop telescope (O9): ease to the eyepiece, aim at the landmark, narrow the view.
+    const scope = s.scope;
+    if (scope) {
+      view.scopeEye.set(scope.eye[0], scope.eye[1], scope.eye[2]);
+      view.scopeLook.set(scope.look[0], scope.look[1], scope.look[2]);
+      view.scopeFov = scope.fov;
+    }
+    view.scoped += ((scope ? 1 : 0) - view.scoped) * ease(selectReducedMotion(s) ? 30 : 3, delta);
+    if (view.scoped > 0.002) {
+      camera.position.lerp(view.scopeEye, view.scoped);
+      view.scopeBlend.copy(view.target).lerp(view.scopeLook, view.scoped);
+      camera.lookAt(view.scopeBlend);
+      rig.cameraTooClose = true;
+    }
+    if ("fov" in camera && typeof camera.fov === "number") {
+      view.baseFov ||= camera.fov;
+      const fov = view.scoped > 0.002 ? view.baseFov + (view.scopeFov - view.baseFov) * view.scoped : view.baseFov;
+      if (Math.abs(camera.fov - fov) > 0.01) {
+        camera.fov = fov;
+        (camera as PerspectiveCamera).updateProjectionMatrix();
+      }
     }
   });
 

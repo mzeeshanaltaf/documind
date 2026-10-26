@@ -25,6 +25,7 @@ const PAD = 1.5;
 function OfficeMap() {
   const plan = useFloorplan();
   const cards = useGame((s) => s.player.cards);
+  const guide = useGame((s) => s.guide);
   const [large, setLarge] = useState(false);
   const arrow = useRef<SVGGElement>(null);
 
@@ -72,6 +73,13 @@ function OfficeMap() {
           {Object.entries(plan.npcSpots).map(([id, spot]) => (
             <circle key={id} cx={spot.position[0]} cy={spot.position[2]} r={0.7} className="fill-info" />
           ))}
+          {/* The journal's "Show me" target (O9): the only guide marker when motion is reduced. */}
+          {guide && (
+            <g data-guide={guide.quest}>
+              <circle cx={guide.target[0]} cy={guide.target[2]} r={2.1} className="fill-none stroke-primary" strokeWidth={0.35} />
+              <circle cx={guide.target[0]} cy={guide.target[2]} r={0.9} className="fill-primary" />
+            </g>
+          )}
           <g ref={arrow}>
             <path d="M0 1.6 L1.1 -1 L0 -0.45 L-1.1 -1 Z" className="fill-primary stroke-background" strokeWidth={0.3} />
           </g>

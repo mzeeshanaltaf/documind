@@ -5,6 +5,8 @@ import { type Move, NO_MOVE } from "@/game/input/bindings";
 import type { NpcTurn } from "@/game/chat/sse";
 import { type JukeboxChoice, DEFAULT_TRACK } from "@/game/audio/jukebox";
 import type { GameId } from "@/game/games/types";
+import type { Progress, QuestId } from "@/game/quests/definitions";
+import { emptyProgress, unlocksOf } from "@/game/quests/engine";
 import type { Focus, InteractKind } from "@/game/interact/select";
 import { type AvatarColors, DEFAULT_AVATAR } from "@/game/player/avatar-style";
 import type { ActiveEmote } from "@/game/player/emotes";
@@ -64,7 +66,22 @@ export type Modal =
   /** The leaderboard wall's DOM version, with week / all-time tabs (O8). */
   | { type: "leaderboard" }
   /** The jukebox's track picker (O8). */
-  | { type: "jukebox" };
+  | { type: "jukebox" }
+  /** The quest journal (O9), on its quests or achievements tab. */
+  | { type: "journal"; tab?: JournalTab }
+  /** Looking through the rooftop telescope (O9): a caption over the zoomed view. */
+  | { type: "telescope"; title: string; lines: string[] };
+
+/** The rooftop telescope's shot: the camera eases to `eye`, looks at `look`, and narrows to `fov` degrees. */
+export type Scope = { eye: Vec3; look: Vec3; fov: number };
+
+export type JournalTab = "quests" | "achievements";
+
+/** A "Quest complete" or "Achievement unlocked" notice waiting its turn on screen (O9). */
+export type QuestToast = { id: number; kind: "quest" | "achievement"; title: string; text: string };
+
+/** The journal's "Show me": a trail on the floor (and a marker on the map) to a quest's target. */
+export type Guide = { quest: QuestId; label: string; target: Vec3 };
 
 export type NpcView = "menu" | "chat" | "cards";
 
@@ -166,6 +183,15 @@ export type GameState = {
   jukebox: JukeboxChoice;
   /** Bumped after a score is submitted, so the leaderboard wall and board refetch. */
   scoresVersion: number;
+  /** Quests, achievements and stats for this org (O9). */
+  progress: Progress;
+  /** What the quests have unlocked (`requires: "unlock:rooftop"` checks this): `["rooftop"]` or none. */
+  unlocks: string[];
+  /** Notices waiting to be shown, oldest first. */
+  toasts: QuestToast[];
+  guide: Guide | null;
+  /** The telescope shot while looking through it (cleared with the modal), or null. */
+  scope: Scope | null;
   /** Development only: the city's local hour (0–24) instead of the real time; null = real. */
   clockHour: number | null;
   /** The current city sky, published when it changes (HUD, tests); null outside the city. */
@@ -195,6 +221,12 @@ export type GameState = {
   setCaffeinatedUntil: (until: number) => void;
   setJukebox: (choice: JukeboxChoice) => void;
   bumpScores: () => void;
+  setProgress: (progress: Progress) => void;
+  pushToasts: (toasts: Omit<QuestToast, "id">[]) => void;
+  dismissToast: (id: number) => void;
+  setGuide: (guide: Guide | null) => void;
+  /** Opens the telescope caption and starts its shot. */
+  startScope: (scope: Scope, caption: { title: string; lines: string[] }) => void;
   /** Switches the open NPC conversation between its menu, chat and card picker. */
   setNpcView: (view: NpcView) => void;
   setCards: (cards: string[]) => void;
@@ -262,6 +294,11 @@ export const useGame = create<GameState>()((set, get) => ({
   caffeinatedUntil: 0,
   jukebox: DEFAULT_TRACK,
   scoresVersion: 0,
+  progress: emptyProgress(),
+  unlocks: [],
+  toasts: [],
+  guide: null,
+  scope: null,
 
   transitionTo: (scene, spawn) => {
     if (get().world.phase === "out") return;
@@ -276,6 +313,7 @@ export const useGame = create<GameState>()((set, get) => ({
       focus: null,
       cameraFocus: null,
       emote: null,
+      guide: null,
     }));
   },
   sceneReady: () => {
@@ -305,7 +343,18 @@ export const useGame = create<GameState>()((set, get) => ({
   setCaffeinatedUntil: (caffeinatedUntil) => set({ caffeinatedUntil }),
   setJukebox: (jukebox) => set({ jukebox }),
   bumpScores: () => set((s) => ({ scoresVersion: s.scoresVersion + 1 })),
-  closeModal: () => set((s) => ({ modal: null, cameraFocus: null, viewer: { ...s.viewer, open: false } })),
+  setProgress: (progress) => set({ progress, unlocks: unlocksOf(progress) }),
+  pushToasts: (toasts) => {
+    if (toasts.length === 0) return;
+    set((s) => {
+      let id = s.toasts.reduce((max, toast) => Math.max(max, toast.id), 0);
+      return { toasts: [...s.toasts, ...toasts.map((toast) => ({ ...toast, id: ++id }))] };
+    });
+  },
+  dismissToast: (id) => set((s) => (s.toasts.some((toast) => toast.id === id) ? { toasts: s.toasts.filter((toast) => toast.id !== id) } : {})),
+  setGuide: (guide) => set({ guide }),
+  startScope: (scope, caption) => set({ modal: { type: "telescope", ...caption }, scope }),
+  closeModal: () => set((s) => ({ modal: null, cameraFocus: null, scope: null, viewer: { ...s.viewer, open: false } })),
   setNpcView: (view) => {
     const { modal } = get();
     if (modal?.type === "npc" && modal.view !== view) set({ modal: { ...modal, view } });

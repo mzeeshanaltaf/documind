@@ -1,4 +1,4 @@
-import type { GameId } from "@/game/games/types";
+import type { GameId, GameOutcome } from "@/game/games/types";
 import type { InteractKind } from "@/game/interact/select";
 import type { EmoteId } from "@/game/player/emotes";
 import type { SceneId } from "@/game/store/game-store";
@@ -10,8 +10,8 @@ import type { DeckId } from "@/game/world/office/presentation/slides";
  */
 export type GameEvent =
   | { type: "scene_entered"; scene: SceneId }
-  /** A city (or the Global Hub) came into view; `isNight` feeds "Night owl" (O9). */
-  | { type: "city_entered"; location: string; isNight: boolean }
+  /** A city (or the Global Hub) came into view; `isNight` and the local `hour` feed "Night owl" and "Early bird" (O9). */
+  | { type: "city_entered"; location: string; isNight: boolean; hour?: number }
   | { type: "office_entered"; location: string }
   | { type: "travelled"; from: string; to: string }
   /** `room` is the floor plan's id (`lobby`, `dept:HR`…); `department` is set for department rooms. */
@@ -31,8 +31,8 @@ export type GameEvent =
   | { type: "presentation_watched"; deck: DeckId; location?: string }
   /** A mini-game was started from its station in the play area (O8). */
   | { type: "game_started"; game: GameId }
-  /** A game ran to its end (not quit); `score` is what it will submit (O8; "Arcade regular", O9). */
-  | { type: "game_finished"; game: GameId; score: number }
+  /** A game ran to its end (not quit); `score` and `details` are what it will submit (O8; "Team spirit", "Trivia ace", O9). */
+  | { type: "game_finished"; game: GameId; score: number; details: GameOutcome["details"] }
   /** The server stored the score; `rank` is the player's place on the org's board (O8). */
   | { type: "score_submitted"; game: GameId; score: number; rank: number; personalBest: boolean }
   | { type: "emote_used"; emote: EmoteId }

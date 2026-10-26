@@ -11,6 +11,8 @@ export type Settings = {
   reduced_motion: boolean | null;
   show_name_tags: boolean;
   hide_from_leaderboard: boolean;
+  /** The first-entry coach marks have been dismissed (O9). */
+  coach_done: boolean;
   last_org?: string;
   last_location?: string;
 };
@@ -22,6 +24,7 @@ export const DEFAULT_SETTINGS: Settings = {
   reduced_motion: null,
   show_name_tags: true,
   hide_from_leaderboard: false,
+  coach_done: false,
 };
 
 /**

@@ -9,6 +9,7 @@ import { ambienceFor } from "./ambience";
 import { OfficeBuilding } from "./building";
 import { Buildings } from "./Buildings";
 import { CitySky } from "./CitySky";
+import { localHour } from "./lighting";
 import { CITY, generateCity, groundHeight } from "./generator";
 import { Colliders, Ground } from "./Ground";
 import { LANDMARKS } from "./landmarks";
@@ -45,7 +46,9 @@ export function useArrival(place: Location, isNight: boolean) {
   });
   useEffect(() => {
     useGame.getState().setLocation({ room: null });
-    emit({ type: "city_entered", location: place.id, isNight: night.current });
+    // The local hour feeds "Early bird" (O9); the dev clock stands in for the real time, as in the sky.
+    const { clockHour } = useGame.getState();
+    emit({ type: "city_entered", location: place.id, isNight: night.current, hour: clockHour ?? localHour(Date.now(), place.timezone) });
     const sound = ambienceFor(place.landmarkKit);
     audio.loop("ambience", sound.ambience);
     audio.loop("music", sound.music);

@@ -2,6 +2,8 @@ import type { Player } from "@/lib/player";
 import { DEFAULT_TRACK } from "./audio/jukebox";
 import { initialAutoTier } from "./engine/quality";
 import { NO_MOVE } from "./input/bindings";
+import type { Progress } from "./quests/definitions";
+import { emptyProgress, unlocksOf } from "./quests/engine";
 import { readMirror } from "./persist";
 import { resolveAvatar } from "./player/avatar-style";
 import { bootSettings, parseMirror } from "./settings";
@@ -16,6 +18,8 @@ export type GameEntry = {
   office?: OfficeContext;
   /** Access cards already held for this org (`progress.cards`). */
   cards?: string[];
+  /** Quests, achievements and stats already earned in this org (`loadProgress`, O9). */
+  progress?: Progress;
 };
 
 function media(query: string): boolean {
@@ -27,7 +31,7 @@ function media(query: string): boolean {
  * visit in the same tab must not inherit the first one's state). Browser-only: it reads
  * localStorage, media queries and device hints.
  */
-export function initGame({ player, scene, spawn, location, office, cards }: GameEntry) {
+export function initGame({ player, scene, spawn, location, office, cards, progress = emptyProgress() }: GameEntry) {
   const nav = navigator as Navigator & { deviceMemory?: number };
   useGame.setState({
     world: { scene, spawn, epoch: 0, phase: "loading", pending: null, location },
@@ -68,5 +72,10 @@ export function initGame({ player, scene, spawn, location, office, cards }: Game
     caffeinatedUntil: 0,
     jukebox: DEFAULT_TRACK,
     scoresVersion: 0,
+    progress,
+    unlocks: unlocksOf(progress),
+    toasts: [],
+    guide: null,
+    scope: null,
   });
 }

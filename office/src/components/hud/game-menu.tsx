@@ -22,6 +22,7 @@ import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { audio } from "@/game/audio/audio";
 import { flushSettings } from "@/game/persist";
+import { flushProgress } from "@/game/quests/save";
 import type { QualitySetting } from "@/game/settings";
 import { useGame } from "@/game/store/game-store";
 import { authClient } from "@/lib/auth-client";
@@ -69,7 +70,7 @@ function MainView({ onResume, onNavigate }: { onResume: () => void; onNavigate: 
 
   async function signOut() {
     setSigningOut(true);
-    await flushSettings();
+    await Promise.all([flushSettings(), flushProgress()]);
     await authClient.signOut();
     router.push("/sign-in");
     router.refresh();

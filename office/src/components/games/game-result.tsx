@@ -63,7 +63,7 @@ export function GameResult({ outcome, heading, children, onAgain, onQuit }: Prop
     // Once per card, even when development runs effects twice.
     if (sent.current) return;
     sent.current = true;
-    emit({ type: "game_finished", game: outcome.game, score: outcome.score });
+    emit({ type: "game_finished", game: outcome.game, score: outcome.score, details: outcome.details });
     save();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once, for this outcome.
   }, []);

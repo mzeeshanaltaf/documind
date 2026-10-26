@@ -1,6 +1,6 @@
 "use client";
 
-import { HandIcon, MenuIcon, SmileIcon } from "lucide-react";
+import { BookOpenIcon, HandIcon, MenuIcon, SmileIcon } from "lucide-react";
 import { useRef } from "react";
 import { interactWithFocus } from "@/game/interact/interact";
 import { closeEmoteWheel, openEmoteWheel } from "@/game/player/emote-actions";
@@ -71,6 +71,14 @@ export function TouchControls() {
           className="flex size-11 items-center justify-center rounded-full bg-background/90 shadow-sm ring-1 ring-foreground/15 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
         >
           <MenuIcon className="size-5" />
+        </button>
+        <button
+          type="button"
+          aria-label="Journal"
+          onClick={() => useGame.getState().openModal({ type: "journal" })}
+          className="flex size-11 items-center justify-center rounded-full bg-background/90 shadow-sm ring-1 ring-foreground/15 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+          <BookOpenIcon className="size-5" />
         </button>
         <button
           type="button"

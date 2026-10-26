@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { emit } from "@/game/quests/bus";
+import { flushProgress } from "@/game/quests/save";
 import { useGame } from "@/game/store/game-store";
 
 /** A Global Hub kiosk: "Travel to Berlin?", then on to that office's street. */
@@ -17,11 +18,13 @@ export function TravelDialog() {
     if (!going) useGame.getState().closeModal();
   };
 
-  function go() {
+  async function go() {
     const { office } = useGame.getState();
     if (!travel || !office) return;
     setGoing(true);
     emit({ type: "travelled", from: office.place.id, to: travel.locationId });
+    // The next office loads the saved progress: let the last quest changes land first.
+    await flushProgress();
     router.push(`/${office.org.slug}/${travel.locationId}`);
   }
 

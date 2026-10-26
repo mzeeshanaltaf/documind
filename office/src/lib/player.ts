@@ -28,6 +28,8 @@ export const settingsSchema = z
     reduced_motion: z.boolean().nullable(),
     show_name_tags: z.boolean(),
     hide_from_leaderboard: z.boolean(),
+    /** The first-entry coach marks (move, interact, journal) were finished or dismissed (O9). */
+    coach_done: z.boolean(),
     /** The last org id and location id chosen ("Resume in Lahore"). */
     last_org: z.string().min(1).max(64),
     last_location: z.string().regex(/^[a-z0-9-]{1,40}$/),

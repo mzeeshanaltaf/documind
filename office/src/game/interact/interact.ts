@@ -9,7 +9,7 @@ const world = new Vector3();
 
 /** True when the player meets a requirement such as `card:HR` (`card:*` = any card). */
 export function meets(state: GameState, requirement: string): boolean {
-  return meetsRequirement(state.player.cards, requirement);
+  return meetsRequirement(state.player.cards, requirement, state.unlocks);
 }
 
 function* candidates(state: GameState): Generator<Candidate> {

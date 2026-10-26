@@ -6,6 +6,37 @@ import type { LocationOverride } from "@/lib/locations";
  * HR supplement (US is the base manual's jurisdiction, hence the HQ). Palettes are the city
  * scenes' (O4): ground, facades, one accent that nods to the place.
  */
+/**
+ * What the rooftop telescope says about each office's landmark (phase O9 › Rooftop), by location
+ * id. Static text, written by hand and checked against public facts, not generated.
+ */
+export const SIMTORA_LANDMARKS: Record<string, { name: string; fact: string }> = {
+  "san-francisco": {
+    name: "Golden Gate Bridge",
+    fact: "The bridge opened in 1937 and was the longest suspension bridge in the world for 27 years. Its colour, International Orange, was picked so it stays visible in San Francisco's fog.",
+  },
+  lahore: {
+    name: "Minar-e-Pakistan",
+    fact: "The tower stands in Iqbal Park, where the Lahore Resolution was adopted in March 1940. It took from 1960 to 1968 to build.",
+  },
+  berlin: {
+    name: "Brandenburg Gate",
+    fact: "The gate was finished in 1791. The Quadriga on top, a chariot with four horses, was carried off to Paris in 1806 and came home to Berlin in 1814.",
+  },
+  paris: {
+    name: "Eiffel Tower",
+    fact: "The tower was built for the 1889 World's Fair and was meant to stand for 20 years. On a hot Paris summer day it is about 15 cm taller.",
+  },
+  sydney: {
+    name: "Sydney Opera House",
+    fact: "The Opera House opened in 1973. Its white sails are covered in more than a million self-cleaning tiles.",
+  },
+  london: {
+    name: "Elizabeth Tower",
+    fact: "The tower holds the Great Bell, known as Big Ben: the name belongs to the bell, not the tower. The tower was renamed in 2012 for the Queen's Diamond Jubilee.",
+  },
+};
+
 export const SIMTORA_LOCATIONS: LocationOverride[] = [
   {
     country: "US",

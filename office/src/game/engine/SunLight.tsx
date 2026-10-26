@@ -1,9 +1,14 @@
 import { useFrame } from "@react-three/fiber";
 import { useLayoutEffect, useRef } from "react";
-import type { DirectionalLight } from "three";
+import { type DirectionalLight, Vector3 } from "three";
 import { rig } from "@/game/player/rig";
 import { selectTier, useGame } from "@/game/store/game-store";
 import { TIERS } from "./quality";
+
+const lightDir = new Vector3();
+const lightRight = new Vector3();
+const lightUp = new Vector3();
+const snapped = new Vector3();
 
 type SunLightProps = {
   position?: [number, number, number];
@@ -49,7 +54,15 @@ export function SunLight({
   useFrame(() => {
     const sun = light.current;
     if (!follow || !sun) return;
-    const at = rig.position;
+    // Snap the shadow box to whole shadow-map texels in light space: a box that glides with the
+    // player makes every shadow edge swim, which shows as shimmering stripes on grazing faces.
+    const texel = (2 * extent) / sun.shadow.mapSize.x;
+    lightDir.set(position[0], position[1], position[2]).normalize();
+    lightRight.set(0, 1, 0).cross(lightDir).normalize();
+    lightUp.copy(lightDir).cross(lightRight);
+    const at = snapped.copy(rig.position);
+    at.addScaledVector(lightRight, -(at.dot(lightRight) % texel));
+    at.addScaledVector(lightUp, -(at.dot(lightUp) % texel));
     sun.position.set(at.x + position[0], at.y + position[1], at.z + position[2]);
     sun.target.position.copy(at);
     // The target is not in the scene graph, so its matrix is updated by hand.
@@ -63,7 +76,7 @@ export function SunLight({
       intensity={intensity}
       color={color}
       shadow-bias={-0.0004}
-      shadow-normalBias={0.03}
+      shadow-normalBias={0.05}
       shadow-camera-left={-extent}
       shadow-camera-right={extent}
       shadow-camera-top={extent}

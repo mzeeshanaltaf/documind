@@ -27,6 +27,8 @@ import { PLATE, platePainter } from "./signage";
  */
 const OPEN_RANGE = 2.2;
 const CLOSE_MARGIN = 0.8;
+/** Close to the door it stays open whichever way the avatar turns (walking through, turning in the doorway). */
+const THROUGH_RANGE = 1.2;
 const BEEP_RANGE = 1.5;
 const DOOR_HEIGHT = 2.5;
 // Locked interactables only explain themselves (the prompt); E never acts on them.
@@ -77,7 +79,13 @@ function SlidingDoor({ door }: { door: Door }) {
     const ready = state.world.phase === "ready";
     const m = motion.current;
     // Hysteresis: a player walking along the range's edge must not make the door chatter.
-    const wanted = ready && granted && distance < (m.wanted ? OPEN_RANGE + CLOSE_MARGIN : OPEN_RANGE);
+    // Department doors line a corridor: they open only for someone heading at them, not passing by.
+    let heading = true;
+    if (door.kind === "department" && distance > THROUGH_RANGE) {
+      const dot = (Math.sin(rig.facing) * (door.x - rig.position.x) + Math.cos(rig.facing) * (door.z - rig.position.z)) / (distance || 1);
+      heading = dot > (m.wanted ? 0.3 : 0.7);
+    }
+    const wanted = ready && granted && heading && distance < (m.wanted ? OPEN_RANGE + CLOSE_MARGIN : OPEN_RANGE);
     if (wanted !== m.wanted) {
       m.wanted = wanted;
       if (wanted) {

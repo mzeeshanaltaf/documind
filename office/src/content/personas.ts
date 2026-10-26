@@ -116,7 +116,7 @@ const SIMTORA_EXPERTS: Record<string, Record<string, ExpertSeed>> = {
   },
   lahore: {
     HR: ["Hina Raza", 3, 0, "clipboard"],
-    IT: ["Bilal Ahmed", 3, 1, "laptop"],
+    IT: ["Shehzad Ahmed", 3, 1, "laptop"],
     Finance: ["Ayesha Siddiqui", 2, 0, "laptop"],
     Procurement: ["Usman Tariq", 3, 0, "clipboard"],
     Facilities: ["Kamran Iqbal", 4, 1, "clipboard"],

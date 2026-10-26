@@ -10,6 +10,9 @@ export const labelElements = new Map<string, HTMLElement>();
 
 export type LabelPin = { id: string; local: [number, number, number]; hq: boolean };
 
+/** Labels shown on the last laid-out frame (placement hysteresis). */
+const shown = new Set<string>();
+
 const world = new Vector3();
 const toCamera = new Vector3();
 const projected = new Vector3();
@@ -35,6 +38,7 @@ export function layoutLabels(
     keep: boolean;
   }[] = [];
 
+  let order = 0;
   for (const pin of pins) {
     const element = labelElements.get(pin.id);
     if (!element) continue;
@@ -42,6 +46,7 @@ export function layoutLabels(
     const facing = toCamera.copy(camera.position).sub(world).normalize().dot(projected.copy(world).normalize());
     const hidden = facing < SHOW_FROM || (focus.selected !== null && focus.selected !== pin.id);
     if (hidden) {
+      shown.delete(pin.id);
       element.style.opacity = "0";
       element.style.visibility = "hidden";
       continue;
@@ -53,8 +58,9 @@ export function layoutLabels(
       anchor: { x: ((projected.x + 1) / 2) * size.width, y: ((1 - projected.y) / 2) * size.height },
       opacity: Math.min(1, (facing - SHOW_FROM) / (FULL_AT - SHOW_FROM)),
       // The hovered (or chosen) pin's label is placed first and always shown, then HQ, then the
-      // most front-facing.
-      rank: (pin.id === focus.hovered || pin.id === focus.selected ? 2 : 0) + (pin.hq ? 1 : 0) + facing,
+      // rest in a fixed order. The order must not follow `facing`: it changes every frame while
+      // the globe turns, which reshuffled the placement and made labels flicker.
+      rank: (pin.id === focus.hovered || pin.id === focus.selected ? 2 : 0) + (pin.hq ? 1 : 0) - order++ * 1e-3,
       keep: pin.id === focus.hovered || pin.id === focus.selected,
     });
   }
@@ -66,16 +72,19 @@ export function layoutLabels(
     width: label.element.offsetWidth,
     height: label.element.offsetHeight,
     keep: label.keep,
+    wasShown: shown.has(label.id),
   }));
   const spots = placeLabels(items, size);
   visible.forEach((label, index) => {
     const { x, y, hidden } = spots[index];
     const style = label.element.style;
     if (hidden) {
+      shown.delete(label.id);
       style.opacity = "0";
       style.visibility = "hidden";
       return;
     }
+    shown.add(label.id);
     style.transform = `translate3d(${Math.round(x)}px, ${Math.round(y)}px, 0)`;
     style.opacity = String(label.opacity);
     style.visibility = "visible";

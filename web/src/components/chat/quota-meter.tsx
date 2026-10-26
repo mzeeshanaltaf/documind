@@ -15,7 +15,7 @@ function Bar({ used, limit }: { used: number; limit: number }) {
   );
 }
 
-/** "12 of 25 messages · 31K of 100K tokens this month", under the composer. Admins see nothing. */
+/** "12 of 25 messages · 31K of 200K tokens this month", under the composer. Admins see nothing. */
 export function QuotaMeter({ quota, myAnalyticsHref }: { quota: Quota; myAnalyticsHref: string }) {
   if (quota.unlimited) return null;
   return (

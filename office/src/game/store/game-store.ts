@@ -194,6 +194,8 @@ export type GameState = {
   scope: Scope | null;
   /** Development only: the city's local hour (0–24) instead of the real time; null = real. */
   clockHour: number | null;
+  /** Camera shot: behind the player (default) or a bird's-eye view from above. */
+  cameraView: "behind" | "top";
   /** The current city sky, published when it changes (HUD, tests); null outside the city. */
   sky: { phase: string; isNight: boolean } | null;
 
@@ -250,6 +252,7 @@ export type GameState = {
   setAutoTier: (tier: Tier, settled?: boolean) => void;
   setOsReducedMotion: (reduced: boolean) => void;
   setClockHour: (hour: number | null) => void;
+  toggleCameraView: () => void;
   setSky: (sky: GameState["sky"]) => void;
 };
 
@@ -283,6 +286,7 @@ export const useGame = create<GameState>()((set, get) => ({
   quality: { auto: "medium", settled: false },
   osReducedMotion: false,
   clockHour: null,
+  cameraView: "behind",
   sky: null,
   chat: {},
   scopeCountry: {},
@@ -385,6 +389,7 @@ export const useGame = create<GameState>()((set, get) => ({
   setAutoTier: (auto, settled = false) => set({ quality: { auto, settled } }),
   setOsReducedMotion: (osReducedMotion) => set({ osReducedMotion }),
   setClockHour: (clockHour) => set({ clockHour }),
+  toggleCameraView: () => set((s) => ({ cameraView: s.cameraView === "behind" ? "top" : "behind" })),
   setSky: (sky) => {
     const current = get().sky;
     if (current?.phase !== sky?.phase || current?.isNight !== sky?.isNight) set({ sky });

@@ -7,7 +7,7 @@ DocuMind is a multi-organization RAG app:
 - Members chat with all of an organization's documents, or with selected ones.
 - Answers come with citations that open the PDF at the cited page.
 - Members can bookmark answers (and jump back to them) and see their own analytics: conversations, messages, tokens, ratings and response times.
-- Every user has a monthly quota (25 messages / 100K tokens by default, renewing on the 1st, UTC). Platform admins change a user's limits under Admin › Users.
+- Every user has a monthly quota (25 messages / 200K tokens by default, renewing on the 1st, UTC). Platform admins change a user's limits under Admin › Users.
 
 Live at https://documind.zeeshanai.cloud.
 
@@ -123,7 +123,7 @@ One root `.env.local` serves both apps; [`.env.example`](.env.example) lists eve
 | `OPENAI_CHAT_SERVICE_TIER`, `OPENAI_BACKGROUND_SERVICE_TIER` | api | `standard`, `flex` or `auto` |
 | `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_FORCE_PATH_STYLE` | api | MinIO |
 | `PRICING_FILE`, `MAX_UPLOAD_MB`, `INGEST_CONCURRENCY` | api | Optional; sensible defaults |
-| `DEFAULT_MESSAGE_QUOTA`, `DEFAULT_TOKEN_QUOTA` | api | Optional; monthly allowance per user (25 messages / 100,000 tokens) |
+| `DEFAULT_MESSAGE_QUOTA`, `DEFAULT_TOKEN_QUOTA` | api | Optional; monthly allowance per user (25 messages / 200,000 tokens) |
 | `COOLIFY_BASE_URL`, `COOLIFY_API_TOKEN` | ops | Deploy API (also GitHub repo secrets) |
 
 ## Known limitations

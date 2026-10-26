@@ -52,7 +52,7 @@ export type Slide = {
   source?: string;
   /** What the presenter says when the slide comes up (static: no quota). */
   speakerLine: string;
-  /** Seconds on screen while it runs by itself (manual while someone is seated). */
+  /** Seconds a video slide runs; other slides time themselves from their content (`slideSeconds`). */
   durationS: number;
 };
 
@@ -71,6 +71,33 @@ export type ProgrammeSlide = { deck: Deck; slide: Slide; index: number; total: n
 /** The decks back to back; the screen loops through this. */
 export function programmeOf(decks: Deck[]): ProgrammeSlide[] {
   return decks.flatMap((deck) => deck.slides.map((slide, index) => ({ deck, slide, index, total: deck.slides.length })));
+}
+
+const wordsIn = (text: string | undefined) => (text ? text.trim().split(/\s+/).filter(Boolean).length : 0);
+
+/** How many words a slide puts on screen (title, lead, rows, stats, quote, map pins). */
+export function slideWords(slide: Slide): number {
+  return (
+    wordsIn(slide.title) +
+    wordsIn(slide.body) +
+    (slide.items ?? []).reduce((sum, item) => sum + wordsIn(item.term) + wordsIn(item.text), 0) +
+    (slide.stats ?? []).reduce((sum, stat) => sum + wordsIn(stat.label) + wordsIn(stat.value) + wordsIn(stat.note), 0) +
+    wordsIn(slide.quote?.text) +
+    (slide.pins ?? []).reduce((sum, pin) => sum + wordsIn(pin.name) + wordsIn(pin.role), 0)
+  );
+}
+
+export const MIN_SLIDE_SECONDS = 15;
+export const MAX_SLIDE_SECONDS = 20;
+
+/**
+ * How long a slide stays up before the loop moves on: 15 s, plus a second per 10 words past 30,
+ * to at most 20 s. A video slide runs as long as its clip.
+ */
+export function slideSeconds(slide: Slide): number {
+  if (slide.video) return slide.durationS;
+  const extra = Math.ceil(Math.max(0, slideWords(slide) - 30) / 10);
+  return Math.min(MAX_SLIDE_SECONDS, MIN_SLIDE_SECONDS + extra);
 }
 
 /** Wraps an index into the programme (either direction). */

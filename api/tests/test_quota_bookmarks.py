@@ -54,7 +54,7 @@ async def test_default_quota_and_admin_is_unlimited(
     client: AsyncClient, api_key: str, seed: Seed
 ) -> None:
     mine = (await client.get("/v1/me/quota", headers=headers(api_key, seed.member_id))).json()
-    assert (mine["message_limit"], mine["token_limit"]) == (25, 100_000)
+    assert (mine["message_limit"], mine["token_limit"]) == (25, 200_000)
     assert (mine["messages_used"], mine["tokens_used"]) == (0, 0)
     assert mine["is_custom"] is False and mine["unlimited"] is False and mine["exhausted"] is None
     assert mine["resets_on"] == str(quota.next_period(quota.current_period()))
@@ -168,7 +168,7 @@ async def test_quota_admin_routes_are_admin_only(
     )
     data = listing.json()
     assert [q["user_id"] for q in data["quotas"]] == [seed.member_id, seed.admin_id]
-    assert data["defaults"] == {"message_limit": 25, "token_limit": 100_000}
+    assert data["defaults"] == {"message_limit": 25, "token_limit": 200_000}
 
 
 async def test_bookmarks(

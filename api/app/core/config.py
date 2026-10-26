@@ -48,7 +48,7 @@ class Settings(BaseSettings):
 
     # Monthly quota for a user nobody has customised (platform admins are not limited).
     default_message_quota: int = 25
-    default_token_quota: int = 100_000
+    default_token_quota: int = 200_000
 
     max_upload_mb: int = 50
     ingest_concurrency: int = 1

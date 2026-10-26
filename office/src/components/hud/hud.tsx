@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpenIcon, ChevronRightIcon, MenuIcon } from "lucide-react";
+import { BookOpenIcon, ChevronRightIcon, MenuIcon, UserIcon, VideoIcon } from "lucide-react";
 import { Kbd } from "@/components/ui/kbd";
 import { audio } from "@/game/audio/audio";
 import { CORE_QUEST_IDS } from "@/game/quests/definitions";
@@ -69,6 +69,7 @@ export function Hud() {
           <div className="flex shrink-0 items-center gap-2">
             <QuotaMeter />
             <JournalButton />
+            <CameraButton />
             <button
               type="button"
               onClick={() => {
@@ -118,6 +119,27 @@ export function Hud() {
       <JournalDialog />
       <TelescopeCaption />
     </>
+  );
+}
+
+/** Switches the camera between behind the player and a bird's-eye view (C). */
+function CameraButton() {
+  const top = useGame((s) => s.cameraView === "top");
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        audio.play("ui-click", { volume: 0.5 });
+        useGame.getState().toggleCameraView();
+      }}
+      aria-pressed={top}
+      aria-label="Camera view"
+      className={`${panel} pointer-events-auto flex h-9 items-center gap-2 px-2.5 text-sm font-medium outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 pointer-coarse:size-11 pointer-coarse:justify-center`}
+    >
+      {top ? <UserIcon className="size-4" aria-hidden /> : <VideoIcon className="size-4" aria-hidden />}
+      <span className="max-sm:hidden pointer-coarse:hidden">{top ? "Behind me" : "Bird's eye"}</span>
+      <Kbd className="max-sm:hidden pointer-coarse:hidden">C</Kbd>
+    </button>
   );
 }
 

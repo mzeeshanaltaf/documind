@@ -8,7 +8,7 @@ import { INITIAL_PRESENTATION, type OfficeContext, useGame } from "@/game/store/
 import { buildFloorplan, insideRect, rectEdges } from "@/game/world/office/floorplan";
 import { deckFor, decksFor, summaryParts } from "@/game/world/office/presentation/decks";
 import { auditoriumLayout, LANE, RISE, ROWS, SCREEN_FRAME, SEATS_PER_ROW, seatCamera } from "@/game/world/office/presentation/layout";
-import { type Deck, markSeen, pinPosition, programmeOf, type SeenSlides, wrapSlide } from "@/game/world/office/presentation/slides";
+import { type Deck, markSeen, pinPosition, programmeOf, type SeenSlides, slideSeconds, wrapSlide } from "@/game/world/office/presentation/slides";
 import { seeSlide } from "@/game/world/office/presentation/use-programme";
 import type { DocumentOut } from "@/lib/api-types";
 import { roomDepartments } from "@/lib/departments";
@@ -17,6 +17,20 @@ import { scopeFor } from "@/lib/scope";
 import { codes, doc, SIMTORA } from "./fixtures/simtora-docs";
 
 // Phase O7 › Tests: the decks (`deckFor`), the seen-set, the auditorium layout, the presenter.
+
+describe("slideSeconds", () => {
+  it("holds every text slide 15–20 s, longer for denser ones", () => {
+    const texts = programmeOf(decksFor({ name: "Simtora Technologies", slug: "simtora" }, [])).filter((entry) => !entry.slide.video);
+    for (const { slide } of texts) {
+      expect(slideSeconds(slide)).toBeGreaterThanOrEqual(15);
+      expect(slideSeconds(slide)).toBeLessThanOrEqual(20);
+    }
+    const sparse = { id: "s", kind: "title", title: "Hi", speakerLine: "", durationS: 10 } as const;
+    const dense = { ...sparse, body: "word ".repeat(120).trim() };
+    expect(slideSeconds(sparse)).toBe(15);
+    expect(slideSeconds(dense)).toBe(20);
+  });
+});
 
 const ACME = { name: "Acme Corp", slug: "acme" };
 const ACME_DOCS = [

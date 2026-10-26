@@ -106,10 +106,20 @@ export function auditoriumLayout(room: Room, door: Pick<Door, "z" | "width">): A
   return { screen, stage, stageStep, rows, rowSpan: { z0: rowZ0, z1: rowZ1 }, seats, lectern, presenter, rail, colliders };
 }
 
+/** The point a seated camera looks at: midway between the screen's centre and the presenter's head. */
+export function presenterShot(layout: Pick<Auditorium, "screen" | "presenter">): Vec3 {
+  const { center } = layout.screen;
+  const [px, py, pz] = layout.presenter.position;
+  return [(center[0] + px) / 2, (center[1] + py + 1.6) / 2, (center[2] + pz) / 2];
+}
+
+/** How far a seated camera may sit from the shot's point: far enough back to fit screen and presenter. */
+export const SEAT_REACH = 6.4;
+
 /**
  * Where the camera sits for a seat (phase O7 › Room: "the camera frames the screen"): on the line
- * from the seated head to the screen, no farther than `reach` from it, so every seat frames the
- * whole screen from its own angle.
+ * from the seated head to the shot's point, no farther than `reach` from it, so every seat frames
+ * the whole screen from its own angle.
  */
 export function seatCamera(seat: Pick<Seat, "position">, screen: Vec3, reach = 4.7): Vec3 {
   const head: Vec3 = [seat.position[0], seat.position[1] + 1.2, seat.position[2]];

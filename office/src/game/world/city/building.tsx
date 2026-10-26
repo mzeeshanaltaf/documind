@@ -62,6 +62,8 @@ function buildParts(site: OfficeSite, base: number): Part[] {
   add(LOBBY, box(left - x0 - 0.15, podium - 0.6, vestibule, { at: [(x0 + left) / 2 + 0.075, base + (podium - 0.6) / 2, recess + vestibule / 2] }));
   add(LOBBY, box(x1 - right - 0.15, podium - 0.6, vestibule, { at: [(right + x1) / 2 - 0.075, base + (podium - 0.6) / 2, recess + vestibule / 2] }));
   for (let x = x0 + 0.4; x <= x1 - 0.39; x += (rect.w - 0.8) / 4) {
+    // No pier in the doorway: it stood in the middle of the doors as a wall the player walked through.
+    if (x + 0.4 > left - 0.2 && x - 0.4 < right + 0.2) continue;
     add(STONE, box(0.8, podium - 0.6, 0.8, { at: [x, base + (podium - 0.6) / 2, front - 0.25] }));
   }
   add(STONE, box(rect.w + 0.3, 0.9, rect.d + 0.3, { at: [rect.x, base + podium - 0.45, rect.z] }));
@@ -129,12 +131,10 @@ export function OfficeBuilding({ site, entrance, base, orgName, placeName, night
   );
 }
 
-/** Two glass leaves that slide apart while the player is within 3 m. */
+/** One glass door that slides aside (into the wall on its left) while the player is within 3 m. */
 function SlidingDoors({ x, z, width, base }: { x: number; z: number; width: number; base: number }) {
-  const left = useRef<Mesh>(null);
-  const right = useRef<Mesh>(null);
+  const leaf = useRef<Mesh>(null);
   const state = useRef({ open: 0, wanted: false });
-  const leaf = width / 2;
 
   useFrame((_, delta) => {
     const near = Math.hypot(rig.position.x - x, rig.position.z - z) < DOOR_RANGE && useGame.getState().world.phase === "ready";
@@ -142,22 +142,13 @@ function SlidingDoors({ x, z, width, base }: { x: number; z: number; width: numb
     if (near && !door.wanted) audio.play("door-open", { volume: 0.5 });
     door.wanted = near;
     door.open += ((near ? 1 : 0) - door.open) * (1 - Math.exp(-7 * Math.min(delta, 0.1)));
-    const slide = door.open * leaf * 0.92;
-    left.current?.position.setX(x - leaf / 2 - slide);
-    right.current?.position.setX(x + leaf / 2 + slide);
+    leaf.current?.position.setX(x - door.open * width * 0.96);
   });
 
-  const glass = <meshStandardMaterial color="#a9c1bb" metalness={0.3} roughness={0.15} transparent opacity={0.55} />;
   return (
-    <>
-      <mesh ref={left} position={[x - leaf / 2, base + 1.5, z]}>
-        <boxGeometry args={[leaf - 0.04, 3, 0.06]} />
-        {glass}
-      </mesh>
-      <mesh ref={right} position={[x + leaf / 2, base + 1.5, z]}>
-        <boxGeometry args={[leaf - 0.04, 3, 0.06]} />
-        {glass}
-      </mesh>
-    </>
+    <mesh ref={leaf} position={[x, base + 1.5, z]}>
+      <boxGeometry args={[width - 0.04, 3, 0.06]} />
+      <meshStandardMaterial color="#a9c1bb" metalness={0.3} roughness={0.15} transparent opacity={0.55} depthWrite={false} />
+    </mesh>
   );
 }

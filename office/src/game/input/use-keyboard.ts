@@ -78,6 +78,8 @@ export function useKeyboardInput() {
           const { modal, openModal } = useGame.getState();
           if (!modal) openModal({ type: "menu" });
         }, 0);
+      } else if (action === "camera") {
+        state.toggleCameraView();
       } else {
         emit({ type: "hotkey", action: action as "journal" | "map" });
       }

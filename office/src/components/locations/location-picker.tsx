@@ -45,7 +45,12 @@ export type LocationPickerProps = {
 export function LocationPicker({ org, locations, countries, resumeId, player, renderedAt }: LocationPickerProps) {
   const router = useRouter();
   const [now, setNow] = useState(renderedAt);
-  const [leaving, setLeaving] = useState<{ fly: boolean } | null>(null);
+  const [flying, setFlying] = useState(false);
+  // The curtain follows the globe's choice. Next keeps a visited route mounted but hidden
+  // (Activity) and the effect below resets the store when it shows again (Menu › Change
+  // location), so a stale "Opening the office" from the last choice goes away with it.
+  const chosen = useGlobe((s) => s.selected !== null);
+  const leaving = chosen ? { fly: flying } : null;
   const timer = useRef<number | undefined>(undefined);
   const byId = useMemo(() => new Map(locations.map((location) => [location.id, location])), [locations]);
   const resume = resumeId ? byId.get(resumeId) : undefined;
@@ -82,7 +87,7 @@ export function LocationPicker({ org, locations, countries, resumeId, player, re
       const href = `/${org.slug}/${id}`;
       const fly = !previewMotion(player).reduced && globe.ready;
       globe.select(id);
-      setLeaving({ fly });
+      setFlying(fly);
       router.prefetch(href);
       timer.current = window.setTimeout(() => router.push(href), fly ? FLY_MS : FADE_MS);
     },

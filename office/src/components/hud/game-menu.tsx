@@ -284,6 +284,7 @@ const CONTROL_ROWS: { keys: string[]; action: string }[] = [
   { keys: ["Q"], action: "Emotes: hold, point and let go" },
   { keys: ["J"], action: "Journal" },
   { keys: ["M"], action: "Map" },
+  { keys: ["C"], action: "Camera: behind you or bird's eye" },
   { keys: ["Esc"], action: "Menu, or close a dialog" },
 ];
 

@@ -111,7 +111,12 @@ export type LabelItem = {
   height: number;
   /** Always shown (the hovered or chosen pin), even when crowded. */
   keep?: boolean;
+  /** Shown on the previous frame: it needs a clearly worse spot to be dropped (no flicker at the edge). */
+  wasShown?: boolean;
 };
+
+/** A label that was already showing stays until it would overlap this share. */
+const CROWDED_STICKY = 0.45;
 
 /**
  * Greedy label placement around pins (screen pixels, y down). Labels are placed in the given
@@ -127,7 +132,7 @@ export function placeLabels(
 ): { x: number; y: number; placement: Placement; hidden: boolean }[] {
   const placed: LabelRect[] = [];
   const pins: LabelRect[] = items.map(({ anchor }) => ({ x: anchor.x - 5, y: anchor.y - 5, width: 10, height: 10 }));
-  return items.map(({ anchor, width, height, keep = false }) => {
+  return items.map(({ anchor, width, height, keep = false, wasShown = false }) => {
     const rectFor = (placement: Placement): LabelRect => {
       const side = { x: anchor.x + offset, y: anchor.y - height / 2 };
       const other = { x: anchor.x - offset - width, y: anchor.y - height / 2 };
@@ -165,7 +170,7 @@ export function placeLabels(
       if (value === 0) break;
     }
     const { placement, rect, score: crowding } = best!;
-    const hidden = !keep && crowding > CROWDED * width * height;
+    const hidden = !keep && crowding > (wasShown ? CROWDED_STICKY : CROWDED) * width * height;
     if (!hidden) placed.push(rect);
     return { x: rect.x, y: rect.y, placement, hidden };
   });

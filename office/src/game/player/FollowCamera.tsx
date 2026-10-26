@@ -3,8 +3,8 @@ import { useRapier } from "@react-three/rapier";
 import { useEffect, useRef } from "react";
 import { type PerspectiveCamera, Vector3 } from "three";
 import { selectReducedMotion, useGame } from "@/game/store/game-store";
-import { seatCamera } from "@/game/world/office/presentation/layout";
-import { CAMERA_LIMITS, rig } from "./rig";
+import { SEAT_REACH, seatCamera } from "@/game/world/office/presentation/layout";
+import { CAMERA_LIMITS, DEFAULT_PITCH, rig } from "./rig";
 
 /** Where the camera looks: about head height. */
 const LOOK_HEIGHT = 1.45;
@@ -16,6 +16,10 @@ const HIDE_AVATAR_WITHIN = 0.9;
 const RELAXED_DISTANCE = 3.6;
 const RELAXED_PITCH = 0.2;
 const RELAX_SETTLE_S = 1.6;
+/** Bird's-eye shot: nearly straight down (not quite, so "forward" keeps a screen direction). */
+const TOP_PITCH = 1.38;
+const TOP_MIN_DISTANCE = 9;
+const TOP_MAX_DISTANCE = 24;
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 const ease = (rate: number, delta: number) => 1 - Math.exp(-rate * delta);
@@ -52,6 +56,12 @@ export function FollowCamera() {
     scopeFov: 0,
     scoped: 0,
     baseFov: 0,
+    /** Bird's-eye blend (0 behind the player, 1 overhead). */
+    top: 0,
+    /** Seconds left of swinging back behind the avatar (after a conversation, a seat or the overhead shot). */
+    recenter: 0,
+    wasCovered: false,
+    wasTop: false,
   });
 
   useEffect(() => {
@@ -62,6 +72,7 @@ export function FollowCamera() {
       if (useGame.getState().modal) return;
       if (event.button !== 2 && event.pointerType !== "touch") return;
       drag = { id: event.pointerId, x: event.clientX, y: event.clientY };
+      smooth.current.recenter = 0;
       element.setPointerCapture(event.pointerId);
     }
     function onMove(event: PointerEvent) {
@@ -128,6 +139,25 @@ export function FollowCamera() {
     } else {
       view.relaxed = 0;
     }
+    const covered = !!focus || s.player.pose === "sit" || !!s.scope;
+    // After a conversation or a seat the orbit is wherever it was left (often side-on): swing
+    // back behind the avatar, and do the same on leaving the bird's-eye shot.
+    const overhead = s.cameraView === "top" && !covered;
+    if ((view.wasCovered && !covered) || (view.wasTop && !overhead)) view.recenter = 1.4;
+    view.wasCovered = covered;
+    view.wasTop = overhead;
+    if (view.recenter > 0 && !covered) {
+      view.recenter -= delta;
+      const behind = rig.facing + Math.PI;
+      rig.yaw += Math.atan2(Math.sin(behind - rig.yaw), Math.cos(behind - rig.yaw)) * ease(5, delta);
+      rig.pitch += (DEFAULT_PITCH - rig.pitch) * ease(3, delta);
+    }
+
+    // The bird's-eye shot: steep, and far enough to see the whole room (the wheel still zooms).
+    view.top += ((overhead ? 1 : 0) - view.top) * ease(selectReducedMotion(s) ? 30 : 3.5, delta);
+    wanted += (clamp(rig.distance * 2.6, TOP_MIN_DISTANCE, TOP_MAX_DISTANCE) - wanted) * view.top;
+    const pitch = rig.pitch + (TOP_PITCH - rig.pitch) * view.top;
+
     if (!view.ready) {
       view.target.copy(view.goal);
       view.distance = wanted;
@@ -135,8 +165,8 @@ export function FollowCamera() {
     }
     view.target.lerp(view.goal, ease(focus ? 4 : 12, delta));
 
-    const cosPitch = Math.cos(rig.pitch);
-    view.dir.set(Math.sin(rig.yaw) * cosPitch, Math.sin(rig.pitch), Math.cos(rig.yaw) * cosPitch);
+    const cosPitch = Math.cos(pitch);
+    view.dir.set(Math.sin(rig.yaw) * cosPitch, Math.sin(pitch), Math.cos(rig.yaw) * cosPitch);
 
     const wallRay = (ray.current ??= new rapier.Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 1 }));
     wallRay.origin = { x: view.target.x, y: view.target.y, z: view.target.z };
@@ -150,7 +180,8 @@ export function FollowCamera() {
       undefined,
       rig.body ?? undefined,
     );
-    const limit = hit ? Math.max(0.5, Math.min(wanted, hit.timeOfImpact - WALL_MARGIN)) : wanted;
+    // Overhead the camera is above the walls, so nothing pulls it in.
+    const limit = hit && view.top < 0.5 ? Math.max(0.5, Math.min(wanted, hit.timeOfImpact - WALL_MARGIN)) : wanted;
     // Pull in at once (never show the inside of a wall); ease back out.
     view.distance = limit < view.distance ? limit : view.distance + (limit - view.distance) * ease(4, delta);
     // Closer than this the camera would sit inside the avatar's head: the player hides it.
@@ -164,7 +195,7 @@ export function FollowCamera() {
     // An auditorium seat (O7): ease to a shot framing the screen, and back out on standing up.
     const seat = s.player.pose === "sit" ? s.player.seat : null;
     if (seat?.view) {
-      const [ex, ey, ez] = seatCamera(seat, seat.view);
+      const [ex, ey, ez] = seatCamera(seat, seat.view, SEAT_REACH);
       view.eye.set(ex, ey, ez);
       view.look.set(seat.view[0], seat.view[1], seat.view[2]);
     }

@@ -16,8 +16,8 @@ import { type Floorplan, insideRect, type Room } from "../floorplan";
 import { useNear } from "../use-near";
 import { SlideView } from "./deck";
 import { auditoriumParts } from "./furniture";
-import { type Auditorium, auditoriumLayout, type Seat } from "./layout";
-import { type ProgrammeSlide, type SlideVideo } from "./slides";
+import { type Auditorium, auditoriumLayout, presenterShot, type Seat } from "./layout";
+import { type ProgrammeSlide, type SlideVideo, slideSeconds } from "./slides";
 import { currentEntry, seeSlide, useProgramme } from "./use-programme";
 
 /**
@@ -108,7 +108,7 @@ function Furniture({ room, layout }: { room: Room; layout: Auditorium }) {
  * whole time with the player in the room), and dims the house lights while seated.
  */
 function Director({ programme, room }: { programme: ProgrammeSlide[]; room: Room }) {
-  const local = useRef({ slide: -1, timer: 0, seenKey: "" });
+  const local = useRef({ slide: -1, timer: 0, seenKey: "", watching: false });
 
   useFrame((state, delta) => {
     const s = useGame.getState();
@@ -119,12 +119,15 @@ function Director({ programme, room }: { programme: ProgrammeSlide[]; room: Room
     const entry = currentEntry(programme, s.presentation.slide);
     if (!entry || s.world.phase !== "ready") return;
     const l = local.current;
+    // Sitting down starts the presentation over from the first slide.
+    if (watching && !l.watching && s.presentation.slide !== 0) s.showSlide(0);
+    l.watching = watching;
     if (s.presentation.slide !== l.slide) {
       l.slide = s.presentation.slide;
       l.timer = 0;
     }
-    const reading = s.modal?.type === "slides";
-    if (watching || reading) {
+    // Reading the slides full screen holds the loop; being seated lets it run on by itself.
+    if (s.modal?.type === "slides") {
       l.timer = 0;
       const key = `${entry.deck.id}:${entry.slide.id}`;
       if (l.seenKey !== key) {
@@ -133,10 +136,18 @@ function Director({ programme, room }: { programme: ProgrammeSlide[]; room: Room
       }
       return;
     }
-    l.seenKey = "";
+    if (watching) {
+      const key = `${entry.deck.id}:${entry.slide.id}`;
+      if (l.seenKey !== key) {
+        l.seenKey = key;
+        seeSlide(entry);
+      }
+    } else {
+      l.seenKey = "";
+    }
     l.timer += Math.min(delta, 0.25);
-    if (l.timer < entry.slide.durationS) return;
-    if (insideRect(room.rect, rig.position.x, rig.position.z)) seeSlide(entry);
+    if (l.timer < slideSeconds(entry.slide)) return;
+    if (!watching && insideRect(room.rect, rig.position.x, rig.position.z)) seeSlide(entry);
     s.stepSlide(1);
   });
 
@@ -337,7 +348,8 @@ function ProgressDots({ layout, programme }: { layout: Auditorium; programme: Pr
 
 /** "E · Sit" on every seat; sitting frames the screen. */
 function Seats({ layout }: { layout: Auditorium }) {
-  const view = layout.screen.center;
+  // Seated, the camera looks between the screen and the presenter so both are in shot.
+  const view = useMemo(() => presenterShot(layout), [layout]);
   return (
     <>
       {layout.seats.map((seat) => (

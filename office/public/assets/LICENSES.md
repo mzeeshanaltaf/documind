@@ -63,5 +63,12 @@ Copied 2026-10-22 (phase O7); re-copy by hand when the explainer is re-rendered 
 
 ## Models
 
-None downloaded yet. The avatar (`src/game/player/Avatar.tsx`) is built in code from primitives,
-with its animation clips generated in `avatar-clips.ts`, so it has no external source.
+None downloaded (re-checked in the O10 audit, 2026-10-26: no `.glb`/`.gltf` ships). Every
+building, vehicle, room and prop, and the avatar (`src/game/player/Avatar.tsx`, clips in
+`avatar-clips.ts`), is built in code from primitives, so there is nothing to compress with
+gltf-transform and no external source to credit.
+
+## Fonts
+
+Source Serif 4, Instrument Sans and Geist Mono (SIL Open Font License 1.1), self-hosted at build
+time by `next/font/google`; not files in `public/`.

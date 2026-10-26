@@ -1,0 +1,15 @@
+**/node_modules
+**/.next
+**/*.tsbuildinfo
+.env*
+.git
+.github
+docs
+graphify-out
+api
+web
+evaluation
+video
+minio-data
+office/test-results
+office/playwright-report

@@ -13,7 +13,7 @@
 5. At the end, update Status.md › Office (phase table, plus an `[office]` session-log entry) and this file (commands, versions, gotchas), keeping it ≤ 150 lines.
 
 ## Status
-**O9 done (2026-10-25):** quests (5 core, 7 side), achievements, the journal (J), toasts, coach marks, persistent progress per user × org, the rooftop lounge behind the corridor lift. **O10 is next** (polish, a11y, performance, deploy). O8: play area (three mini-games, leaderboards, jukebox, emotes). O7: presentation room. O6: department rooms, experts, citations. O5: lobby, reception, cards, NPC chat. O4: city scenes. O3: pickers. O2: engine core (dev-only `/dev/sandbox`). O1: scaffold, sign-in, BFF, `documind_office_dev` schema.
+**O10 code done (2026-10-26), prod rollout pending:** `Dockerfile` (+ `Dockerfile.dockerignore`, so the shared root `.dockerignore` stays untouched), `deploy.yml` jobs, Umami (`lib/analytics.ts`, `game/analytics.ts`; quest events in `quests/runtime.ts`), no-WebGL page (`game/webgl.ts` + `components/game/no-webgl.tsx`, chosen in `game-client.tsx`), portrait hint (`hud/landscape-hint.tsx`). Steps left are in Status.md › Pending user actions. **O9 (2026-10-25):** quests (5 core, 7 side), achievements, the journal (J), toasts, coach marks, persistent progress per user × org, the rooftop lounge behind the corridor lift. O8: play area (three mini-games, leaderboards, jukebox, emotes). O7: presentation room. O6: department rooms, experts, citations. O5: lobby, reception, cards, NPC chat. O4: city scenes. O3: pickers. O2: engine core (dev-only `/dev/sandbox`). O1: scaffold, sign-in, BFF, `documind_office_dev` schema.
 
 ## Layout (as built)
 - `src/lib/`: `auth` (Better Auth), `auth-guards` (`requireSession`, `requireOrgAccess`/`requireOrgAccessBySlug`, `withoutEvalOrgs` (+ logos)), `locations` (`deriveLocations`, pure) + `country-defaults`, `format` (local time, UTC offset, day/night), `account` (ban/admin rules, client-safe), `db` (one pool: auth `search_path`, max 3), `db-url`, `office-db` (`query()` with `{office}`), `api` (`apiFetch`/`apiJson`; `userId` optional in Server Components), `api-types`, `rate-limit`, `backend-path` (BFF path rules), `player` (zod schemas, `defaultDisplayName`), `org-meta`, `site`.
@@ -49,8 +49,9 @@ cd office && OFFICE_SHOTS=<dir> pnpm test:e2e e2e/office.spec.ts -g screenshots 
 cd office && OFFICE_SHOTS=<dir> pnpm test:e2e e2e/rooms.spec.ts -g screenshots    # every room, the PDF sheet, the chips
 cd office && OFFICE_SHOTS=<dir> pnpm test:e2e e2e/presentation.spec.ts           # auditorium, seated, video, full screen (+360 px, dark); 1 billed chat
 cd office && OFFICE_SHOTS=<dir> pnpm test:e2e e2e/play.spec.ts                   # play area, the three games (a full 60 s Sort & Toss bot round), touch, ambient; no LLM
-cd api && uv run python -I ../office/scripts/check-trivia-bank.py ../office/src/content/orgs/simtora-trivia.json ../docs/policies --sample 20   # bank vs PDFscd office && OFFICE_SHOTS=<dir> pnpm test:e2e e2e/quests.spec.ts   # the 5 core quests (mocked chat, no LLM), reload, lift, rooftop
-docker build -f office/Dockerfile --build-arg NEXT_PUBLIC_APP_URL=https://documind.zeeshanai.cloud .   # from O10
+cd api && uv run python -I ../office/scripts/check-trivia-bank.py ../office/src/content/orgs/simtora-trivia.json ../docs/policies --sample 20   # bank vs PDFs
+cd office && OFFICE_SHOTS=<dir> pnpm test:e2e e2e/quests.spec.ts   # the 5 core quests (mocked chat, no LLM), reload, lift, rooftop
+docker build -f office/Dockerfile -t documind-office --build-arg NEXT_PUBLIC_APP_URL=https://documind.zeeshanai.cloud .   # repo-root context; prod: docker exec <ctr> node scripts/migrate.mjs
 ```
 
 ## Architecture rules
@@ -88,7 +89,7 @@ docker build -f office/Dockerfile --build-arg NEXT_PUBLIC_APP_URL=https://documi
 - **Tests:** `*.test.ts` run in node; `*.dom.test.tsx` in jsdom (`vitest.config.mts` projects). `server-only` is aliased to a stub, so server modules are importable. **Files:** use the Write/Edit tools, never shell heredocs. **Git:** commit and push only when the user asks (`/ship`).
 
 ## Environment
-The keys are in the root `.env.local`; see README › Environment. The office's own keys are `OFFICE_*`; shared: `DATABASE_URL`, `API_BASE_URL`, `DOCUMIND_API_KEY` (server-only), `GOOGLE_*`, `UPSTASH_*`, `NEXT_PUBLIC_APP_URL` (**DocuMind's** URL, for "Continue in DocuMind" and "Forgot password"; set at build time).
+The keys are in the root `.env.local`; see README › Environment. The office's own keys are `OFFICE_*`; shared: `DATABASE_URL`, `API_BASE_URL`, `DOCUMIND_API_KEY` (server-only), `GOOGLE_*`, `UPSTASH_*`, `NEXT_PUBLIC_APP_URL` (**DocuMind's** URL, for "Continue in DocuMind" and "Forgot password"; set at build time). Optional Umami, both build-time: `NEXT_PUBLIC_UMAMI_SCRIPT_URL`, `NEXT_PUBLIC_OFFICE_UMAMI_WEBSITE_ID` (production builds only; `data-domains` = the office host).
 
 ## Pinned versions
 - Tests: `vitest` 5.0.5, `jsdom` 30.1.3, `@testing-library/react` 16.3.3. Otherwise same as `web/` (O1), except `next` + `eslint-config-next` 16.4.2 (security upgrade 2026-10-22, `experimental.agentUpgrade: "security"`; `web/` is still on 16.4.0): `react`/`react-dom` 19.3.0, `better-auth` 1.7.7 (exact, as in eval), `pg` 8.23.1, `zod` 4.6.5, `@upstash/ratelimit` 2.2.0, `@upstash/redis` 1.39.0, `@base-ui/react` 1.8.0, `tailwindcss` 4.3.3, `typescript` 5.9.3.

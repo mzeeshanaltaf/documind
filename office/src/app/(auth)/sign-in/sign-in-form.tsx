@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useId, useState } from "react";
 import { z } from "zod";
@@ -122,6 +123,11 @@ export function SignInForm() {
         <a href={`${DOCUMIND_URL}/sign-up`} className="font-medium text-primary underline-offset-4 hover:underline">
           Create an account
         </a>
+      </p>
+      <p className="text-center text-xs text-muted-foreground">
+        <Link href="/privacy" className="underline-offset-4 hover:underline">
+          What the Office stores
+        </Link>
       </p>
     </form>
   );

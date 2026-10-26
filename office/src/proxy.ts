@@ -28,6 +28,6 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   // Everything but the auth and BFF routes (they answer 401 themselves), Next internals,
-  // robots.txt (the health check), the icon and static assets.
-  matcher: ["/((?!api/|_next/|robots.txt|icon.svg|favicon.ico|assets/|video/).*)"],
+  // robots.txt (the health check), the public privacy page, the icon and static assets.
+  matcher: ["/((?!api/|_next/|robots.txt|privacy$|icon.svg|favicon.ico|assets/|video/).*)"],
 };

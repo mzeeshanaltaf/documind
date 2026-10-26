@@ -1,4 +1,5 @@
 import { audio } from "@/game/audio/audio";
+import { track } from "@/lib/analytics";
 import { type GameState, useGame } from "@/game/store/game-store";
 import { bus } from "./bus";
 import { questContext } from "./context";
@@ -43,6 +44,8 @@ export function startQuests(): () => void {
     if (result.progress === state.progress) return;
     state.setProgress(result.progress);
     markProgress(state.office.org.id, result.progress);
+    for (const id of result.completed) track("quest_completed", { id });
+    if (!state.unlocks.includes("rooftop") && useGame.getState().unlocks.includes("rooftop")) track("rooftop_unlocked");
 
     // Quests toast as quests; an achievement toasts on its own only when no quest stands behind it.
     const toasts = [

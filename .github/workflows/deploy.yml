@@ -4,8 +4,9 @@ name: Deploy
 #   api/** or model-pricing.json → documind-api;  web/** → documind-web;
 #   evaluation/api/** (+ evaluation/fixtures/** and api/eval/golden.jsonl, baked into its
 #   image) → documind-eval-api;
-#   evaluation/web/** → documind-eval-web.  .dockerignore → all four.
-# Manual runs (Actions tab → Run workflow) deploy all four.
+#   evaluation/web/** → documind-eval-web;  office/** → documind-office-web.
+#   .dockerignore → all five.
+# Manual runs (Actions tab → Run workflow) deploy all five.
 # Repo secrets: COOLIFY_BASE_URL, COOLIFY_API_TOKEN (deploy-scoped Coolify token).
 
 on:
@@ -23,6 +24,7 @@ env:
   WEB_APP_UUID: 7hf4gmnbhx1rmeepsrotndlt
   EVAL_API_APP_UUID: 5435bt2dyjlqfyhifpujfeyu
   EVAL_WEB_APP_UUID: 7ltejy3ne1khxjsah5ywywib
+  OFFICE_WEB_APP_UUID: kxbtboozbohpqfjtujj9nf3z
 
 jobs:
   changes:
@@ -32,6 +34,7 @@ jobs:
       web: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.web == 'true' }}
       eval_api: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.eval_api == 'true' }}
       eval_web: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.eval_web == 'true' }}
+      office: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.office == 'true' }}
     steps:
       - uses: actions/checkout@v5
       - uses: dorny/paths-filter@v3
@@ -52,6 +55,9 @@ jobs:
               - '.dockerignore'
             eval_web:
               - 'evaluation/web/**'
+              - '.dockerignore'
+            office:
+              - 'office/**'
               - '.dockerignore'
 
   check-api:
@@ -127,6 +133,29 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
 
+  check-office:
+    needs: changes
+    if: needs.changes.outputs.office == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: office
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: office/package.json
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: office/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      # Vitest only (node + jsdom projects); the Playwright specs need the dev DB.
+      - run: pnpm test
+
   deploy-api:
     needs: check-api
     runs-on: ubuntu-latest
@@ -170,3 +199,14 @@ jobs:
           COOLIFY_BASE_URL: ${{ secrets.COOLIFY_BASE_URL }}
           COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
         run: bash .github/scripts/coolify-deploy.sh "$EVAL_WEB_APP_UUID"
+
+  deploy-office:
+    needs: check-office
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Queue documind-office-web deploy
+        env:
+          COOLIFY_BASE_URL: ${{ secrets.COOLIFY_BASE_URL }}
+          COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
+        run: bash .github/scripts/coolify-deploy.sh "$OFFICE_WEB_APP_UUID"

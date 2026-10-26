@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Hud } from "@/components/hud/hud";
 import type { Player } from "@/lib/player";
+import { startAnalytics } from "./analytics";
 import { audio } from "./audio/audio";
 import { GameCanvas, renderer } from "./engine/GameCanvas";
 import { Loading } from "./engine/Loading";
@@ -33,6 +34,7 @@ export default function GameRoot(entry: GameEntry) {
   useSettingsPersistence();
   useEffect(startStats, []);
   useEffect(startQuests, []);
+  useEffect(startAnalytics, []);
   useFirstLook(entry.player);
   useDevHandle();
 

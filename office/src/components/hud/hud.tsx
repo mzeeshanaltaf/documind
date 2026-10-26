@@ -20,6 +20,7 @@ import { GameMenu } from "./game-menu";
 import { CoachMarks } from "./coach-marks";
 import { InteractionPrompt } from "./interaction-prompt";
 import { JournalDialog } from "./journal-dialog";
+import { LandscapeHint } from "./landscape-hint";
 import { QuestToasts } from "./quest-toasts";
 import { Minimap } from "./minimap";
 import { PresentationBar } from "./presentation-bar";
@@ -103,6 +104,7 @@ export function Hud() {
       <CoachMarks />
       <EmoteWheel />
       <TouchControls />
+      <LandscapeHint />
       <GameMenu />
       <AvatarEditor />
       <SignDialog />

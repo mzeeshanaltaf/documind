@@ -107,7 +107,7 @@ Docs: overview in [docs/plan/office/README.md](docs/plan/office/README.md), guid
 | O7 | Presentation room | [phase-O7](docs/plan/office/phase-O7-presentation-room.md) | ✅ Done (local; owner to read the Simtora slides and watch the video on a real GPU) |
 | O8 | Play area & leaderboards | [phase-O8](docs/plan/office/phase-O8-play-area.md) | ✅ Done (local; owner to review the trivia bank and listen to the jukebox loops) |
 | O9 | Quests, achievements & rooftop | [phase-O9](docs/plan/office/phase-O9-quests-achievements-rooftop.md) | ✅ Done (local; owner to look over the rooftop screenshots and play the first-visit fireworks on a real GPU) |
-| O10 | Polish, a11y, performance & deploy | [phase-O10](docs/plan/office/phase-O10-polish-and-deploy.md) | ⬜ Not started |
+| O10 | Polish, a11y, performance & deploy | [phase-O10](docs/plan/office/phase-O10-polish-and-deploy.md) | 🟨 Code done; Coolify app, DNS and CI created 2026-10-26; first deploy, prod migrate and live checks pending (see *Pending user actions*) |
 
 ### Decisions made (office planning session, 2026-10-22)
 - **Sign-in:** DocuMind accounts only.
@@ -317,7 +317,8 @@ Docs: overview in [docs/plan/office/README.md](docs/plan/office/README.md), guid
 | DB | Shared Postgres via the docker0 gateway `10.0.0.1:5432`, `?schema=documind` (`sslmode=require` kept) |
 | Eval web | `https://evaluation.documind.zeeshanai.cloud` → Coolify app **`documind-eval-web`** `7ltejy3ne1khxjsah5ywywib` (Dockerfile `/evaluation/web/Dockerfile`, port 3000, health `/robots.txt`, `health_check_host=127.0.0.1`) |
 | Eval API | Internal only, **no domain, no host ports** → Coolify app **`documind-eval-api`** `5435bt2dyjlqfyhifpujfeyu` (Dockerfile `/evaluation/api/Dockerfile`, port 8100, health `/health`, network alias **`documind-eval-api`**, source commit in build on). Schema `documind_eval`; service users `eval-bot` / `eval-probe` in `documind`; golden v1 imported |
-| DNS | A `documind` + `api.documind` + `evaluation.documind` → 76.13.7.106, TTL 300 (Hostinger) |
+| Office web | `https://office.documind.zeeshanai.cloud` → Coolify app **`documind-office-web`** `kxbtboozbohpqfjtujj9nf3z` (Dockerfile `/office/Dockerfile`, port 3000, health `/robots.txt` on `127.0.0.1`, Auto Deploy off). Build-time `NEXT_PUBLIC_APP_URL` only (Umami vars unset); runtime env as listed in *Pending user actions* history (new `OFFICE_BETTER_AUTH_SECRET` in `.env.production.local`). Schema `documind_office` |
+| DNS | A `documind` + `api.documind` + `evaluation.documind` + `office.documind` → 76.13.7.106, TTL 300 (Hostinger) |
 | Deploy | `.github/workflows/deploy.yml` (paths-filter → lint/typecheck (+ eval API ruff and `pytest -m "not db and not live"`) → Coolify deploy API); Coolify "Auto Deploy" is **off** on all four apps |
 
 - **Prod secrets** live in Coolify and in the owner's git-/docker-ignored `.env.production.local` (MinIO root + app creds, prod `DOCUMIND_API_KEY`, prod `BETTER_AUTH_SECRET`, prod `DATABASE_URL`). The prod API key and auth secret are new, not the dev ones.
@@ -328,6 +329,12 @@ Docs: overview in [docs/plan/office/README.md](docs/plan/office/README.md), guid
 - **Eval env:** eval-web build-time = `NEXT_PUBLIC_APP_URL` (DocuMind's URL) only; runtime `DATABASE_URL` (prod, schema `documind`), `EVAL_AUTH_SCHEMA=documind`, `EVAL_BETTER_AUTH_SECRET`, `EVAL_BETTER_AUTH_URL`/`EVAL_PUBLIC_URL`, `EVAL_API_URL=http://documind-eval-api:8100`, `EVAL_API_KEY`, `GOOGLE_*` (the prod client). eval-api runtime: `EVAL_DATABASE_URL` (schema `documind_eval`), `EVAL_AUTH_SCHEMA`, `EVAL_API_KEY`, `DOCUMIND_API_URL=http://documind-api:8000`, `DOCUMIND_API_KEY` (prod), `ANTHROPIC_API_KEY`, `EVAL_SERVICE_USER_ID`/`EVAL_PROBE_USER_ID`, concurrency defaults. The new prod `EVAL_API_KEY`/`EVAL_BETTER_AUTH_SECRET` and the prod ids/app uuids are also in `.env.production.local`.
 
 ## Pending user actions
+- **Office O10 rollout:** the app, DNS, env, workflow UUID and Google redirect URI are done (2026-10-26). Left:
+  1. Confirm the first deploy is healthy, then run `docker exec <office container> node scripts/migrate.mjs` (creates `documind_office`; the app needs it before sign-in works).
+  2. Check on prod: `/robots.txt` 200; sign in (Google and email) as a non-admin member; Lahore loads; the HR expert answers with citations; the conversation shows in DocuMind's history and the quota line drops.
+  3. **Privacy:** an office page `/privacy` was written (lists what the Office stores and links to DocuMind's reviewed policy; DocuMind's `/privacy` is unchanged). Read it once and say if any wording should change.
+  4. Optional: create an Umami website for `office.documind.zeeshanai.cloud` and set `NEXT_PUBLIC_UMAMI_SCRIPT_URL` + `NEXT_PUBLIC_OFFICE_UMAMI_WEBSITE_ID` as build-time variables in Coolify.
+  5. By hand on real hardware: the low tier on a throttled CPU / mid phone, and a keyboard-only and screen-reader pass; the automated checks can't judge them.
 - **Office O9:** walk `/simtora/lahore` on :3200 and finish the core quests (or look at the screenshots in the session scratchpad `shots/quests-*.png`): the journal wording and hints, the rooftop (day and night, the telescope's fact per city), and the first-visit fireworks on a real GPU (headless can't judge them). Say if any landmark fact should change (`SIMTORA_LANDMARKS` in `office/src/content/orgs/simtora.ts`).
 - **Office O8 (before any deploy):**
   1. **Review the trivia bank** (`office/src/content/orgs/simtora-trivia.json`, 94 questions). Every answer was checked against its cited page by `office/scripts/check-trivia-bank.py` (all 94 pass; see the session log), so what's left is judgement: are the questions worth asking, are the wrong choices fair, is the wording what you'd want employees to read? Two answers sit on pages whose `$` amounts the PDF renders as garbage (`cmp-cash-limit` SIM-CMP-001 p. 42, `prc-tco-example` SIM-PRC-001 p. 12): glance at those pages in the PDF viewer ("Show source").
@@ -355,6 +362,13 @@ Docs: overview in [docs/plan/office/README.md](docs/plan/office/README.md), guid
 
 ## Session log
 <!-- Newest first. Keep entries short: what was built, deviations, gotchas, next. Decisions that outlive a phase go in the sections above. -->
+
+### 2026-10-26 — [office] O10: polish, analytics & deploy prep (local, not committed; **not deployed**)
+- **Built:** `office/Dockerfile` (eval-web pattern + `db/` and `scripts/migrate.mjs` in the runner; built locally: `/robots.txt` 200, `pg` and the SQL present) with `office/Dockerfile.dockerignore` (BuildKit's per-Dockerfile ignore, so the root `.dockerignore` isn't touched and no other app redeploys); `deploy.yml` gets an `office` filter, `check-office` (install, lint, typecheck, vitest) and `deploy-office`; Umami (`lib/analytics.ts` + `components/analytics/umami.tsx`, the 7 events from the phase doc, no PII; quest and rooftop events fire in `quests/runtime.ts`); a no-WebGL page (probe via `useSyncExternalStore`, shows "Open DocuMind" and the org's offices); a portrait-phone hint.
+- **Checked:** lint, `tsc`, 343 Vitest tests and `next build` pass. JS (gzip, from `.next/static`): game route 83 KB initial; the whole lazy graph is ~1.1 MB without rapier's wasm chunk (811 KB, base64) and pdf.js (194 KB, lazy), within the 1.5 MB budget. Pickers 116–158 KB, sign-in 119 KB.
+- **Audit result:** every `aria-live` surface from earlier phases is present (prompts, toasts, chat, slides, games, arrival banner); no GLBs ship (procedural), so gltf-transform/KTX2 doesn't apply; `LICENSES.md` is complete (models and fonts rows added).
+- **Rollout (same day, on request):** office `/privacy` page (public in `proxy.ts`, linked from sign-in; DocuMind's reviewed policy untouched); DNS A `office.documind`; Coolify app `kxbtboozbohpqfjtujj9nf3z` created with env (server secrets runtime-only, a new `OFFICE_BETTER_AUTH_SECRET` stored in `.env.production.local`); workflow UUID set; committed and pushed. **Still open:** the first deploy result, prod migrate, live checks, an Umami website. **Not measured here:** frame rates per tier and 10-transition memory on real hardware (headless SwiftShader proves nothing; the O2 memory test stayed flat at 45 geometries / 4 textures), a full `/impeccable` audit pass and the 4.5:1 contrast re-check, a manual keyboard/screen-reader pass.
+- **Gotcha:** a Dockerfile ignore list must keep `office/e2e/`: `tests/*.test.ts` import `../e2e/support/test-user` and `next build` typechecks them. The Coolify API token in `.env.local` (`COOLIFY_API_TOKEN`) is deploy-scoped only (403 on reads); app setup needs `COOLIFY_API_TOKEN_ROOT`. New Coolify apps list every env as build-time unless `is_buildtime: false` is sent.
 
 ### 2026-10-25 — [office] O9: quests, achievements & rooftop (local, not committed)
 - **Built:**

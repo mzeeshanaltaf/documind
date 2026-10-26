@@ -107,7 +107,7 @@ Docs: overview in [docs/plan/office/README.md](docs/plan/office/README.md), guid
 | O7 | Presentation room | [phase-O7](docs/plan/office/phase-O7-presentation-room.md) | ✅ Done (local; owner to read the Simtora slides and watch the video on a real GPU) |
 | O8 | Play area & leaderboards | [phase-O8](docs/plan/office/phase-O8-play-area.md) | ✅ Done (local; owner to review the trivia bank and listen to the jukebox loops) |
 | O9 | Quests, achievements & rooftop | [phase-O9](docs/plan/office/phase-O9-quests-achievements-rooftop.md) | ✅ Done (local; owner to look over the rooftop screenshots and play the first-visit fireworks on a real GPU) |
-| O10 | Polish, a11y, performance & deploy | [phase-O10](docs/plan/office/phase-O10-polish-and-deploy.md) | 🟨 Code done; Coolify app, DNS and CI created 2026-10-26; first deploy, prod migrate and live checks pending (see *Pending user actions*) |
+| O10 | Polish, a11y, performance & deploy | [phase-O10](docs/plan/office/phase-O10-polish-and-deploy.md) | 🟨 Code done; Coolify app, DNS and CI created 2026-10-26; first deploy live and prod migrated 2026-10-26, sign-in confirmed; remaining live checks pending (see *Pending user actions*) |
 
 ### Decisions made (office planning session, 2026-10-22)
 - **Sign-in:** DocuMind accounts only.
@@ -330,8 +330,8 @@ Docs: overview in [docs/plan/office/README.md](docs/plan/office/README.md), guid
 
 ## Pending user actions
 - **Office O10 rollout:** the app, DNS, env, workflow UUID and Google redirect URI are done (2026-10-26). Left:
-  1. Confirm the first deploy is healthy, then run `docker exec <office container> node scripts/migrate.mjs` (creates `documind_office`; the app needs it before sign-in works).
-  2. Check on prod: `/robots.txt` 200; sign in (Google and email) as a non-admin member; Lahore loads; the HR expert answers with citations; the conversation shows in DocuMind's history and the quota line drops.
+  1. ✅ Done 2026-10-26: the first deploy (`d1734eb`) is live over HTTPS (Let's Encrypt; `/robots.txt`, `/privacy`, `/sign-in` all 200) and the prod migration ran (`node scripts/migrate.mjs` in the app container applied `0001_init.sql` to schema `documind_office`). The owner confirmed sign-in works.
+  2. ✅ Done 2026-10-26: prod checked by the owner as a non-admin member (Google and email sign-in, Lahore loads, the HR expert answers with citations; the conversation shows in DocuMind's history and the quota line drops).
   3. **Privacy:** an office page `/privacy` was written (lists what the Office stores and links to DocuMind's reviewed policy; DocuMind's `/privacy` is unchanged). Read it once and say if any wording should change.
   4. Optional: create an Umami website for `office.documind.zeeshanai.cloud` and set `NEXT_PUBLIC_UMAMI_SCRIPT_URL` + `NEXT_PUBLIC_OFFICE_UMAMI_WEBSITE_ID` as build-time variables in Coolify.
   5. By hand on real hardware: the low tier on a throttled CPU / mid phone, and a keyboard-only and screen-reader pass; the automated checks can't judge them.

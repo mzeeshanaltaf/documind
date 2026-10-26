@@ -38,7 +38,8 @@ export function formatLocalTime(at: Date | number, timeZone: string): string {
 export function formatUtcOffset(at: Date | number, timeZone: string): string {
   const name = offsetFormat(timeZone).formatToParts(at).find((p) => p.type === "timeZoneName")?.value ?? "GMT";
   const offset = name.replace(/^(GMT|UTC)/, "");
-  return offset ? `UTC${offset.replace("-", "−")}` : "UTC";
+  // Some ICU builds say "UTC+0" / "GMT+0:00" for zero instead of a bare "UTC".
+  return offset && !/^[+\-−]0(:00)?$/.test(offset) ? `UTC${offset.replace("-", "−")}` : "UTC";
 }
 
 /** True while the sun is above the horizon at that place. */

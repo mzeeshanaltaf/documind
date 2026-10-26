@@ -94,20 +94,21 @@ function SlidingDoor({ door }: { door: Door }) {
       m.beeped = false;
     }
     m.amount += ((wanted ? 1 : 0) - m.amount) * (1 - Math.exp(-7 * Math.min(delta, 0.1)));
-    const slide = m.amount * leaf * 0.94;
+    // Slide fully into the wall pocket: a leaf left poking out beside the jamb z-fights with it.
+    const slide = m.amount * (leaf + 0.05);
     left.current?.position.setX(-leaf / 2 - slide);
     right.current?.position.setX(leaf / 2 + slide);
   });
 
   return (
     <group position={[door.x, 0, door.z]} rotation={[0, rotation, 0]}>
-      <mesh ref={left} position={[-leaf / 2, DOOR_HEIGHT / 2, 0]}>
+      <mesh ref={left} castShadow={false} receiveShadow={false} position={[-leaf / 2, DOOR_HEIGHT / 2, 0]}>
         <boxGeometry args={[leaf - 0.03, DOOR_HEIGHT - 0.02, 0.05]} />
-        <meshStandardMaterial color={OFFICE.glass} transparent opacity={0.45} roughness={0.1} depthWrite={false} />
+        <meshStandardMaterial color={OFFICE.glass} transparent opacity={0.45} roughness={0.1} depthWrite={false} polygonOffset polygonOffsetFactor={-1} polygonOffsetUnits={-1} />
       </mesh>
-      <mesh ref={right} position={[leaf / 2, DOOR_HEIGHT / 2, 0]}>
+      <mesh ref={right} castShadow={false} receiveShadow={false} position={[leaf / 2, DOOR_HEIGHT / 2, 0]}>
         <boxGeometry args={[leaf - 0.03, DOOR_HEIGHT - 0.02, 0.05]} />
-        <meshStandardMaterial color={OFFICE.glass} transparent opacity={0.45} roughness={0.1} depthWrite={false} />
+        <meshStandardMaterial color={OFFICE.glass} transparent opacity={0.45} roughness={0.1} depthWrite={false} polygonOffset polygonOffsetFactor={-1} polygonOffsetUnits={-1} />
       </mesh>
       {!open && (
         <RigidBody type="fixed" colliders={false}>

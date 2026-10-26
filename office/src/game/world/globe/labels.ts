@@ -1,5 +1,5 @@
 import { type Camera, type Object3D, Vector3 } from "three";
-import { placeLabels } from "./geo";
+import { type Placement, placeLabels } from "./geo";
 
 /**
  * The pin labels are DOM (readable text, the theme's tokens) laid over the canvas. Their
@@ -12,6 +12,8 @@ export type LabelPin = { id: string; local: [number, number, number]; hq: boolea
 
 /** Labels shown on the last laid-out frame (placement hysteresis). */
 const shown = new Set<string>();
+/** Where each shown label sat on the last frame. */
+const placements = new Map<string, Placement>();
 
 const world = new Vector3();
 const toCamera = new Vector3();
@@ -73,10 +75,11 @@ export function layoutLabels(
     height: label.element.offsetHeight,
     keep: label.keep,
     wasShown: shown.has(label.id),
+    previous: placements.get(label.id),
   }));
   const spots = placeLabels(items, size);
   visible.forEach((label, index) => {
-    const { x, y, hidden } = spots[index];
+    const { x, y, hidden, placement } = spots[index];
     const style = label.element.style;
     if (hidden) {
       shown.delete(label.id);
@@ -85,6 +88,7 @@ export function layoutLabels(
       return;
     }
     shown.add(label.id);
+    placements.set(label.id, placement);
     style.transform = `translate3d(${Math.round(x)}px, ${Math.round(y)}px, 0)`;
     style.opacity = String(label.opacity);
     style.visibility = "visible";

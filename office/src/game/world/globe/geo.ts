@@ -113,6 +113,8 @@ export type LabelItem = {
   keep?: boolean;
   /** Shown on the previous frame: it needs a clearly worse spot to be dropped (no flicker at the edge). */
   wasShown?: boolean;
+  /** Where it sat on the previous frame: kept while that spot is still clear (no left/right flipping). */
+  previous?: Placement;
 };
 
 /** A label that was already showing stays until it would overlap this share. */
@@ -132,7 +134,7 @@ export function placeLabels(
 ): { x: number; y: number; placement: Placement; hidden: boolean }[] {
   const placed: LabelRect[] = [];
   const pins: LabelRect[] = items.map(({ anchor }) => ({ x: anchor.x - 5, y: anchor.y - 5, width: 10, height: 10 }));
-  return items.map(({ anchor, width, height, keep = false, wasShown = false }) => {
+  return items.map(({ anchor, width, height, keep = false, wasShown = false, previous }) => {
     const rectFor = (placement: Placement): LabelRect => {
       const side = { x: anchor.x + offset, y: anchor.y - height / 2 };
       const other = { x: anchor.x - offset - width, y: anchor.y - height / 2 };
@@ -163,7 +165,7 @@ export function placeLabels(
       outsideArea(rect, bounds);
 
     let best: { placement: Placement; rect: LabelRect; score: number } | null = null;
-    for (const placement of PLACEMENTS) {
+    for (const placement of previous ? [previous, ...PLACEMENTS.filter((p) => p !== previous)] : PLACEMENTS) {
       const rect = rectFor(placement);
       const value = score(rect);
       if (!best || value < best.score) best = { placement, rect, score: value };

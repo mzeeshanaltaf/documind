@@ -221,9 +221,9 @@ function LeaderboardWall({ layout }: { layout: PlayLayout }) {
   const texture = useCanvasTexture(BOARD.width, BOARD.height, boardPainter(state.boards, orgName, state.failed), key);
   const { center, width, height, yaw } = layout.wall;
   return (
-    <mesh position={center} rotation={[0, yaw, 0]}>
+    <mesh position={[center[0], center[1], center[2] + 0.03]} rotation={[0, yaw, 0]}>
       <planeGeometry args={[width, height]} />
-      <meshBasicMaterial map={texture} toneMapped={false} />
+      <meshBasicMaterial map={texture} toneMapped={false} polygonOffset polygonOffsetFactor={-2} polygonOffsetUnits={-2} />
     </mesh>
   );
 }

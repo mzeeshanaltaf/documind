@@ -85,6 +85,15 @@ function Hero() {
               Talk to us
             </ButtonLink>
           </div>
+          <a
+            href="https://office.documind.zeeshanai.cloud"
+            data-umami-event="cta_office"
+            data-umami-event-location="hero"
+            className="mt-5 inline-flex items-center gap-1.5 rounded-sm text-sm font-medium text-primary underline-offset-4 hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+          >
+            Explore DocuMind in 3D: visit the DocuMind 3D office
+            <ArrowRightIcon className="size-3.5" aria-hidden />
+          </a>
         </div>
 
         <HeroVideo />

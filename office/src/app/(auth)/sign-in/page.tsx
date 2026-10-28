@@ -9,7 +9,8 @@ export const metadata: Metadata = { title: "Sign in" };
 export default function SignInPage() {
   return (
     <>
-      <AuthHeader title="Sign in to the Office" description="Walk into your company's office and ask its experts." />
+      <AuthHeader title="Sign in to the DocuMind 3D office"
+        description="Walk into your company's 3D office and ask its experts. Sign in with your DocuMind account." />
       <Suspense fallback={<AuthFormSkeleton fields={2} />}>
         <SignInForm />
       </Suspense>

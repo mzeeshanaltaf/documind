@@ -27,7 +27,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: { default: SITE_NAME, template: `%s · ${SITE_NAME}` },
-  description: "Walk into your company's office and ask its experts. Every answer cites your policy documents.",
+  description:
+    "DocuMind 3D office: a walkable 3D office for DocuMind. Walk into your company's office and ask its department experts. Every answer cites your policy documents.",
   applicationName: SITE_NAME,
   robots: { index: false, follow: false },
 };
